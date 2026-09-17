@@ -1,0 +1,13 @@
+Source provenance
+=================
+
+The future-facing Json Render catalog contract in
+`src/json-render/catalog/catalog.ts` and the sealed stream plugin list in
+`src/json-render/catalog/stream-plugins.ts` were adapted from
+`repr0bated/operation-dashboard-ui-07` at commit
+`1e72483c4227d12820419d4a901f3ef3dbf77dc9`.
+
+This project uses the published `@json-render/core` and `@json-render/react`
+packages. Json Render is distributed by Vercel under the Apache License 2.0.
+The included LICENSE preserves that applicable license text. No Json Render
+package internals were copied into this repository.

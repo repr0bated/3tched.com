@@ -1,0 +1,4 @@
+operation.proto is a verbatim copy of crates/op-grpc-bridge/proto/operation.proto
+from repr0bated/operation-dbus-proto at commit 2f4fd95c62d05e9166d72a938bc78991789ce6a6
+(branch wip/opencode-handoff-2026-09-15). Regenerate src/grpc/gen with
+npm run proto:gen after refreshing this copy. Do not hand-edit either.
