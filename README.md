@@ -39,15 +39,25 @@ browser ──gRPC-Web/TLS──▶ op-grpc-bridge :8090 ──D-Bus──▶ tc
   sealed schema (zcall help tched_router Chat and friends). A reseal that
   changes them makes the bridge refuse the call; the refusal is shown to the
   operator as-is.
-- src/pages/ChatOnlyPage.tsx is the connect gate: door URL plus one pasted
-  credential, or a host page can inject both through window.__3TCHED_CONFIG__
-  and the app connects on load. "Use local workbench" keeps the deterministic
-  in-browser adapter for UI work with no backend.
+- src/pages/ChatOnlyPage.tsx resolves identity, in order: injected by the
+  host page through window.__3TCHED_CONFIG__; the page's own origin at
+  GET /api/identity/self (op-web maps the WireGuard arrival's TCP source
+  address to its identity-sled session and returns that session's SID1, so a
+  human who came in over WireGuard is connected without touching anything);
+  else the connect gate, where a credential can be pasted. "Use local
+  workbench" keeps the deterministic in-browser adapter for UI work with no
+  backend.
 
 The UI never mints identity. A remote human presents the OIA1 assertion issued
 to them by the Oracle decoy; a locally registered human presents their SID1
 sealed id. The credential lives in memory for the life of the page and is not
 written to storage. The door address is remembered in localStorage.
+
+The /api/identity/self endpoint is op-web's (operation-dbus-proto
+crates/op-web/src/handlers/identity_self.rs); which source addresses may
+resolve which session is OP_WEB_HUMAN_PEERS in the op-web runit run script.
+Until an op-web build carrying it is released, the endpoint answers with the
+dashboard's SPA fallback page and the UI falls through to the gate.
 
 ## Start locally
 

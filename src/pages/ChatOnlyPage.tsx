@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Renderer } from "@json-render/react";
 import type { ChatAdapter } from "../chat/chat-adapter";
-import { defaultDoorUrl, injectedIdentity } from "../chat/door-config";
+import { defaultDoorUrl, fetchProjectedIdentity, injectedIdentity } from "../chat/door-config";
 import { connectDoorChatAdapter } from "../chat/door-chat-adapter";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
 import { antigravitySpec } from "../json-render/pages/antigravity.pagespec";
@@ -21,6 +21,7 @@ function ChatOnlySurface() {
 }
 
 type Gate =
+  | { state: "resolving" }
   | { state: "connect"; connecting: boolean; error: string | null }
   | { state: "ready"; adapter: ChatAdapter };
 
@@ -33,33 +34,37 @@ function connectFailure(error: unknown): Gate {
 }
 
 export default function ChatOnlyPage() {
-  // A host page that already authenticated the human can inject both the door
-  // and the credential; connect on load without showing the form.
-  const [autoConnect] = useState<DoorConnectRequest | null>(() => {
+  // Identity resolution order: injected by the host page, then the page's own
+  // origin (op-web maps the WireGuard arrival to its SID1), then the gate.
+  const [injected] = useState<DoorConnectRequest | null>(() => {
     const identity = injectedIdentity();
     const url = defaultDoorUrl();
     return identity && url ? { url, identity } : null;
   });
-  const [gate, setGate] = useState<Gate>({
-    state: "connect",
-    connecting: autoConnect !== null,
-    error: null,
-  });
+  const [gate, setGate] = useState<Gate>({ state: "resolving" });
 
   useEffect(() => {
-    if (!autoConnect) return;
     let cancelled = false;
-    connectDoorChatAdapter(autoConnect)
-      .then((adapter) => {
-        if (!cancelled) setGate({ state: "ready", adapter });
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setGate(connectFailure(error));
-      });
+    const resolve = async (): Promise<Gate> => {
+      const request =
+        injected ??
+        (await fetchProjectedIdentity().then((projected) =>
+          projected ? { url: projected.door, identity: projected.identity } : null,
+        ));
+      if (!request) return { state: "connect", connecting: false, error: null };
+      try {
+        return { state: "ready", adapter: await connectDoorChatAdapter(request) };
+      } catch (error) {
+        return connectFailure(error);
+      }
+    };
+    void resolve().then((next) => {
+      if (!cancelled) setGate(next);
+    });
     return () => {
       cancelled = true;
     };
-  }, [autoConnect]);
+  }, [injected]);
 
   const connect = async ({ url, identity }: DoorConnectRequest) => {
     setGate({ state: "connect", connecting: true, error: null });
@@ -70,6 +75,16 @@ export default function ChatOnlyPage() {
       setGate(connectFailure(error));
     }
   };
+
+  if (gate.state === "resolving") {
+    return (
+      <main className="chat-only-page">
+        <p className="door-resolving" role="status" aria-live="polite">
+          Resolving your identity…
+        </p>
+      </main>
+    );
+  }
 
   if (gate.state === "connect") {
     return (

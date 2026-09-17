@@ -5,11 +5,17 @@ import App from "./App";
 
 afterEach(() => cleanup());
 
-describe("Door connect gate", () => {
-  it("opens on the connect panel with the door and credential fields", () => {
-    render(<App />);
+async function openGate() {
+  render(<App />);
+  // No host injection and no same-origin identity endpoint in jsdom: the
+  // resolving step must fall through to the gate on its own.
+  await screen.findByRole("heading", { level: 1, name: "Connect to the door" });
+}
 
-    expect(screen.getByRole("heading", { level: 1, name: "Connect to the door" })).toBeInTheDocument();
+describe("Door connect gate", () => {
+  it("opens on the connect panel with the door and credential fields", async () => {
+    await openGate();
+
     expect(screen.getByLabelText("Door")).toBeInTheDocument();
     expect(screen.getByLabelText("Credential")).toHaveValue("oia1");
     expect(screen.getByLabelText("Assertion (base64)")).toBeInTheDocument();
@@ -17,7 +23,7 @@ describe("Door connect gate", () => {
   });
 
   it("rejects a plaintext door before any network call", async () => {
-    render(<App />);
+    await openGate();
 
     fireEvent.change(screen.getByLabelText("Door"), { target: { value: "http://10.0.0.3:8090" } });
     fireEvent.change(screen.getByLabelText("Assertion (base64)"), { target: { value: "QUJDRA==" } });
@@ -28,13 +34,13 @@ describe("Door connect gate", () => {
 });
 
 describe("Local workbench fallback", () => {
-  function openLocal() {
-    render(<App />);
+  async function openLocal() {
+    await openGate();
     fireEvent.click(screen.getByRole("button", { name: "Use local workbench" }));
   }
 
-  it("renders the local Json Render workbench", () => {
-    openLocal();
+  it("renders the local Json Render workbench", async () => {
+    await openLocal();
 
     expect(screen.getByRole("heading", { level: 1, name: "3tched Chat" })).toBeInTheDocument();
     expect(screen.getByLabelText("Local model routing")).toBeInTheDocument();
@@ -43,7 +49,7 @@ describe("Local workbench fallback", () => {
   });
 
   it("adds a local user message and deterministic assistant response", async () => {
-    openLocal();
+    await openLocal();
     const input = screen.getByRole("textbox", { name: "Message" });
 
     fireEvent.change(input, {
