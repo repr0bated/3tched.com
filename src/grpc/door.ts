@@ -38,7 +38,7 @@ export interface DoorConfig {
   /** Origin of the door, e.g. https://10.0.0.3:8090 */
   url: string;
   identity: DoorIdentity;
-  /** Per-call deadline in milliseconds. */
+  /** Default per-call deadline in milliseconds; a call may override it. */
   timeoutMs?: number;
 }
 
@@ -148,6 +148,7 @@ export class DoorClient {
     method: string,
     args: Record<string, unknown>,
     capability: string,
+    options: { timeoutMs?: number } = {},
   ): Promise<CallEnvelope<T>> {
     let response;
     try {
@@ -161,7 +162,7 @@ export class DoorClient {
           actorId: "",
           capabilityId: capability,
         },
-        { meta: this.meta, timeout: this.timeoutMs },
+        { meta: this.meta, timeout: options.timeoutMs ?? this.timeoutMs },
       ));
     } catch (error) {
       if (error instanceof RpcError) {

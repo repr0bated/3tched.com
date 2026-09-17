@@ -69,23 +69,49 @@ function modelDetail(route: ModelRoute): string {
   return parts.join(" · ");
 }
 
+/**
+ * Group routes under their provider. Available routes sort first within a
+ * provider and providers with an available route sort first overall, so the
+ * picker's initial selection (first provider, first model) is one the router
+ * says it can actually serve. Unavailable routes stay listed with their reason.
+ */
 function toProviderOptions(providers: Provider[], routes: ModelRoute[]): ProviderOption[] {
-  const byProvider = new Map<string, ModelOption[]>();
+  const byProvider = new Map<string, { available: boolean; models: ModelOption[] }[]>();
   for (const route of routes) {
     if (!route.provider || !route.model) continue;
-    const models = byProvider.get(route.provider) ?? [];
-    if (models.some((model) => model.id === route.model)) continue;
-    models.push({ id: route.model, label: route.model, detail: modelDetail(route) });
-    byProvider.set(route.provider, models);
+    const entries = byProvider.get(route.provider) ?? [];
+    if (entries.some((entry) => entry.models[0].id === route.model)) continue;
+    entries.push({
+      available: route.available,
+      models: [{ id: route.model, label: route.model, detail: modelDetail(route) }],
+    });
+    byProvider.set(route.provider, entries);
   }
-  return providers
+  const options = providers
     .filter((provider) => provider.id && byProvider.has(provider.id))
-    .map((provider) => ({
-      id: provider.id,
-      label: provider.description ? `${provider.id} — ${provider.description}` : provider.id,
-      models: byProvider.get(provider.id) ?? [],
-    }));
+    .map((provider) => {
+      const entries = byProvider.get(provider.id) ?? [];
+      const ordered = [...entries.filter((e) => e.available), ...entries.filter((e) => !e.available)];
+      return {
+        available: entries.some((entry) => entry.available),
+        option: {
+          id: provider.id,
+          label: provider.description ? `${provider.id} — ${provider.description}` : provider.id,
+          models: ordered.flatMap((entry) => entry.models),
+        },
+      };
+    });
+  return [...options.filter((p) => p.available), ...options.filter((p) => !p.available)].map(
+    (p) => p.option,
+  );
 }
+
+/**
+ * A chat turn runs the router's agent loop against an upstream model; the
+ * bridge allows it up to 600s. Give the browser a generous deadline so a slow
+ * turn surfaces as a reply, not a client-side timeout.
+ */
+const CHAT_TIMEOUT_MS = 300_000;
 
 let responseSequence = 0;
 
@@ -161,6 +187,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
           model: request.route.modelId,
         },
         TCHED_ROUTER_METHODS.Chat,
+        { timeoutMs: CHAT_TIMEOUT_MS },
       );
 
       responseSequence += 1;

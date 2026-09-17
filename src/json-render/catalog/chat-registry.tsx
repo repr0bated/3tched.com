@@ -161,20 +161,24 @@ const registryDefinition = defineRegistry(chatCatalog, {
       <div className={props.className ?? "catalog-stack"}>{children}</div>
     ),
 
-    pageHeader: ({ props }) => (
-      <header className="page-heading">
-        <div className="page-heading__signal" aria-hidden="true" />
-        <div>
-          <p className="eyebrow">CHATONLY / LOCAL WORKBENCH</p>
-          <h1>{props.title}</h1>
-          {props.subtitle ? <p className="page-subtitle">{props.subtitle}</p> : null}
-        </div>
-        <div className="runtime-pill" aria-label="Local adapter online">
-          <span aria-hidden="true" />
-          local
-        </div>
-      </header>
-    ),
+    pageHeader: function PageHeader({ props }) {
+      const { adapter } = useChatRuntime();
+      const remote = adapter.kind === "remote";
+      return (
+        <header className="page-heading">
+          <div className="page-heading__signal" aria-hidden="true" />
+          <div>
+            <p className="eyebrow">{remote ? "3TCHED / DOOR :8090" : "3TCHED / LOCAL WORKBENCH"}</p>
+            <h1>{props.title}</h1>
+            {props.subtitle ? <p className="page-subtitle">{props.subtitle}</p> : null}
+          </div>
+          <div className="runtime-pill" aria-label={remote ? "Connected to the door" : "Local adapter online"}>
+            <span aria-hidden="true" />
+            {remote ? "door" : "local"}
+          </div>
+        </header>
+      );
+    },
 
     tchedRouterPicker: function TchedRouterPicker({ props }) {
       const {

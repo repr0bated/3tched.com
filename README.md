@@ -64,13 +64,27 @@ choose "Use local workbench".
 
 ### Reaching a real door from a browser
 
-- The door is TLS only, cert CN=svc0. The browser must trust that CA, or the
-  gRPC-Web fetch fails silently in the console.
+- The door is TLS only and speaks HTTP/2 only (ALPN h2); the cert is CN=svc0
+  issued by "op-dbus local CA". The browser must trust that CA or the
+  gRPC-Web fetch fails as "Failed to fetch". On the host the CA is at
+  /etc/op-dbus/tls/tonic-svc0-ca.crt (root-readable directory); import it
+  into the browser profile, e.g. for Firefox:
+  certutil -d sql:$HOME/.config/mozilla/firefox/<profile> -A -n "op-dbus local CA" -t "C,," -i <ca.crt>
 - The bridge's exact-origin CORS allowlist (OP_MCP_ALLOWED_ORIGINS in the
-  op-grpc-bridge runit env) must include the origin the UI is served from,
-  for example http://10.0.0.1:8080 or http://localhost:5173.
+  op-grpc-bridge runit run script) must include the origin the UI is served
+  from, for example http://127.0.0.1:8080 or http://localhost:5173. It fails
+  closed: an unlisted origin gets a preflight with no allow-origin header.
 - Set a build-time default with VITE_OPDBUS_DOOR=https://10.0.0.3:8090 in
   .env.local; the gate is pre-filled from it.
+- A locally registered human gets their SID1 in gate form from the host:
+  scripts/sid1-from-sled.sh (sudo; prints standard base64 of the sealed id).
+
+Smoke-test the whole path without a browser:
+
+```bash
+OPDBUS_DOOR_LIVE=https://10.0.0.3:8090 OPDBUS_SID1="$(scripts/sid1-from-sled.sh)" \
+NODE_EXTRA_CA_CERTS=<readable copy of the CA> npx vitest run src/chat/door-live.test.ts
+```
 
 ## Protocol stubs
 

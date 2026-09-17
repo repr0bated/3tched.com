@@ -36,7 +36,7 @@ if [[ ! -d "$static_root" || ! -w "$static_root" ]]; then
 fi
 
 "${privileged[@]}" install -d -m 0755 "$target_dir"
-"${privileged[@]}" rsync -a --exclude=index.html "$project_root/dist/" "$target_dir/"
+"${privileged[@]}" rsync -a --delete --exclude=index.html "$project_root/dist/" "$target_dir/"
 "${privileged[@]}" install -m 0644 "$project_root/dist/index.html" "$target_dir/index.html"
 
 echo "Published Json Render UI to $target_dir"
