@@ -12,11 +12,11 @@ fi
 
 relative_path="${url_prefix#/}"
 relative_path="${relative_path%/}"
-if [[ -z "$relative_path" || "$relative_path" == *".."* || "$relative_path" == *"//"* ]]; then
-  echo "URL_PREFIX must identify a safe non-root path: $url_prefix" >&2
+if [[ "$relative_path" == *".."* || "$relative_path" == *"//"* ]]; then
+  echo "URL_PREFIX must identify a safe path: $url_prefix" >&2
   exit 2
 fi
-if [[ ! "$relative_path" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+if [[ -n "$relative_path" && ! "$relative_path" =~ ^[A-Za-z0-9._/-]+$ ]]; then
   echo "URL_PREFIX contains unsupported characters: $url_prefix" >&2
   exit 2
 fi
@@ -25,7 +25,14 @@ if [[ "$static_root" != /* || "$static_root" == "/" ]]; then
   exit 2
 fi
 
-target_dir="${static_root%/}/$relative_path"
+if [[ -z "$relative_path" ]]; then
+  # Root mount: this UI is op-web's dashboard. Only this build's own files are
+  # replaced (assets/ and index.html); sibling mounts and host-owned files in the
+  # static root are left alone.
+  target_dir="${static_root%/}"
+else
+  target_dir="${static_root%/}/$relative_path"
+fi
 
 cd "$project_root"
 npm run build -- --base "$url_prefix"
@@ -36,8 +43,12 @@ if [[ ! -d "$static_root" || ! -w "$static_root" ]]; then
 fi
 
 "${privileged[@]}" install -d -m 0755 "$target_dir"
-"${privileged[@]}" rsync -a --delete --exclude=index.html "$project_root/dist/" "$target_dir/"
+if [[ -z "$relative_path" ]]; then
+  "${privileged[@]}" rsync -a --delete "$project_root/dist/assets/" "$target_dir/assets/"
+else
+  "${privileged[@]}" rsync -a --delete --exclude=index.html "$project_root/dist/" "$target_dir/"
+fi
 "${privileged[@]}" install -m 0644 "$project_root/dist/index.html" "$target_dir/index.html"
 
-echo "Published Json Render UI to $target_dir"
-echo "Open http://10.0.0.1:8080${url_prefix}"
+echo "Published 3tched UI to $target_dir"
+echo "Open http://<op-web host>:8080${url_prefix}"
