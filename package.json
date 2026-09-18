@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "deploy:op-web": "bash scripts/deploy-op-web.sh",
+    "publish:op-web": "bash scripts/publish-op-web.sh",
     "type-check": "tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",

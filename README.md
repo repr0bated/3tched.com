@@ -109,13 +109,15 @@ Only PluginService.CallMethod is used. No per-plugin stubs are generated on
 purpose: the callable surface is the sealed catalog, and the browser calls one
 generic RPC by semantic operation so a reseal never requires a UI rebuild.
 
-## Publish through op-web
+## Publish the static files through op-web
 
-op-web serves static files from OP_WEB_STATIC_DIR. Publish beneath the path
-op-web already serves for the json-render UI:
+op-web serves static files from OP_WEB_STATIC_DIR. This only syncs the built
+files into that directory (URL_PREFIX=/ for the dashboard root); it is not a
+deployment — the host is deployed by btrfs send/receive of a prepared
+snapshot, which then carries whatever is in the static directory.
 
 ```bash
-npm run deploy:op-web
+npm run publish:op-web
 ```
 
 URL_PREFIX and OP_WEB_STATIC_DIR override the mount path and target
