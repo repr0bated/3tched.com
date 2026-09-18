@@ -5,7 +5,7 @@ project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 url_prefix="${URL_PREFIX:-/vercel-json-render/}"
 static_root="${OP_WEB_STATIC_DIR:-/usr/local/share/op-dbus/dashboard}"
 
-if [[ "$url_prefix" != /*/ ]]; then
+if [[ "$url_prefix" != "/" && "$url_prefix" != /*/ ]]; then
   echo "URL_PREFIX must begin and end with '/': $url_prefix" >&2
   exit 2
 fi
