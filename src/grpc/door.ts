@@ -121,7 +121,7 @@ function userSafeMessage(code: string, detail: string): string {
 export class DoorClient {
   readonly url: string;
   private readonly client: PluginServiceClient;
-  private readonly meta: Record<string, string>;
+  private meta: Record<string, string>;
   private readonly timeoutMs: number;
 
   constructor(config: DoorConfig) {
@@ -136,6 +136,17 @@ export class DoorClient {
       }),
     );
   }
+
+  /**
+   * Replace the credential carried on every subsequent call. Used when a
+   * short-lived OIA1 assertion is renewed from the decoy before it expires;
+   * the connection, catalog and chat state are untouched.
+   */
+  setIdentity(identity: DoorIdentity): void {
+    this.meta = identityMetadata(identity);
+  }
+
+
 
   /**
    * Call one plugin method by name. `capability` is the method's declared

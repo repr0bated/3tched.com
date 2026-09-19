@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { IDENTITY_SELF_PATH, fetchProjectedIdentity } from "./door-config";
+import {
+  IDENTITY_SELF_PATH,
+  ISSUER_IDENTITY_PATH,
+  RENEW_LEAD_SECONDS,
+  fetchIssuedIdentity,
+  fetchProjectedIdentity,
+  renewalDelayMs,
+} from "./door-config";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -38,5 +45,50 @@ describe("fetchProjectedIdentity", () => {
   it("ignores a body whose identity is not a well-formed credential", async () => {
     const bad = vi.fn(async () => jsonResponse(200, { door: "https://x", identity: { kind: "sid1" } }));
     await expect(fetchProjectedIdentity(bad as unknown as typeof fetch)).resolves.toBeNull();
+  });
+});
+
+describe("fetchIssuedIdentity (OIA1 pickup from the decoy issuer)", () => {
+  it("fetches the issuer cross-origin without credentials and keeps expires_at", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(200, {
+        door: "https://10.0.0.3:8090",
+        identity: { kind: "oia1", assertion: "QUJDRA==" },
+        expires_at: 1_700_000_300,
+      }),
+    );
+    await expect(
+      fetchIssuedIdentity(fetchImpl as unknown as typeof fetch, "http://10.10.0.1:51888/"),
+    ).resolves.toEqual({
+      door: "https://10.0.0.3:8090",
+      identity: { kind: "oia1", assertion: "QUJDRA==" },
+      sessionId: undefined,
+      expiresAt: 1_700_000_300,
+    });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      `http://10.10.0.1:51888${ISSUER_IDENTITY_PATH}`,
+      expect.objectContaining({ mode: "cors", credentials: "omit", cache: "no-store" }),
+    );
+  });
+
+  it("is null without an issuer, on refusal, and on transport failure", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(200, { identity: { kind: "oia1", assertion: "QUJDRA==" } }));
+    await expect(fetchIssuedIdentity(fetchImpl as unknown as typeof fetch, undefined)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    const denied = vi.fn(async () => new Response("no verified peer for source\n", { status: 403 }));
+    await expect(fetchIssuedIdentity(denied as unknown as typeof fetch, "http://10.10.0.1:51888")).resolves.toBeNull();
+
+    const boom = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(fetchIssuedIdentity(boom as unknown as typeof fetch, "http://10.10.0.1:51888")).resolves.toBeNull();
+  });
+
+  it("renews a lead time before expiry and never for identities without one", () => {
+    const issued = { door: "d", identity: { kind: "oia1" as const, assertion: "QQ==" }, expiresAt: 1_000 };
+    expect(renewalDelayMs(issued, 1_000 - RENEW_LEAD_SECONDS - 10)).toBe(10_000);
+    expect(renewalDelayMs(issued, 1_000)).toBe(0);
+    expect(renewalDelayMs({ door: "d", identity: { kind: "sid1" as const, sealedId: "QQ==" } }, 0)).toBeNull();
   });
 });

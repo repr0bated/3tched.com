@@ -7,12 +7,17 @@
  *   3. import.meta.env.VITE_OPDBUS_DOOR (build-time default)
  *
  * Identity is never read from storage or build config. It arrives one of
- * three ways, in this order, and lives in memory for the life of the page:
+ * four ways, in this order, and lives in memory for the life of the page:
  *   1. window.__3TCHED_CONFIG__.identity injected by an authenticated host page
- *   2. GET <same origin>/api/identity/self — op-web resolves the human who
- *      arrived over WireGuard from the TCP source address and returns their
- *      own SID1 from the identity sled (the SID1-aware client injection)
- *   3. pasted into the connect gate
+ *   2. GET <same origin>/api/identity/self — op-web resolves a local human
+ *      from the TCP source address and returns their own SID1 from the
+ *      identity sled (the SID1-aware client injection)
+ *   3. GET <issuer>/identity/self — the decoy that terminated this human's
+ *      WireGuard tunnel mints a short-lived OIA1 for the kernel-verified peer
+ *      (the OIA1 pickup). The page fetches it over the tunnel and carries it
+ *      unchanged over WARP to the door; `expires_at` drives renewal.
+ *      Issuer URL: window.__3TCHED_CONFIG__.issuer, then VITE_OPDBUS_ISSUER.
+ *   4. pasted into the connect gate
  */
 import type { DoorIdentity } from "../grpc/door";
 
@@ -23,11 +28,29 @@ export interface ProjectedIdentity {
   door: string;
   identity: DoorIdentity;
   sessionId?: string;
+  /** Unix seconds; present for issued OIA1 assertions, absent for SID1. */
+  expiresAt?: number;
 }
 
 export interface RuntimeConfig {
   door?: string;
   identity?: DoorIdentity;
+  /** Origin of the decoy issuer reachable over this human's tunnel. */
+  issuer?: string;
+}
+
+/** Path on the decoy issuer that serves the OIA1 pickup. */
+export const ISSUER_IDENTITY_PATH = "/identity/self";
+
+/** Renew an issued assertion this many seconds before it expires. */
+export const RENEW_LEAD_SECONDS = 60;
+
+/** Issuer origin: runtime config first, then the build-time default. */
+export function issuerUrl(): string | undefined {
+  const fromRuntime = runtimeConfig().issuer;
+  if (typeof fromRuntime === "string" && fromRuntime.trim()) return fromRuntime.trim().replace(/\/+$/, "");
+  const fromEnv = (import.meta.env.VITE_OPDBUS_ISSUER as string | undefined)?.trim();
+  return fromEnv ? fromEnv.replace(/\/+$/, "") : undefined;
 }
 
 declare global {
@@ -89,9 +112,52 @@ function isDoorIdentity(value: unknown): value is DoorIdentity {
 export async function fetchProjectedIdentity(
   fetchImpl: typeof fetch = fetch,
 ): Promise<ProjectedIdentity | null> {
+  return fetchIdentityDocument(fetchImpl, IDENTITY_SELF_PATH, { credentials: "same-origin" });
+}
+
+/**
+ * Ask the decoy issuer, over this human's own tunnel, for a fresh OIA1. Null
+ * when no issuer is configured, when it refuses (no verified peer for the
+ * source), or when the answer is not an identity document — the next source
+ * in the chain (the connect gate) takes over.
+ */
+export async function fetchIssuedIdentity(
+  fetchImpl: typeof fetch = fetch,
+  issuer: string | undefined = issuerUrl(),
+): Promise<ProjectedIdentity | null> {
+  const origin = issuer?.trim().replace(/\/+$/, "");
+  if (!origin) return null;
+  return fetchIdentityDocument(fetchImpl, `${origin}${ISSUER_IDENTITY_PATH}`, {
+    mode: "cors",
+    credentials: "omit",
+  });
+}
+
+/**
+ * The full resolution chain (injected → same origin → issuer). Never throws;
+ * null means "show the connect gate".
+ */
+export async function resolveIdentity(fetchImpl: typeof fetch = fetch): Promise<ProjectedIdentity | null> {
+  const injected = injectedIdentity();
+  const door = defaultDoorUrl();
+  if (injected && door) return { door, identity: injected };
+  return (await fetchProjectedIdentity(fetchImpl)) ?? (await fetchIssuedIdentity(fetchImpl));
+}
+
+/** Milliseconds until an issued identity should be renewed; null if it never expires. */
+export function renewalDelayMs(identity: ProjectedIdentity, nowSeconds: number = Date.now() / 1000): number | null {
+  if (typeof identity.expiresAt !== "number") return null;
+  return Math.max(0, (identity.expiresAt - RENEW_LEAD_SECONDS - nowSeconds) * 1000);
+}
+
+async function fetchIdentityDocument(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+): Promise<ProjectedIdentity | null> {
   try {
-    const response = await fetchImpl(IDENTITY_SELF_PATH, {
-      credentials: "same-origin",
+    const response = await fetchImpl(url, {
+      ...init,
       cache: "no-store",
       headers: { accept: "application/json" },
     });
@@ -102,10 +168,13 @@ export async function fetchProjectedIdentity(
     if (!isDoorIdentity(record.identity)) return null;
     const door = typeof record.door === "string" && record.door.trim() ? record.door.trim() : defaultDoorUrl();
     if (!door) return null;
+    const expiresAt =
+      typeof record.expires_at === "number" && Number.isFinite(record.expires_at) ? record.expires_at : undefined;
     return {
       door,
       identity: record.identity,
       sessionId: typeof record.session_id === "string" ? record.session_id : undefined,
+      expiresAt,
     };
   } catch {
     return null;

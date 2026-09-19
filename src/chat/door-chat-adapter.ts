@@ -6,6 +6,7 @@
  * the live sealed schema (`zcall help tched_router <Method>`); if a reseal
  * changes them the bridge refuses the call and the refusal is surfaced verbatim.
  */
+import type { DoorIdentity } from "../grpc/door";
 import type {
   ChatAdapter,
   ChatMessage,
@@ -118,6 +119,8 @@ let responseSequence = 0;
 export interface DoorChatAdapter extends ChatAdapter {
   readonly kind: "remote";
   readonly door: string;
+  /** Swap the carried credential (OIA1 renewal) without reconnecting. */
+  setIdentity(identity: DoorIdentity): void;
 }
 
 /**
@@ -155,6 +158,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     kind: "remote",
     door: client.url,
     providers,
+    setIdentity: (identity: DoorIdentity) => client.setIdentity(identity),
 
     async selectRoute(selection: RouteSelection): Promise<RouteSelection> {
       const { result } = await client.call<SetSelectionOutput>(

@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { Renderer } from "@json-render/react";
 import type { ChatAdapter } from "../chat/chat-adapter";
-import { defaultDoorUrl, fetchProjectedIdentity, injectedIdentity } from "../chat/door-config";
-import { connectDoorChatAdapter } from "../chat/door-chat-adapter";
+import {
+  defaultDoorUrl,
+  fetchIssuedIdentity,
+  injectedIdentity,
+  renewalDelayMs,
+  resolveIdentity,
+  type ProjectedIdentity,
+} from "../chat/door-config";
+import { connectDoorChatAdapter, type DoorChatAdapter } from "../chat/door-chat-adapter";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
 import { antigravitySpec } from "../json-render/pages/antigravity.pagespec";
 import {
@@ -45,15 +52,33 @@ export default function ChatOnlyPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let renewal: ReturnType<typeof setTimeout> | undefined;
+
+    // An issued OIA1 is short-lived: fetch a fresh one from the decoy before
+    // it expires and swap it onto the live adapter. If the issuer stops
+    // answering, the current assertion simply runs out and the door refuses
+    // the next call, which surfaces as a normal error.
+    const scheduleRenewal = (projected: ProjectedIdentity, adapter: DoorChatAdapter) => {
+      const delay = renewalDelayMs(projected);
+      if (delay === null) return;
+      renewal = setTimeout(() => {
+        void fetchIssuedIdentity().then((fresh) => {
+          if (cancelled || !fresh) return;
+          adapter.setIdentity(fresh.identity);
+          scheduleRenewal(fresh, adapter);
+        });
+      }, delay);
+    };
+
     const resolve = async (): Promise<Gate> => {
-      const request =
-        injected ??
-        (await fetchProjectedIdentity().then((projected) =>
-          projected ? { url: projected.door, identity: projected.identity } : null,
-        ));
-      if (!request) return { state: "connect", connecting: false, error: null };
+      const projected: ProjectedIdentity | null = injected
+        ? { door: injected.url, identity: injected.identity }
+        : await resolveIdentity();
+      if (!projected) return { state: "connect", connecting: false, error: null };
       try {
-        return { state: "ready", adapter: await connectDoorChatAdapter(request) };
+        const adapter = await connectDoorChatAdapter({ url: projected.door, identity: projected.identity });
+        scheduleRenewal(projected, adapter);
+        return { state: "ready", adapter };
       } catch (error) {
         return connectFailure(error);
       }
@@ -63,6 +88,7 @@ export default function ChatOnlyPage() {
     });
     return () => {
       cancelled = true;
+      if (renewal !== undefined) clearTimeout(renewal);
     };
   }, [injected]);
 
