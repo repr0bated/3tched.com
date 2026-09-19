@@ -12,6 +12,7 @@ import {
 import { connectDoorChatAdapter, type DoorChatAdapter } from "../chat/door-chat-adapter";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
 import { KnowledgeStrip } from "../chat/KnowledgeStrip";
+import { ModeStrip } from "../chat/ModeStrip";
 import { antigravitySpec } from "../json-render/pages/antigravity.pagespec";
 import {
   JsonRenderProvider,
@@ -23,6 +24,7 @@ function ChatOnlySurface({ adapter }: { adapter: ChatAdapter }) {
   const { registry } = useJsonRender();
   return (
     <main className="chat-only-page">
+      <ModeStrip adapter={adapter} />
       <KnowledgeStrip adapter={adapter} />
       <Renderer key="chat-only" spec={antigravitySpec} registry={registry} />
     </main>

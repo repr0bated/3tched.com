@@ -1113,3 +1113,25 @@ select:focus-visible {
   opacity: 0.7;
   font-variant: small-caps;
 }
+
+/* Which partition of the principal's memory this session uses (door-decided). */
+.mode-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 1rem 0;
+  font-size: 0.85rem;
+}
+.mode-strip label {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.mode-strip__namespace {
+  opacity: 0.7;
+  font-family: ui-monospace, monospace;
+}
+.mode-strip__error {
+  color: var(--danger, #d33);
+}

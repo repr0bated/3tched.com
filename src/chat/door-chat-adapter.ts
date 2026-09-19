@@ -8,6 +8,14 @@
  */
 import { startKnowledgeFeed, type KnowledgeFeed, type KnowledgePush } from "./knowledge-feed";
 import type { DoorbellStatus } from "./doorbell";
+import {
+  getChatContext,
+  listProjects,
+  selectChatMode,
+  type ProjectSummary,
+  type ResolvedChatContext,
+  type SelectModeRequest,
+} from "./chat-mode";
 import type { DoorIdentity } from "../grpc/door";
 import type {
   ChatAdapter,
@@ -131,6 +139,12 @@ export interface DoorChatAdapter extends ChatAdapter {
     onKnowledge: (pushes: KnowledgePush[], revision: number) => void,
     onStatus?: (status: DoorbellStatus) => void,
   ): () => void;
+  /** The session's selected chat mode, as the door resolves it. */
+  getChatContext(): Promise<ResolvedChatContext>;
+  /** Select a mode for this session; the door validates and persists it. */
+  selectChatMode(request: SelectModeRequest): Promise<ResolvedChatContext>;
+  /** Projects this principal may select. */
+  listProjects(): Promise<ProjectSummary[]>;
 }
 
 /**
@@ -173,6 +187,10 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
       identity = next;
       client.setIdentity(next);
     },
+
+    getChatContext: () => getChatContext(client),
+    selectChatMode: (request) => selectChatMode(client, request),
+    listProjects: () => listProjects(client),
 
     followKnowledge(onKnowledge, onStatus) {
       let feed: KnowledgeFeed | null = null;
