@@ -11,6 +11,7 @@ import {
 } from "../chat/door-config";
 import { connectDoorChatAdapter, type DoorChatAdapter } from "../chat/door-chat-adapter";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
+import { KnowledgeStrip } from "../chat/KnowledgeStrip";
 import { antigravitySpec } from "../json-render/pages/antigravity.pagespec";
 import {
   JsonRenderProvider,
@@ -18,10 +19,11 @@ import {
 } from "../json-render/runtime/JsonRenderProvider";
 import { DoorConnectPanel, type DoorConnectRequest } from "./DoorConnectPanel";
 
-function ChatOnlySurface() {
+function ChatOnlySurface({ adapter }: { adapter: ChatAdapter }) {
   const { registry } = useJsonRender();
   return (
     <main className="chat-only-page">
+      <KnowledgeStrip adapter={adapter} />
       <Renderer key="chat-only" spec={antigravitySpec} registry={registry} />
     </main>
   );
@@ -127,7 +129,7 @@ export default function ChatOnlyPage() {
 
   return (
     <JsonRenderProvider adapter={gate.adapter}>
-      <ChatOnlySurface />
+      <ChatOnlySurface adapter={gate.adapter} />
     </JsonRenderProvider>
   );
 }

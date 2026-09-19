@@ -6,6 +6,8 @@
  * the live sealed schema (`zcall help tched_router <Method>`); if a reseal
  * changes them the bridge refuses the call and the refusal is surfaced verbatim.
  */
+import { startKnowledgeFeed, type KnowledgeFeed, type KnowledgePush } from "./knowledge-feed";
+import type { DoorbellStatus } from "./doorbell";
 import type { DoorIdentity } from "../grpc/door";
 import type {
   ChatAdapter,
@@ -121,6 +123,14 @@ export interface DoorChatAdapter extends ChatAdapter {
   readonly door: string;
   /** Swap the carried credential (OIA1 renewal) without reconnecting. */
   setIdentity(identity: DoorIdentity): void;
+  /**
+   * Follow this session's knowledge pushes: an initial read through the
+   * door, then a re-read on every doorbell wake. Returns a stop function.
+   */
+  followKnowledge(
+    onKnowledge: (pushes: KnowledgePush[], revision: number) => void,
+    onStatus?: (status: DoorbellStatus) => void,
+  ): () => void;
 }
 
 /**
@@ -130,6 +140,7 @@ export interface DoorChatAdapter extends ChatAdapter {
  */
 export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorChatAdapter> {
   const client = new DoorClient(config);
+  let identity: DoorIdentity = config.identity;
 
   const [providersOut, modelsOut] = await Promise.all([
     client.call<{ providers: Provider[] }>(
@@ -158,7 +169,30 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     kind: "remote",
     door: client.url,
     providers,
-    setIdentity: (identity: DoorIdentity) => client.setIdentity(identity),
+    setIdentity: (next: DoorIdentity) => {
+      identity = next;
+      client.setIdentity(next);
+    },
+
+    followKnowledge(onKnowledge, onStatus) {
+      let feed: KnowledgeFeed | null = null;
+      let stopped = false;
+      void startKnowledgeFeed({
+        client,
+        identity: () => identity,
+        onKnowledge,
+        onStatus,
+      })
+        .then((started) => {
+          if (stopped) started.stop();
+          else feed = started;
+        })
+        .catch((error) => console.warn("[knowledge] feed unavailable", error));
+      return () => {
+        stopped = true;
+        feed?.stop();
+      };
+    },
 
     async selectRoute(selection: RouteSelection): Promise<RouteSelection> {
       const { result } = await client.call<SetSelectionOutput>(

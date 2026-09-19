@@ -1086,3 +1086,30 @@ select:focus-visible {
 .chat-only-page:has(> .door-resolving) {
   display: flex;
 }
+
+/* Knowledge pushed for this session (doorbell-driven re-reads through the door). */
+.knowledge-strip {
+  margin: 0.5rem 1rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.35));
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+.knowledge-strip header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.knowledge-strip__status {
+  font-weight: 400;
+  opacity: 0.7;
+}
+.knowledge-strip ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.knowledge-strip__trigger {
+  opacity: 0.7;
+  font-variant: small-caps;
+}
