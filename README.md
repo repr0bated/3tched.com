@@ -77,9 +77,14 @@ choose "Use local workbench".
 - The door is TLS only and speaks HTTP/2 only (ALPN h2); the cert is CN=svc0
   issued by "op-dbus local CA". The browser must trust that CA or the
   gRPC-Web fetch fails as "Failed to fetch". On the host the CA is at
-  /etc/op-dbus/tls/tonic-svc0-ca.crt (root-readable directory); import it
-  into the browser profile, e.g. for Firefox:
-  certutil -d sql:$HOME/.config/mozilla/firefox/<profile> -A -n "op-dbus local CA" -t "C,," -i <ca.crt>
+  /etc/op-dbus/tls/tonic-svc0-ca.crt (root-readable directory). A public copy
+  is included at [certs/op-dbus-ca.crt](certs/op-dbus-ca.crt); import it as a
+  trusted certificate authority for websites in your browser on your own
+  computer. This file contains only the public CA certificate, no private key.
+  Its SHA-256 fingerprint is
+  `12:1A:25:38:82:BD:97:B6:AB:73:14:41:3B:A7:BC:B3:07:77:4B:B2:56:B6:70:76:97:E4:6D:60:34:1E:F2:A6`.
+  For an existing Firefox profile, the command-line equivalent is:
+  `certutil -d sql:<your-firefox-profile-directory> -A -n "op-dbus local CA" -t "C,," -i certs/op-dbus-ca.crt`
 - The bridge's exact-origin CORS allowlist (OP_MCP_ALLOWED_ORIGINS in the
   op-grpc-bridge runit run script) must include the origin the UI is served
   from, for example http://127.0.0.1:8080 or http://localhost:5173. It fails
