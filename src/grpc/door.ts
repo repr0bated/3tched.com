@@ -178,6 +178,9 @@ export class DoorClient {
     } catch (error) {
       if (error instanceof RpcError) {
         console.error("[door] rpc failed", { pluginId, method, code: error.code, detail: error.message });
+        if (error.code === "INTERNAL" && /failed to fetch|fetch failed|networkerror/i.test(error.message)) {
+          throw new DoorError("UNAVAILABLE", `Cannot reach the door at ${this.url}. Check your network connection and certificate trust.`);
+        }
         throw new DoorError(error.code, userSafeMessage(error.code, ""));
       }
       console.error("[door] transport failed", { pluginId, method, error });
@@ -202,5 +205,49 @@ export class DoorClient {
       eventId: response.eventId,
       eventHash: response.eventHash,
     };
+  }
+}
+
+/**
+ * Resolve the authenticated session, then read its existing sled credential.
+ * OIA1 nonces are single-use: each bootstrap RPC gets a separate assertion.
+ * Contracts verified with zcall help project get_context / identity_sled get_identity.
+ */
+export async function readSessionIdentity(
+  config: DoorConfig,
+  nextIdentity: () => Promise<DoorIdentity>,
+): Promise<DoorIdentity> {
+  if (config.identity.kind === "sid1") return config.identity;
+  const client = new DoorClient(config);
+  const { result: context } = await client.call<{ session_id: string }>(
+    "project", "get_context", {}, "chat.context",
+  );
+  if (typeof context?.session_id !== "string" || !context.session_id.trim()) {
+    throw new DoorError("INTERNAL", "The server did not identify your session.");
+  }
+  const fresh = await nextIdentity();
+  if (fresh.kind !== "oia1" || fresh.assertion === config.identity.assertion) {
+    throw new DoorError("UNAUTHENTICATED", "A fresh identity assertion is required to read your session.");
+  }
+  client.setIdentity(fresh);
+  const { result } = await client.call<{ identity: { session_id: string; sealed_id: string } }>(
+    "identity_sled", "get_identity", { session_id: context.session_id }, "identity_sled.read",
+  );
+  if (result?.identity?.session_id !== context.session_id) {
+    throw new DoorError("UNAUTHENTICATED", "The server returned a different session.");
+  }
+  const inline = result.identity.sealed_id;
+  if (typeof inline !== "string" || !/^sid1:[A-Za-z0-9_-]+$/.test(inline)) {
+    throw new DoorError("UNAUTHENTICATED", "Your session has no server-issued credential.");
+  }
+  // Re-encode the authored bytes for gRPC-Web binary metadata; never mint or
+  // reconstruct a credential from claims, keys, or session identifiers.
+  try {
+    const encoded = inline.slice(5).replace(/-/g, "+").replace(/_/g, "/");
+    const wire = atob(encoded);
+    if (!wire.startsWith("SID1")) throw new Error("invalid credential format");
+    return { kind: "sid1", sealedId: btoa(wire) };
+  } catch {
+    throw new DoorError("UNAUTHENTICATED", "The server returned an invalid session credential.");
   }
 }

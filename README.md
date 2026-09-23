@@ -44,20 +44,21 @@ browser ──gRPC-Web/TLS──▶ op-grpc-bridge :8090 ──D-Bus──▶ tc
   GET /api/identity/self (op-web maps the WireGuard arrival's TCP source
   address to its identity-sled session and returns that session's SID1, so a
   human who came in over WireGuard is connected without touching anything);
-  else the connect gate, where a credential can be pasted. "Use local
+  then the configured issuer, if present. If identity lookup or connection
+  fails, a retry panel fetches identity again without asking for credentials. "Use local
   workbench" keeps the deterministic in-browser adapter for UI work with no
   backend.
 
 The UI never mints identity. A remote human presents the OIA1 assertion issued
 to them by the Oracle decoy; a locally registered human presents their SID1
 sealed id. The credential lives in memory for the life of the page and is not
-written to storage. The door address is remembered in localStorage.
+written to storage. The door address can come from host configuration or the server identity response.
 
 The /api/identity/self endpoint is op-web's (operation-dbus-proto
 crates/op-web/src/handlers/identity_self.rs); which source addresses may
 resolve which session is OP_WEB_HUMAN_PEERS in the op-web runit run script.
-Until an op-web build carrying it is released, the endpoint answers with the
-dashboard's SPA fallback page and the UI falls through to the gate.
+An absent endpoint, an unrecognized source address, or an invalid response
+shows the identity retry panel. The browser never reads the sled database directly.
 
 ## Start locally
 
@@ -69,7 +70,7 @@ npm install
 npm run dev
 ```
 
-The dev server opens on the connect gate. To develop the UI without a door,
+Without an identity endpoint or injected identity, the dev server opens on the retry panel. To develop the UI without a door,
 choose "Use local workbench".
 
 ### Reaching a real door from a browser
@@ -90,9 +91,20 @@ choose "Use local workbench".
   from, for example http://127.0.0.1:8080 or http://localhost:5173. It fails
   closed: an unlisted origin gets a preflight with no allow-origin header.
 - Set a build-time default with VITE_OPDBUS_DOOR=https://10.0.0.3:8090 in
-  .env.local; the gate is pre-filled from it.
-- A locally registered human gets their SID1 in gate form from the host:
-  scripts/sid1-from-sled.sh (sudo; prints standard base64 of the sealed id).
+  .env.local.
+- For a browser on a remote computer through the decoy/WireGuard connection,
+  build with VITE_OPDBUS_ISSUER=http://10.0.0.1:51888. The decoy must serve
+  /identity/self and allow the exact UI origin (http://10.0.0.2:8080).
+  It supplies the authenticated peer's OIA1 automatically. The browser uses
+  separate, single-use assertions to resolve its session (`project.get_context`)
+  and read that session's existing credential (`identity_sled.get_identity`).
+  It then carries the server-authored SID1 in memory for chat and notifications.
+  The decoy advertises https://10.0.0.2:8090, reachable over the human's tunnel;
+  the same door also remains available locally at 10.0.0.3:8090.
+  Do not map the shared gateway IP to a human SID1.
+- A locally registered human receives their existing SID1 automatically from
+  the same-origin /api/identity/self endpoint. Credential entry is not part
+  of the browser flow.
 
 Smoke-test the whole path without a browser:
 
@@ -148,7 +160,7 @@ src/
   chat/door-chat-adapter.ts   tched_router-backed adapter
   chat/local-chat-adapter.ts  deterministic in-browser adapter
   chat/door-config.ts         door URL / injected identity resolution
-  pages/DoorConnectPanel.tsx  connect gate form
+  pages/DoorConnectPanel.tsx  identity connection retry panel
   pages/ChatOnlyPage.tsx      gate → JsonRenderProvider(adapter)
   json-render/                catalog, registry, page spec, runtime provider
 ```

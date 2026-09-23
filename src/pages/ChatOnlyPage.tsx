@@ -2,14 +2,10 @@ import { useEffect, useState } from "react";
 import { Renderer } from "@json-render/react";
 import type { ChatAdapter } from "../chat/chat-adapter";
 import {
-  defaultDoorUrl,
   fetchIssuedIdentity,
-  injectedIdentity,
-  renewalDelayMs,
   resolveIdentity,
-  type ProjectedIdentity,
 } from "../chat/door-config";
-import { connectDoorChatAdapter, type DoorChatAdapter } from "../chat/door-chat-adapter";
+import { connectDoorChatAdapter } from "../chat/door-chat-adapter";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
 import { KnowledgeStrip } from "../chat/KnowledgeStrip";
 import { ModeStrip } from "../chat/ModeStrip";
@@ -18,7 +14,8 @@ import {
   JsonRenderProvider,
   useJsonRender,
 } from "../json-render/runtime/JsonRenderProvider";
-import { DoorConnectPanel, type DoorConnectRequest } from "./DoorConnectPanel";
+import { DoorError, normalizeDoorUrl, readSessionIdentity } from "../grpc/door";
+import { DoorConnectPanel } from "./DoorConnectPanel";
 
 function ChatOnlySurface({ adapter }: { adapter: ChatAdapter }) {
   const { registry } = useJsonRender();
@@ -33,55 +30,39 @@ function ChatOnlySurface({ adapter }: { adapter: ChatAdapter }) {
 
 type Gate =
   | { state: "resolving" }
-  | { state: "connect"; connecting: boolean; error: string | null }
+  | { state: "connect"; error: string | null }
   | { state: "ready"; adapter: ChatAdapter };
 
 function connectFailure(error: unknown): Gate {
   return {
     state: "connect",
-    connecting: false,
     error: error instanceof Error ? error.message : "The door could not be reached.",
   };
 }
 
 export default function ChatOnlyPage() {
-  // Identity resolution order: injected by the host page, then the page's own
-  // origin (op-web maps the WireGuard arrival to its SID1), then the gate.
-  const [injected] = useState<DoorConnectRequest | null>(() => {
-    const identity = injectedIdentity();
-    const url = defaultDoorUrl();
-    return identity && url ? { url, identity } : null;
-  });
+  const [attempt, setAttempt] = useState(0);
   const [gate, setGate] = useState<Gate>({ state: "resolving" });
 
   useEffect(() => {
     let cancelled = false;
-    let renewal: ReturnType<typeof setTimeout> | undefined;
-
-    // An issued OIA1 is short-lived: fetch a fresh one from the decoy before
-    // it expires and swap it onto the live adapter. If the issuer stops
-    // answering, the current assertion simply runs out and the door refuses
-    // the next call, which surfaces as a normal error.
-    const scheduleRenewal = (projected: ProjectedIdentity, adapter: DoorChatAdapter) => {
-      const delay = renewalDelayMs(projected);
-      if (delay === null) return;
-      renewal = setTimeout(() => {
-        void fetchIssuedIdentity().then((fresh) => {
-          if (cancelled || !fresh) return;
-          adapter.setIdentity(fresh.identity);
-          scheduleRenewal(fresh, adapter);
-        });
-      }, delay);
-    };
-
     const resolve = async (): Promise<Gate> => {
-      const projected: ProjectedIdentity | null = injected
-        ? { door: injected.url, identity: injected.identity }
-        : await resolveIdentity();
-      if (!projected) return { state: "connect", connecting: false, error: null };
       try {
-        const adapter = await connectDoorChatAdapter({ url: projected.door, identity: projected.identity });
-        scheduleRenewal(projected, adapter);
+        const projected = await resolveIdentity();
+        if (cancelled) return { state: "resolving" };
+        if (!projected) return {
+          state: "connect",
+          error: "Your server could not resolve your identity. Open this app through your configured identity connection, then retry.",
+        };
+        const identity = await readSessionIdentity({ url: projected.door, identity: projected.identity }, async () => {
+          const fresh = await fetchIssuedIdentity();
+          if (!fresh || normalizeDoorUrl(fresh.door) !== normalizeDoorUrl(projected.door)) {
+            throw new DoorError("UNAUTHENTICATED", "Your identity connection could not provide a fresh assertion. Retry to reconnect.");
+          }
+          return fresh.identity;
+        });
+        if (cancelled) return { state: "resolving" };
+        const adapter = await connectDoorChatAdapter({ url: projected.door, identity });
         return { state: "ready", adapter };
       } catch (error) {
         return connectFailure(error);
@@ -92,18 +73,12 @@ export default function ChatOnlyPage() {
     });
     return () => {
       cancelled = true;
-      if (renewal !== undefined) clearTimeout(renewal);
     };
-  }, [injected]);
+  }, [attempt]);
 
-  const connect = async ({ url, identity }: DoorConnectRequest) => {
-    setGate({ state: "connect", connecting: true, error: null });
-    try {
-      const adapter = await connectDoorChatAdapter({ url, identity });
-      setGate({ state: "ready", adapter });
-    } catch (error) {
-      setGate(connectFailure(error));
-    }
+  const retry = () => {
+    setGate({ state: "resolving" });
+    setAttempt((current) => current + 1);
   };
 
   if (gate.state === "resolving") {
@@ -120,9 +95,8 @@ export default function ChatOnlyPage() {
     return (
       <main className="chat-only-page">
         <DoorConnectPanel
-          connecting={gate.connecting}
           error={gate.error}
-          onConnect={(request) => void connect(request)}
+          onRetry={retry}
           onUseLocal={() => setGate({ state: "ready", adapter: createLocalChatAdapter() })}
         />
       </main>

@@ -7,7 +7,7 @@
  *   3. import.meta.env.VITE_OPDBUS_DOOR (build-time default)
  *
  * Identity is never read from storage or build config. It arrives one of
- * four ways, in this order, and lives in memory for the life of the page:
+ * three ways, in this order, and lives in memory for the life of the page:
  *   1. window.__3TCHED_CONFIG__.identity injected by an authenticated host page
  *   2. GET <same origin>/api/identity/self — op-web resolves a local human
  *      from the TCP source address and returns their own SID1 from the
@@ -15,9 +15,9 @@
  *   3. GET <issuer>/identity/self — the decoy that terminated this human's
  *      WireGuard tunnel mints a short-lived OIA1 for the kernel-verified peer
  *      (the OIA1 pickup). The page fetches it over the tunnel and carries it
- *      unchanged over WARP to the door; `expires_at` drives renewal.
+ *      unchanged to the door to resolve its session. A second fresh assertion
+ *      reads that session's existing SID1; chat then uses the returned SID1.
  *      Issuer URL: window.__3TCHED_CONFIG__.issuer, then VITE_OPDBUS_ISSUER.
- *   4. pasted into the connect gate
  */
 import type { DoorIdentity } from "../grpc/door";
 
@@ -107,7 +107,7 @@ function isDoorIdentity(value: unknown): value is DoorIdentity {
 /**
  * Ask the page's own origin who this WireGuard arrival is. Resolves to null
  * (never throws) when the endpoint is absent, refuses, or answers nonsense, so
- * the connect gate is the fallback in every failure mode.
+ * the retry panel is shown when identity resolution fails.
  */
 export async function fetchProjectedIdentity(
   fetchImpl: typeof fetch = fetch,
@@ -119,7 +119,7 @@ export async function fetchProjectedIdentity(
  * Ask the decoy issuer, over this human's own tunnel, for a fresh OIA1. Null
  * when no issuer is configured, when it refuses (no verified peer for the
  * source), or when the answer is not an identity document — the next source
- * in the chain (the connect gate) takes over.
+ * in the chain takes over, or the retry panel is shown.
  */
 export async function fetchIssuedIdentity(
   fetchImpl: typeof fetch = fetch,
@@ -135,7 +135,7 @@ export async function fetchIssuedIdentity(
 
 /**
  * The full resolution chain (injected → same origin → issuer). Never throws;
- * null means "show the connect gate".
+ * null means "show the identity retry panel".
  */
 export async function resolveIdentity(fetchImpl: typeof fetch = fetch): Promise<ProjectedIdentity | null> {
   const injected = injectedIdentity();
