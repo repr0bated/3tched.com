@@ -8,7 +8,6 @@ import {
 import { connectDoorChatAdapter } from "../chat/door-chat-adapter";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
 import { KnowledgeStrip } from "../chat/KnowledgeStrip";
-import { ModeStrip } from "../chat/ModeStrip";
 import { antigravitySpec } from "../json-render/pages/antigravity.pagespec";
 import {
   JsonRenderProvider,
@@ -21,7 +20,6 @@ function ChatOnlySurface({ adapter }: { adapter: ChatAdapter }) {
   const { registry } = useJsonRender();
   return (
     <main className="chat-only-page">
-      <ModeStrip adapter={adapter} />
       <KnowledgeStrip adapter={adapter} />
       <Renderer key="chat-only" spec={antigravitySpec} registry={registry} />
     </main>
@@ -29,29 +27,32 @@ function ChatOnlySurface({ adapter }: { adapter: ChatAdapter }) {
 }
 
 type Gate =
-  | { state: "resolving" }
-  | { state: "connect"; error: string | null }
+  | { state: "resolving_identity" }
+  | { state: "loading_catalog" }
+  | { state: "connect"; phase: "identity" | "catalog"; error: string | null }
   | { state: "ready"; adapter: ChatAdapter };
 
-function connectFailure(error: unknown): Gate {
+function connectFailure(phase: "identity" | "catalog", error: unknown): Gate {
   return {
     state: "connect",
+    phase,
     error: error instanceof Error ? error.message : "The door could not be reached.",
   };
 }
 
 export default function ChatOnlyPage() {
   const [attempt, setAttempt] = useState(0);
-  const [gate, setGate] = useState<Gate>({ state: "resolving" });
+  const [gate, setGate] = useState<Gate>({ state: "resolving_identity" });
 
   useEffect(() => {
     let cancelled = false;
     const resolve = async (): Promise<Gate> => {
       try {
         const projected = await resolveIdentity();
-        if (cancelled) return { state: "resolving" };
+        if (cancelled) return { state: "resolving_identity" };
         if (!projected) return {
           state: "connect",
+          phase: "identity",
           error: "Your server could not resolve your identity. Open this app through your configured identity connection, then retry.",
         };
         const identity = await readSessionIdentity({ url: projected.door, identity: projected.identity }, async () => {
@@ -61,11 +62,20 @@ export default function ChatOnlyPage() {
           }
           return fresh.identity;
         });
-        if (cancelled) return { state: "resolving" };
-        const adapter = await connectDoorChatAdapter({ url: projected.door, identity });
+        if (cancelled) return { state: "resolving_identity" };
+        setGate({ state: "loading_catalog" });
+        let adapter: ChatAdapter;
+        try {
+          adapter = await connectDoorChatAdapter({ url: projected.door, identity });
+        } catch (error) {
+          return connectFailure(
+            error instanceof DoorError && error.code === "UNAUTHENTICATED" ? "identity" : "catalog",
+            error,
+          );
+        }
         return { state: "ready", adapter };
       } catch (error) {
-        return connectFailure(error);
+        return connectFailure("identity", error);
       }
     };
     void resolve().then((next) => {
@@ -77,15 +87,15 @@ export default function ChatOnlyPage() {
   }, [attempt]);
 
   const retry = () => {
-    setGate({ state: "resolving" });
+    setGate({ state: "resolving_identity" });
     setAttempt((current) => current + 1);
   };
 
-  if (gate.state === "resolving") {
+  if (gate.state === "resolving_identity" || gate.state === "loading_catalog") {
     return (
       <main className="chat-only-page">
         <p className="door-resolving" role="status" aria-live="polite">
-          Resolving your identity…
+          {gate.state === "resolving_identity" ? "Resolving your identity…" : "Loading available models…"}
         </p>
       </main>
     );
@@ -96,6 +106,7 @@ export default function ChatOnlyPage() {
       <main className="chat-only-page">
         <DoorConnectPanel
           error={gate.error}
+          phase={gate.phase}
           onRetry={retry}
           onUseLocal={() => setGate({ state: "ready", adapter: createLocalChatAdapter() })}
         />

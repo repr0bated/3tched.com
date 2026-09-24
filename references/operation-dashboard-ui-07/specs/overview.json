@@ -1,0 +1,184 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4",
+        "section-5",
+        "section-6",
+        "section-7",
+        "section-8",
+        "section-9"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Overview",
+        "subtitle": "Control · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardMetric",
+      "props": {
+        "label": "Connected peers",
+        "value": "3",
+        "detail": "Illustrative sample"
+      }
+    },
+    "section-1": {
+      "type": "dashboardProgress",
+      "props": {
+        "label": "CPU",
+        "value": 24,
+        "detail": "Illustrative percentage; not host telemetry."
+      }
+    },
+    "section-2": {
+      "type": "dashboardProgress",
+      "props": {
+        "label": "Memory",
+        "value": 48,
+        "detail": "Illustrative percentage; not host telemetry."
+      }
+    },
+    "section-3": {
+      "type": "dashboardProgress",
+      "props": {
+        "label": "Storage",
+        "value": 62,
+        "detail": "Illustrative percentage; not host telemetry."
+      }
+    },
+    "section-4": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Gateway Access",
+        "rows": [
+          {
+            "label": "Transport",
+            "value": "D-Bus through the admitted door"
+          },
+          {
+            "label": "Status",
+            "value": "Not queried"
+          }
+        ]
+      }
+    },
+    "section-5": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Components",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Component"
+          },
+          {
+            "id": "c1",
+            "label": "Status"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-6": {
+      "type": "dashboardBarChart",
+      "props": {
+        "title": "Event Distribution",
+        "bars": [
+          {
+            "label": "State",
+            "value": 60
+          },
+          {
+            "label": "Method",
+            "value": 30
+          },
+          {
+            "label": "Signal",
+            "value": 10
+          }
+        ]
+      }
+    },
+    "section-7": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Connected Peers",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Client ID"
+          },
+          {
+            "id": "c1",
+            "label": "Type"
+          },
+          {
+            "id": "c2",
+            "label": "Protocol"
+          },
+          {
+            "id": "c3",
+            "label": "Duration"
+          },
+          {
+            "id": "c4",
+            "label": "Streams"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-8": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Raw System Stats",
+        "language": "json",
+        "code": "{\n  \"source\": \"example\",\n  \"live\": false\n}"
+      }
+    },
+    "section-9": {
+      "type": "dashboardEventLog",
+      "props": {
+        "title": "Event tape",
+        "entries": [
+          {
+            "time": "Example 09:00",
+            "title": "State committed",
+            "detail": "Illustrative event, with no identity or host data.",
+            "tone": "info"
+          },
+          {
+            "time": "Example 09:01",
+            "title": "View refreshed",
+            "detail": "Display reads the committed state.",
+            "tone": "success"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -75,8 +75,14 @@ choose "Use local workbench".
 
 ### Reaching a real door from a browser
 
-- The door is TLS only and speaks HTTP/2 only (ALPN h2); the cert is CN=svc0
-  issued by "op-dbus local CA". The browser must trust that CA or the
+- Over the configured WireGuard connection, open
+  `http://dashboard.ghostbridge.tech:8080`. Private DNS resolves the hostname
+  to the decoy's `10.0.0.1`; WireGuard-only forwarding reaches the UI and the
+  existing Tonic door at `https://dashboard.ghostbridge.tech:8090`. The door
+  uses a publicly trusted certificate, so browsers need no private CA import
+  for this hostname. Public port 443 and Xray routing are unchanged.
+- Internal clients on localhost and 10.0.0.3 retain the TLS certificate
+  CN=svc0 issued by "op-dbus local CA". A browser using those addresses must trust that CA or the
   gRPC-Web fetch fails as "Failed to fetch". On the host the CA is at
   /etc/op-dbus/tls/tonic-svc0-ca.crt (root-readable directory). A public copy
   is included at [certs/op-dbus-ca.crt](certs/op-dbus-ca.crt); import it as a
@@ -90,7 +96,7 @@ choose "Use local workbench".
   op-grpc-bridge runit run script) must include the origin the UI is served
   from, for example http://127.0.0.1:8080 or http://localhost:5173. It fails
   closed: an unlisted origin gets a preflight with no allow-origin header.
-- Set a build-time default with VITE_OPDBUS_DOOR=https://10.0.0.3:8090 in
+- Set a build-time default with VITE_OPDBUS_DOOR=https://dashboard.ghostbridge.tech:8090 in
   .env.local.
 - For a browser on a remote computer through the decoy/WireGuard connection,
   build with VITE_OPDBUS_ISSUER=http://10.0.0.1:51888. The decoy must serve
@@ -99,7 +105,7 @@ choose "Use local workbench".
   separate, single-use assertions to resolve its session (`project.get_context`)
   and read that session's existing credential (`identity_sled.get_identity`).
   It then carries the server-authored SID1 in memory for chat and notifications.
-  The decoy advertises https://10.0.0.2:8090, reachable over the human's tunnel;
+  The decoy advertises https://dashboard.ghostbridge.tech:8090, reachable over the human's tunnel;
   the same door also remains available locally at 10.0.0.3:8090.
   Do not map the shared gateway IP to a human SID1.
 - A locally registered human receives their existing SID1 automatically from

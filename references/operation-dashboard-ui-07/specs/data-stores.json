@@ -1,0 +1,93 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Data Stores",
+        "subtitle": "Infrastructure · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Data Stores",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Store"
+          },
+          {
+            "id": "c1",
+            "label": "Type"
+          },
+          {
+            "id": "c2",
+            "label": "State"
+          },
+          {
+            "id": "c3",
+            "label": "Size"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "Example state",
+              "CozoDB",
+              "Reference",
+              "—"
+            ]
+          },
+          {
+            "id": "r1",
+            "cells": [
+              "Example vectors",
+              "Qdrant",
+              "Reference",
+              "—"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-1": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Store details",
+        "rows": [
+          {
+            "label": "Connection",
+            "value": "Not queried"
+          },
+          {
+            "label": "Health",
+            "value": "No live data"
+          }
+        ]
+      }
+    }
+  }
+}

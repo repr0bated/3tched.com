@@ -6,6 +6,8 @@ import {
   fetchIssuedIdentity,
   fetchProjectedIdentity,
   renewalDelayMs,
+  resolveIdentity,
+  IDENTITY_PICKUP_TIMEOUT_MS,
 } from "./door-config";
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -83,6 +85,36 @@ describe("fetchIssuedIdentity (OIA1 pickup from the decoy issuer)", () => {
       throw new TypeError("Failed to fetch");
     });
     await expect(fetchIssuedIdentity(boom as unknown as typeof fetch, "http://10.10.0.1:51888")).resolves.toBeNull();
+  });
+
+  it("aborts a stalled same-origin pickup and proceeds to the issuer", async () => {
+    const priorConfig = window.__3TCHED_CONFIG__;
+    window.__3TCHED_CONFIG__ = { door: "https://10.0.0.3:8090", issuer: "http://10.10.0.1:51888" };
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url) === IDENTITY_SELF_PATH) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        });
+      }
+      return Promise.resolve(jsonResponse(200, {
+        door: "https://10.0.0.3:8090",
+        identity: { kind: "oia1", assertion: "QUJDRA==" },
+      }));
+    });
+
+    try {
+      const pending = resolveIdentity(fetchImpl as unknown as typeof fetch);
+      await vi.advanceTimersByTimeAsync(IDENTITY_PICKUP_TIMEOUT_MS);
+      await expect(pending).resolves.toMatchObject({
+        identity: { kind: "oia1", assertion: "QUJDRA==" },
+      });
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(fetchImpl.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      window.__3TCHED_CONFIG__ = priorConfig;
+    }
   });
 
   it("renews a lead time before expiry and never for identities without one", () => {

@@ -1,0 +1,133 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Sealed Blobs",
+        "subtitle": "Blobs · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Plugin filter",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Filter plugins",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Sealed Blobs",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Plugin"
+          },
+          {
+            "id": "c1",
+            "label": "Schema hash"
+          },
+          {
+            "id": "c2",
+            "label": "Version"
+          },
+          {
+            "id": "c3",
+            "label": "Methods"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardTree",
+      "props": {
+        "title": "Plugin schema",
+        "nodes": [
+          {
+            "label": "Methods",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          },
+          {
+            "label": "Fields",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          },
+          {
+            "label": "Signals",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Schema details",
+        "language": "json",
+        "code": "{\n  \"source\": \"sealed plugin catalog\",\n  \"example\": true\n}"
+      }
+    }
+  }
+}

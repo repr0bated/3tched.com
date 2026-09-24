@@ -1,0 +1,111 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Workflows",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Tool Palette",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Tool"
+          },
+          {
+            "id": "c1",
+            "label": "Inputs"
+          },
+          {
+            "id": "c2",
+            "label": "Outputs"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-1": {
+      "type": "dashboardTopology",
+      "props": {
+        "title": "Workflow",
+        "nodes": [
+          {
+            "id": "node0",
+            "label": "Input",
+            "detail": "Illustrative topology",
+            "x": 10,
+            "y": 50
+          },
+          {
+            "id": "node1",
+            "label": "Transform",
+            "detail": "Illustrative topology",
+            "x": 50,
+            "y": 50
+          },
+          {
+            "id": "node2",
+            "label": "Result",
+            "detail": "Illustrative topology",
+            "x": 90,
+            "y": 50
+          }
+        ],
+        "edges": [
+          {
+            "from": "node0",
+            "to": "node1",
+            "label": "Example link"
+          },
+          {
+            "from": "node1",
+            "to": "node2",
+            "label": "Example link"
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Workflow discussion",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Ask about this workflow",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    }
+  }
+}

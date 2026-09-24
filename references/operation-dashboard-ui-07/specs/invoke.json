@@ -1,0 +1,94 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Invoke",
+        "subtitle": "Settings · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Method filter",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Filter methods",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTree",
+      "props": {
+        "title": "Admitted methods",
+        "nodes": [
+          {
+            "label": "Example plugin",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Arguments",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "JSON arguments",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Method output",
+        "language": "json",
+        "code": "{\n  \"state\": \"Not invoked\"\n}"
+      }
+    }
+  }
+}

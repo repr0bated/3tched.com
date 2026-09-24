@@ -1,0 +1,70 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Hardware",
+        "subtitle": "ZeroClaw · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Connected Devices",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Device"
+          },
+          {
+            "id": "c1",
+            "label": "Type"
+          },
+          {
+            "id": "c2",
+            "label": "Vendor"
+          },
+          {
+            "id": "c3",
+            "label": "State"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-1": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Hardware detail",
+        "rows": [
+          {
+            "label": "Selection",
+            "value": "No device selected"
+          }
+        ]
+      }
+    }
+  }
+}

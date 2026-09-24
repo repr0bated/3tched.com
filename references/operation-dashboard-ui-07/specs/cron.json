@@ -1,0 +1,84 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Cron",
+        "subtitle": "ZeroClaw · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Scheduled Tasks",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Schedule"
+          },
+          {
+            "id": "c2",
+            "label": "Enabled"
+          },
+          {
+            "id": "c3",
+            "label": "Last run"
+          },
+          {
+            "id": "c4",
+            "label": "Next run"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-1": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Schedule reference",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Task name",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          },
+          {
+            "id": "field1",
+            "label": "Schedule",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    }
+  }
+}

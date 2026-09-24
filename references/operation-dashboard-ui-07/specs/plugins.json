@@ -1,0 +1,94 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Stream",
+        "subtitle": "Plugins · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Plugin filter",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Filter plugins",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Plugin Stream",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Plugin"
+          },
+          {
+            "id": "c1",
+            "label": "Version"
+          },
+          {
+            "id": "c2",
+            "label": "Schema hash"
+          },
+          {
+            "id": "c3",
+            "label": "State"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardEventLog",
+      "props": {
+        "title": "Committed changes",
+        "entries": [
+          {
+            "time": "Example 09:00",
+            "title": "State committed",
+            "detail": "Illustrative event, with no identity or host data.",
+            "tone": "info"
+          },
+          {
+            "time": "Example 09:01",
+            "title": "View refreshed",
+            "detail": "Display reads the committed state.",
+            "tone": "success"
+          }
+        ]
+      }
+    }
+  }
+}

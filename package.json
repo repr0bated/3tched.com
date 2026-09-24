@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
-    "proto:gen": "bash scripts/proto-gen.sh"
+    "proto:gen": "bash scripts/proto-gen.sh",
+    "references:export": "vite build --config vite.references.config.ts && node scripts/export-dashboard-references.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -1,0 +1,155 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "3tched Config",
+        "subtitle": "ZeroClaw · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Filter sections",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Filter sections",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTree",
+      "props": {
+        "title": "Configuration sections",
+        "nodes": [
+          {
+            "label": "Agents",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          },
+          {
+            "label": "Providers",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          },
+          {
+            "label": "Risk profiles",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          },
+          {
+            "label": "MCP bundles",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Map entries",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Key"
+          },
+          {
+            "id": "c1",
+            "label": "Value"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-3": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Section editor",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Example field",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-4": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Schema-derived configuration",
+        "detail": "Real editors and save actions must derive from the admitted plugin schema.",
+        "tone": "info"
+      }
+    }
+  }
+}

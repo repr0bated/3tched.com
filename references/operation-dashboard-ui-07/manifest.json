@@ -1,0 +1,1472 @@
+{
+  "format": "3tched.legacy-ui-reference.v1",
+  "source": {
+    "repository": "/srv/git/operation-dashboard-ui-07",
+    "commit": "1e72483c4227d12820419d4a901f3ef3dbf77dc9",
+    "capture": "selected working-tree files; per-file hashes are authoritative",
+    "archive": "source.tar.gz",
+    "archive_sha256": "80d82f82d9027f51a80a9618fda378c4047d909109fda242967b0f62704758bd"
+  },
+  "menu_items": [
+    {
+      "id": "chat",
+      "label": "Chat",
+      "route": "/antigravity/chat",
+      "section": "Chat",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/ChatPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/chat.png",
+        "sha256": "e87249295b5e71c371cf256011936086c6e86108f52bf580665dfe2d2abd265c",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/chat.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardEventLog",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/chat.png",
+        "sha256": "92524778be1a681c957134578fcd66553a843ed2a40c35375d88af77f902335f",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "accountability",
+      "label": "Accountability",
+      "route": "/accountability",
+      "section": "Chat",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/AccountabilityPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/accountability.png",
+        "sha256": "a00c5271099ca9357511a0d162502e4d09623667529a9a99a2a16a141a386f2a",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/accountability.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardEventLog"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/accountability.png",
+        "sha256": "6f7631d2ac433ff54f50de4ba6dd891496b88496f54fb4c7b7b7d84633a3cd3d",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "catalog",
+      "label": "Catalog",
+      "route": "/catalog",
+      "section": "UI Model",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/CatalogPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/catalog.png",
+        "sha256": "501ab1c3f2a464d17dda4bd0651632820200e72be886d8d0925c087630dfcf77",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/catalog.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/catalog.png",
+        "sha256": "1a28bcc4d1450cbb8e127b6cf3bd9f15fe73dc75b7cde6f3b07803ea266e0987",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "gallery",
+      "label": "Gallery",
+      "route": "/gallery",
+      "section": "UI Model",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/GalleryPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/gallery.png",
+        "sha256": "d697ed8323c78bc93b0550375acd0943a15793cb2152a926fdcca61300c1c1ff",
+        "state": "error",
+        "detail": "No spec source is servingGallery catalog (REST): gallery HTTP 503 · Chatbot model (3tched Router): tched_router schema HTTP 503 · Antigravity UI (sealed projection): antigravity schema HTTP 503",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/gallery.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTabs",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/gallery.png",
+        "sha256": "5858b40df705023cafa9e5ab0bf7d16985129f8e2005a302e9a2c6919fbcee06",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "generate",
+      "label": "Generate",
+      "route": "/generate",
+      "section": "UI Model",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/CatalogUIGeneratorPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/generate.png",
+        "sha256": "37bfb94c8319b173582ec88fa8c9ae095d7785af161746d8c8f16aadb599497e",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/generate.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardKeyValues",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/generate.png",
+        "sha256": "930d92730f737516ec541896a73e8fb2b742442879257cd01a0c93742979e8e4",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "antigravity-llm",
+      "label": "Antigravity LLM",
+      "route": "/antigravity-llm",
+      "section": "UI Model",
+      "referencePage": "src/pages/AntiqravityLLMPage.tsx",
+      "sourcePaths": [
+        "src/pages/AntiqravityLLMPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/antigravity-llm.png",
+        "sha256": "83f6e5909c9b3b4f4940a66021d45b44fb4e192a631c580abb9855210dca794e",
+        "state": "error",
+        "detail": "Failed to load UI surfacesantigravity schema HTTP 503",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/antigravity-llm.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/antigravity-llm.png",
+        "sha256": "89e5fe18015b5338b854ad6374d0f7aebe56c3c16c5aab062bf598c28a059162",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "overview",
+      "label": "Overview",
+      "route": "/overview",
+      "section": "Control",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/OverviewPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/overview.png",
+        "sha256": "9937a037dcaebf48865acc83abb587d222405ed8548502d843dfc136ec9a2757",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/overview.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardMetric",
+        "dashboardProgress",
+        "dashboardKeyValues",
+        "dashboardTable",
+        "dashboardBarChart",
+        "dashboardCode",
+        "dashboardEventLog"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/overview.png",
+        "sha256": "2f6733a9cd61f64b167c4841d9364a1ac0ecba90ceda6a2a7e6fb3b6222b6b22",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "orchestration",
+      "label": "Orchestration",
+      "route": "/orchestration",
+      "section": "Control",
+      "referencePage": "src/pages/OrchestrationPage.tsx",
+      "sourcePaths": [
+        "src/pages/OrchestrationPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/orchestration.png",
+        "sha256": "d9f15618807cad176af182c3f96ebd6ec9ada0db024b4786204975a6db12992f",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/orchestration.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTopology",
+        "dashboardTable",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/orchestration.png",
+        "sha256": "a7c0fe0b5681f1137ef2c410aca9ca20864f04b26eb87631d5e646f4721cce7e",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "services",
+      "label": "Services",
+      "route": "/services",
+      "section": "Control",
+      "referencePage": "src/pages/ServicesPage.tsx",
+      "sourcePaths": [
+        "src/pages/ServicesPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/services.png",
+        "sha256": "9974dc4004768c1731f0ce61cda67f40bf50fa9e36d2acd9cbbfc7cf17f82d5f",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/services.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardMetric",
+        "dashboardTable",
+        "dashboardKeyValues",
+        "dashboardFormPreview"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/services.png",
+        "sha256": "32c30bc5e492e23123c0c2038c1367f25cf6de1997114e9db7e3e434c2272de8",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "llm",
+      "label": "LLM",
+      "route": "/llm",
+      "section": "Control",
+      "referencePage": "src/pages/LlmPage.tsx",
+      "sourcePaths": [
+        "src/pages/LlmPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/llm.png",
+        "sha256": "9aa0fa657d8674e9c9efb0ef6ec3f00d957cbcd1a6bacf662c8b647a27ce3075",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/llm.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardMetric",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/llm.png",
+        "sha256": "b249ca363d3211abe2089b71a98149483e213a1b01ff7eed5e0caa87baa58284",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "agents",
+      "label": "Agents",
+      "route": "/agents",
+      "section": "Agent",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/AgentsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/agents.png",
+        "sha256": "4e616ffdd560c268ae30ddda7b706391333f9b50c0078da1e5c603bfd675681a",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/agents.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardMetric",
+        "dashboardTable",
+        "dashboardFormPreview",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/agents.png",
+        "sha256": "644a3d8e4e93ce62afda601f7a5790a8e97a8c069079fda7681e871558bc427e",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "assistant",
+      "label": "Assistant",
+      "route": "/assistant",
+      "section": "Agent",
+      "referencePage": "src/pages/AssistantPage.tsx",
+      "sourcePaths": [
+        "src/pages/AssistantPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/assistant.png",
+        "sha256": "37b3841ad606299dadf893a4942d957910dd36e5fd7133b98ef4fc91c56a79dd",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/assistant.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardKeyValues",
+        "dashboardFormPreview",
+        "dashboardCode",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/assistant.png",
+        "sha256": "c10e6d4f538da032e13d2b56a85afe0a90321d26a601f0e03fa0d1ac905b76ab",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "models",
+      "label": "Routable Models",
+      "route": "/models",
+      "section": "Agent",
+      "referencePage": "src/pages/RoutableModelsPage.tsx",
+      "sourcePaths": [
+        "src/pages/RoutableModelsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/models.png",
+        "sha256": "1dbaf8a51fab0d1efc3c45ebde96a9efe02cd9cb59ad5edd8b892845e030066b",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/models.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardMetric",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/models.png",
+        "sha256": "16f58e5abbbe88884b75c1ab6731b66347639823fc9ae753c61a40a4bde31424",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "tools",
+      "label": "Tools",
+      "route": "/tools",
+      "section": "Agent",
+      "referencePage": "src/pages/ToolsPage.tsx",
+      "sourcePaths": [
+        "src/pages/ToolsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/tools.png",
+        "sha256": "b08aa1021e3881bf5bd5532c2b3072bc1d7c9545f7f19bd045d0b856ba015087",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/tools.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/tools.png",
+        "sha256": "33ff0645c5a262907712acccea0487f6afcadc0d0bc35252f0c2c2d4416d43ce",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "workflows",
+      "label": "Workflows",
+      "route": "/workflows",
+      "section": "Agent",
+      "referencePage": "src/pages/WorkflowsPage.tsx",
+      "sourcePaths": [
+        "src/pages/WorkflowsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/workflows.png",
+        "sha256": "21f97d0b272799821f22e4f8dd78d5730883b63d75d674b8c928d319e90c23eb",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/workflows.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardTopology",
+        "dashboardFormPreview"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/workflows.png",
+        "sha256": "bbc178e94f2159b25518db89050bac569debdc677d7ed15f46262f455296e534",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "route": "/security",
+      "section": "Agent",
+      "referencePage": "src/pages/SecurityPage.tsx",
+      "sourcePaths": [
+        "src/pages/SecurityPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/security.png",
+        "sha256": "03fecc3bb3dd97233b4f1995f3ebfc389e2b7675d2dd136d2ea00389a28e3001",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/security.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardKeyValues",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardEventLog"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/security.png",
+        "sha256": "6283b38879f7f382568d39b65cbe2b58358f9817c6038ab139b67195e31e8dce",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "skills",
+      "label": "Skills",
+      "route": "/skills",
+      "section": "Agent",
+      "referencePage": "src/pages/SkillsPage.tsx",
+      "sourcePaths": [
+        "src/pages/SkillsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/skills.png",
+        "sha256": "8c256a34af1ebe30451aee832f408957ed5210d0a473e5f3dcd43e6e0707b85e",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/skills.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/skills.png",
+        "sha256": "d11484c3c3b68eeb63aac331a5edf1556fa387b81ad3fc88b6244be91e0c6651",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge",
+      "route": "/knowledge",
+      "section": "Agent",
+      "referencePage": "src/pages/KnowledgePage.tsx",
+      "sourcePaths": [
+        "src/pages/KnowledgePage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/knowledge.png",
+        "sha256": "89a33cb34d97b493d36c44d31eb8df6a7491bede719bf8e21db76e227f21376d",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/knowledge.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardProgress",
+        "dashboardKeyValues",
+        "dashboardTabs",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/knowledge.png",
+        "sha256": "849199ff4eef0c7f47a5d7849d279ee22c0470eb058283191751814ac9cac9a7",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "embedding",
+      "label": "Embedding Pipeline",
+      "route": "/embedding",
+      "section": "Agent",
+      "referencePage": "src/pages/EmbeddingPipelinePage.tsx",
+      "sourcePaths": [
+        "src/pages/EmbeddingPipelinePage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/embedding.png",
+        "sha256": "ddf117bcd539931661871445e2ae50bbe830736943793816071b164fd4bab29d",
+        "state": "error",
+        "detail": "Embedding service unavailableService unavailable — try again.",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/embedding.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardProgress",
+        "dashboardMetric",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/embedding.png",
+        "sha256": "7dac2e44bd46169002ec6cfc1f8ea80fd17969cb74dd666e4151cab5cb23c79f",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "containers",
+      "label": "Containers",
+      "route": "/containers",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/ContainersPage.tsx",
+      "sourcePaths": [
+        "src/pages/ContainersPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/containers.png",
+        "sha256": "829afd987e2e6ec9d7e02c49da6498b3d382819dc67bfeb6085b6403fe8aa516",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/containers.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTabs",
+        "dashboardTable",
+        "dashboardFormPreview",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/containers.png",
+        "sha256": "d4cb673da4c88db8800c677a5738d65f12ff85b0e67c1c769e8413adf5e0d27a",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "privacy-network",
+      "label": "Privacy Network",
+      "route": "/privacy-network",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/PrivacyNetworkPage.tsx",
+      "sourcePaths": [
+        "src/pages/PrivacyNetworkPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/privacy-network.png",
+        "sha256": "84e0d8452fa027bb88c8c6b530aab4da93477047563e8b2c4f8f36ac6ee27767",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/privacy-network.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTopology",
+        "dashboardFormPreview",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/privacy-network.png",
+        "sha256": "1d0cd8590a30dec6328edde42ab95f653d0647421099a028c6c5bcef0338991a",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "netmaker",
+      "label": "Network Control",
+      "route": "/netmaker",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/NetmakerPage.tsx",
+      "sourcePaths": [
+        "src/pages/NetmakerPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/netmaker.png",
+        "sha256": "09279afaaa6830cd66ce1ec58e25b11401d3bd4298a75aa712aaf5447c0c2b07",
+        "state": "error",
+        "detail": "Netmaker service errorService unavailable — try again.",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/netmaker.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTabs",
+        "dashboardTable",
+        "dashboardKeyValues",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/netmaker.png",
+        "sha256": "e16b47989c6750003934c10fe892f06872325d8305230b1cc264c9be2b4adbdc",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "ovs",
+      "label": "Open vSwitch",
+      "route": "/ovs",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/OpenSwitchPage.tsx",
+      "sourcePaths": [
+        "src/pages/OpenSwitchPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/ovs.png",
+        "sha256": "309e83372414f6678b3455f5d4d8a561be209eb93b5f2125fc2eef6fd4dee3ad",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/ovs.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTopology",
+        "dashboardTable",
+        "dashboardFormPreview",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/ovs.png",
+        "sha256": "f5f8975d549445858d8d5f0dd4f4bb33dd68de21ee14313cae0d610752aa3450",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "openflow",
+      "label": "OpenFlow",
+      "route": "/openflow",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/OpenFlowPage.tsx",
+      "sourcePaths": [
+        "src/pages/OpenFlowPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/openflow.png",
+        "sha256": "f9932b50d991d6657fff975a2ce106cfeb39c1733959be851c7d8d46dbc3e1c3",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/openflow.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/openflow.png",
+        "sha256": "cfa5a278b944cb5c70c9b82e734a0174ed653c22344f9dfc03f865da15a7cab5",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "btrfs",
+      "label": "BTRFS Storage",
+      "route": "/btrfs",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/BtrfsPage.tsx",
+      "sourcePaths": [
+        "src/pages/BtrfsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/btrfs.png",
+        "sha256": "ce8b0d42f09b75b5f22921fe1a064179946a337b62df58042b823a9038abd1d4",
+        "state": "error",
+        "detail": "BTRFS service unavailableService unavailable — try again.",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/btrfs.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardProgress",
+        "dashboardKeyValues",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/btrfs.png",
+        "sha256": "cb1c61d6d713df85d0a5643e606c4b391136a7be3fe997a5d682c28ee59a10e7",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "data-stores",
+      "label": "Data Stores",
+      "route": "/data-stores",
+      "section": "Infrastructure",
+      "referencePage": "src/pages/DataStoresPage.tsx",
+      "sourcePaths": [
+        "src/pages/DataStoresPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/data-stores.png",
+        "sha256": "f8c4b0b9a76e7d38dcfe65b820fdbec6f1c7c9351a6945266cd8e5132906e019",
+        "state": "error",
+        "detail": "Data store status unavailableService unavailable — try again.",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/data-stores.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/data-stores.png",
+        "sha256": "8bf5b18e43c754f0d2275bd6e11f34aa7ce59e99a56e913053c722f34a0f69f4",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "tched-router-config",
+      "label": "3tched Config",
+      "route": "/tched-router/config",
+      "section": "ZeroClaw",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/json-render/catalog/components/tched-router-config.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/tched-router-config.png",
+        "sha256": "f709d87933417d2ed080539692768293e20794f5cc81ec57595dde4e0a1c68cc",
+        "state": "unavailable",
+        "detail": "Old component cannot initialize in an isolated production bundle (ReferenceError: Cannot access module binding before initialization); config-client was also stubbed offline. Screenshot records the failure, not the original visual layout.",
+        "validVisual": false
+      },
+      "exampleSpec": "specs/tched-router-config.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTree",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/tched-router-config.png",
+        "sha256": "87b59f1c59efe928a1acf633debc79816c6d4c77dd48a10924781bae9ff14489",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "gateway",
+      "label": "Gateway",
+      "route": "/gateway",
+      "section": "ZeroClaw",
+      "referencePage": "src/pages/GatewayPage.tsx",
+      "sourcePaths": [
+        "src/pages/GatewayPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/gateway.png",
+        "sha256": "2d55d46e3a274fa0dabde5fd9cd18c6c66205d1f104ac70b214017b7edf66b6a",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/gateway.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardKeyValues",
+        "dashboardTable"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/gateway.png",
+        "sha256": "fc8da3a8fd6c3adde582035deff8a356540fde47b91f83f3a73d191d8e8a0c7c",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "channels",
+      "label": "Channels",
+      "route": "/channels",
+      "section": "ZeroClaw",
+      "referencePage": "src/pages/ChannelsPage.tsx",
+      "sourcePaths": [
+        "src/pages/ChannelsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/channels.png",
+        "sha256": "814b5fd33a832d9d122d025715014150a81e24eb291037069dfc4b2d3c262692",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/channels.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardFormPreview"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/channels.png",
+        "sha256": "c6170c2156c7ba570092a50005cb1e1a8bcd76a775d10f5bc16911e5b6977281",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "cron",
+      "label": "Cron",
+      "route": "/cron",
+      "section": "ZeroClaw",
+      "referencePage": "src/pages/CronPage.tsx",
+      "sourcePaths": [
+        "src/pages/CronPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/cron.png",
+        "sha256": "eda34ec1cbc7ba89d8419c7cb2a6fb0bb0fa8af39ed6ca4269677376f8097818",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/cron.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardFormPreview"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/cron.png",
+        "sha256": "22e9a0b70e031fa447eee23802ca1a12c5d8c229af1356e651b1376c05f66a05",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "integrations",
+      "label": "Integrations",
+      "route": "/integrations",
+      "section": "ZeroClaw",
+      "referencePage": "src/pages/IntegrationsPage.tsx",
+      "sourcePaths": [
+        "src/pages/IntegrationsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/integrations.png",
+        "sha256": "997be6c2f5c0cc59f3c0e9f338f8b214374b7434a69e7653296d2149b32d3ddb",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/integrations.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/integrations.png",
+        "sha256": "c3d8b7bc47cc44c8c1e4c1bc19e3bbf77bab833a86a096a7c1a1be950cd685e1",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "hardware",
+      "label": "Hardware",
+      "route": "/hardware",
+      "section": "ZeroClaw",
+      "referencePage": "src/pages/HardwarePage.tsx",
+      "sourcePaths": [
+        "src/pages/HardwarePage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/hardware.png",
+        "sha256": "59edae25cf74ea896a4497ff9713fe1603b4a01e60e1f314c6753ffd21aec07a",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/hardware.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTable",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/hardware.png",
+        "sha256": "232639df7a830911dd57c0d8aea9d29a46f736ebc062762497f14604abc37e11",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "config",
+      "label": "Config",
+      "route": "/config",
+      "section": "Settings",
+      "referencePage": "src/pages/ConfigPage.tsx",
+      "sourcePaths": [
+        "src/pages/ConfigPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/config.png",
+        "sha256": "6ab7035fb20dd3d921a8fddaa693897e810667fc2c6f66c1a1b95d81b6c67c2f",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/config.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTabs",
+        "dashboardFormPreview",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/config.png",
+        "sha256": "fdb7fecaa8b5bd25d303660b27e8e3fecf3ca5b6ec87a312b10c537e556f80c0",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "inspector",
+      "label": "Inspector",
+      "route": "/inspector",
+      "section": "Settings",
+      "referencePage": "src/pages/InspectorPage.tsx",
+      "sourcePaths": [
+        "src/pages/InspectorPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/inspector.png",
+        "sha256": "764e9ed9ed456fb72c25670ab17e820e1db8ff4b55842c9f918e8310b950d693",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/inspector.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTree",
+        "dashboardTable",
+        "dashboardEventLog"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/inspector.png",
+        "sha256": "f09f7bbc8116cb436c52c8981ef91bbd1423280bfa9acb59a53cc5368b6e4e79",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "state",
+      "label": "State",
+      "route": "/state",
+      "section": "Settings",
+      "referencePage": "src/pages/StatePage.tsx",
+      "sourcePaths": [
+        "src/pages/StatePage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/state.png",
+        "sha256": "627d287200411ccb6df27e09d09021e04edc437d1711d4479b014525669a94ca",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/state.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTree",
+        "dashboardEventLog",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/state.png",
+        "sha256": "b64e81c38ca0df6cd356398b10af0964a139b3fc6b41e3be3eb11bc02493894d",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "logs",
+      "label": "Logs",
+      "route": "/logs",
+      "section": "Settings",
+      "referencePage": "src/pages/LogsPage.tsx",
+      "sourcePaths": [
+        "src/pages/LogsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/logs.png",
+        "sha256": "db18199a17f23ccdd4d7b9144c18a33e7d80d440fa9764d20ac771bd1523dca4",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/logs.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardEventLog",
+        "dashboardFormPreview"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/logs.png",
+        "sha256": "cfd0cb40a47e42024c250dc552e927464bb41dd93c016c61e34f0b1d62f74359",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "estop",
+      "label": "E-Stop",
+      "route": "/estop",
+      "section": "Settings",
+      "referencePage": "src/pages/EStopPage.tsx",
+      "sourcePaths": [
+        "src/pages/EStopPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/estop.png",
+        "sha256": "ef68b13fd22bba38faea8d9ec138a5eaf36b52698472de065aa74ac401826165",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/estop.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/estop.png",
+        "sha256": "3f5d145b91252820d35ebfe64988202bb6f2b740cb66d64c50a059f4ef92afee",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "grpc",
+      "label": "gRPC Diagnostics",
+      "route": "/grpc",
+      "section": "Settings",
+      "referencePage": "src/pages/GrpcDiagnosticsPage.tsx",
+      "sourcePaths": [
+        "src/pages/GrpcDiagnosticsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/grpc.png",
+        "sha256": "d0429ec6cfee424992b7b333ec59da146245312a327bd89b8214cf27988f1420",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/grpc.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardTabs",
+        "dashboardTable",
+        "dashboardBarChart",
+        "dashboardTree",
+        "dashboardKeyValues"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/grpc.png",
+        "sha256": "1d2aa056d1b7a50db4e1e4915d16c6dbdec3242434fd4face366be07c4c2f4da",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "explorer",
+      "label": "gRPC Explorer",
+      "route": "/explorer",
+      "section": "Settings",
+      "referencePage": "src/pages/GrpcExplorerPage.tsx",
+      "sourcePaths": [
+        "src/pages/GrpcExplorerPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/explorer.png",
+        "sha256": "9bfd7c1b8925c663d43f6e02aad1e6117721406f558030b448bd4089f58a5569",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/explorer.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardEventLog",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/explorer.png",
+        "sha256": "e970023b4f616efb0cb71e06d86be13198928f683c5094cb90522140b7d3aefd",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "invoke",
+      "label": "Invoke",
+      "route": "/invoke",
+      "section": "Settings",
+      "referencePage": "src/pages/InvokePage.tsx",
+      "sourcePaths": [
+        "src/pages/InvokePage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/invoke.png",
+        "sha256": "1be71acf1268d364e012df756eeefbb0f438a4a0fa1aa6916be9a475412ef045",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/invoke.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTree",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/invoke.png",
+        "sha256": "b02aeaf15cefc3bc786c75877fc8c0d7bd47b38dd00749d37a87f5f70b7c0ee4",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "blobs",
+      "label": "Sealed Blobs",
+      "route": "/blobs",
+      "section": "Blobs",
+      "referencePage": "src/pages/BlobsPage.tsx",
+      "sourcePaths": [
+        "src/pages/BlobsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/blobs.png",
+        "sha256": "ef7ab1408e049b2cf609cc69a31b1c374e5d94d372ecf8fde42a241ba8b682ba",
+        "state": "error",
+        "detail": "Sealed blob catalog unavailablecatalog HTTP 503",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/blobs.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardTree",
+        "dashboardCode"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/blobs.png",
+        "sha256": "ca653982b2928fc755732b05403e217d366a37efb0645a7ad109b534bdbb61ec",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "plugins",
+      "label": "Stream",
+      "route": "/plugins",
+      "section": "Plugins",
+      "referencePage": null,
+      "sourcePaths": [
+        "src/pages/PluginsPage.tsx"
+      ],
+      "placeholder": false,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/plugins.png",
+        "sha256": "50dc761ddc0f18f61c70ddde2022a2b62285c795125eaabe0ceb0fccea83cb9b",
+        "state": "offline-empty",
+        "detail": "Original JSX with backend network disabled; static labels and empty/offline state only",
+        "validVisual": true
+      },
+      "exampleSpec": "specs/plugins.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus",
+        "dashboardFormPreview",
+        "dashboardTable",
+        "dashboardEventLog"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/plugins.png",
+        "sha256": "eb5b1db253cd9b85776eb94413a015b9d9907fb478229e10649e0da5a6586307",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "dreams",
+      "label": "Dreams",
+      "route": "/dreams",
+      "section": "Coming Soon",
+      "referencePage": null,
+      "sourcePaths": [],
+      "placeholder": true,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/dreams.png",
+        "sha256": "e1f1b9700adefb1523aadaedf1a51316262edd2ae67e97543fe9ede07c464b10",
+        "state": "placeholder",
+        "detail": "No legacy JSX page",
+        "validVisual": false
+      },
+      "exampleSpec": "specs/dreams.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/dreams.png",
+        "sha256": "37318d480dfb56ef0fd65f15e0fc1456263bac2ad9126dc14d244cad4ccb2774",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "reflections",
+      "label": "Reflections",
+      "route": "/reflections",
+      "section": "Coming Soon",
+      "referencePage": null,
+      "sourcePaths": [],
+      "placeholder": true,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/reflections.png",
+        "sha256": "8edba0471b48e788c07099a23442623063c0e61f15f11fc32e1ebd5f03124527",
+        "state": "placeholder",
+        "detail": "No legacy JSX page",
+        "validVisual": false
+      },
+      "exampleSpec": "specs/reflections.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/reflections.png",
+        "sha256": "af96f64d44555114891f07346cacf4c202ddb02ce34259dddc3b8d6c4daa1ec9",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "observability",
+      "label": "Observability",
+      "route": "/observability",
+      "section": "Coming Soon",
+      "referencePage": null,
+      "sourcePaths": [],
+      "placeholder": true,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/observability.png",
+        "sha256": "053cbf54156033c31567780a4a365bd1c8de8fac06b4999fe058867a11b9607b",
+        "state": "placeholder",
+        "detail": "No legacy JSX page",
+        "validVisual": false
+      },
+      "exampleSpec": "specs/observability.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/observability.png",
+        "sha256": "7bfd5f285f97e09de1df6ffc7a0a8336c16e74195b291b0b53039edd115b10cc",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    },
+    {
+      "id": "live-trace",
+      "label": "Live Trace",
+      "route": "/live-trace",
+      "section": "Coming Soon",
+      "referencePage": null,
+      "sourcePaths": [],
+      "placeholder": true,
+      "referenceScreenshot": {
+        "path": "screenshots/legacy/live-trace.png",
+        "sha256": "0a931cdfeb9525e17c5838bb12f376eca5ee107db213f0c9628d6cb8edb53d71",
+        "state": "placeholder",
+        "detail": "No legacy JSX page",
+        "validVisual": false
+      },
+      "exampleSpec": "specs/live-trace.json",
+      "elements": [
+        "container",
+        "pageHeader",
+        "dashboardStatus"
+      ],
+      "renderedScreenshot": {
+        "path": "screenshots/rendered/live-trace.png",
+        "sha256": "462e2c5779713c27a02f2c44d9a1d4ff2ed5b4fe665a0950da63ee1b1a361f27",
+        "kind": "json-render adaptation; illustrative static data"
+      }
+    }
+  ],
+  "catalog": {
+    "schema": "catalog.schema.json",
+    "prompt": "catalog.prompt.txt",
+    "inventory": "element-inventory.json"
+  }
+}

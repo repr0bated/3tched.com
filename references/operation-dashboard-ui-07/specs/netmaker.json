@@ -1,0 +1,148 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4",
+        "section-5"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Network Control",
+        "subtitle": "Infrastructure · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Historical Network Control reference",
+        "detail": "Netmaker and its standalone adapter are retired. These table and detail patterns are reusable; no retired calls are restored.",
+        "tone": "warning"
+      }
+    },
+    "section-1": {
+      "type": "dashboardTabs",
+      "props": {
+        "label": "Reference sections",
+        "tabs": [
+          {
+            "id": "tab0",
+            "label": "Networks",
+            "content": "Networks reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab1",
+            "label": "Hosts",
+            "content": "Hosts reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab2",
+            "label": "Events",
+            "content": "Events reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab3",
+            "label": "CLI",
+            "content": "CLI reference view. Live data and actions require the admitted plugin contract."
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Nodes",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Address"
+          },
+          {
+            "id": "c2",
+            "label": "Public Key"
+          },
+          {
+            "id": "c3",
+            "label": "Last Check-in"
+          },
+          {
+            "id": "c4",
+            "label": "Status"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-3": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Hosts",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "ID"
+          },
+          {
+            "id": "c2",
+            "label": "Public Key"
+          },
+          {
+            "id": "c3",
+            "label": "Version"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-4": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Node Detail",
+        "rows": [
+          {
+            "label": "Selection",
+            "value": "No live node"
+          }
+        ]
+      }
+    },
+    "section-5": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Output",
+        "language": "json",
+        "code": "{\n  \"status\": \"Historical reference only\"\n}"
+      }
+    }
+  }
+}

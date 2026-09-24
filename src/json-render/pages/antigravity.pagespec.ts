@@ -1,9 +1,9 @@
 import type { Spec } from "@json-render/core";
 
 /**
- * Adapted from the dashboard ChatOnly flat-map spec. The five direct component
- * names and thread repeat contract are preserved. Adapter-specific status copy
- * lives in the components, which read the active ChatAdapter's kind.
+ * Adapted from the dashboard ChatOnly flat-map spec. The direct component
+ * names are preserved; chatThread reads the selected door-resolved scope.
+ * Adapter-specific status copy lives in components that read ChatAdapter.
  */
 export const antigravitySpec: Spec = {
   root: "root",
@@ -11,14 +11,18 @@ export const antigravitySpec: Spec = {
     root: {
       type: "container",
       props: { className: "chat-only-layout" },
-      children: ["chat-header", "tched-picker", "antigravity-chat"],
+      children: ["chat-header", "chat-mode", "tched-picker", "antigravity-chat"],
     },
     "chat-header": {
       type: "pageHeader",
       props: {
         title: "3tched Chat",
-        subtitle: "One door · one credential · every turn is an audited tched_router call",
+        subtitle: "One door · one credential · scoped conversation and UI",
       },
+    },
+    "chat-mode": {
+      type: "chatModeSelector",
+      props: {},
     },
     "tched-picker": {
       type: "tchedRouterPicker",
@@ -31,25 +35,13 @@ export const antigravitySpec: Spec = {
         title: null,
         mode: "live",
         workspace: true,
-        placeholder: "Describe the interface you want to render",
+        placeholder: "Ask a question or describe what to show",
       },
       children: ["chat-thread"],
     },
     "chat-thread": {
-      type: "container",
-      props: { className: "message-thread" },
-      repeat: {
-        statePath: "/streams/stream_antigravity_01/messages",
-        key: "id",
-      },
-      children: ["chat-message"],
-    },
-    "chat-message": {
-      type: "chatMessage",
-      props: {
-        role: { $item: "role" },
-        content: { $item: "content" },
-      },
+      type: "chatThread",
+      props: { streamId: "stream_antigravity_01" },
     },
   },
 };

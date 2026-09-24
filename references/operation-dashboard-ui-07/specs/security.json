@@ -1,0 +1,133 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4",
+        "section-5"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Security",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Auth Mode",
+        "rows": [
+          {
+            "label": "Credential",
+            "value": "Exactly one authored OIA1 or SID1"
+          },
+          {
+            "label": "Grant check",
+            "value": "Server enforced"
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "TLS Status",
+        "detail": "Not queried",
+        "tone": "info"
+      }
+    },
+    "section-2": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Audit Chain",
+        "rows": [
+          {
+            "label": "Head",
+            "value": "No live data"
+          },
+          {
+            "label": "Verification",
+            "value": "Not run"
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Semantic Audit Search",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Search reasoning, mutations and decisions",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-4": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Qdrant",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Collection"
+          },
+          {
+            "id": "c1",
+            "label": "Scope"
+          },
+          {
+            "id": "c2",
+            "label": "Records"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-5": {
+      "type": "dashboardEventLog",
+      "props": {
+        "title": "Blockchain Ledger",
+        "entries": [
+          {
+            "time": "Example 09:00",
+            "title": "State committed",
+            "detail": "Illustrative event, with no identity or host data.",
+            "tone": "info"
+          },
+          {
+            "time": "Example 09:01",
+            "title": "View refreshed",
+            "detail": "Display reads the committed state.",
+            "tone": "success"
+          }
+        ]
+      }
+    }
+  }
+}

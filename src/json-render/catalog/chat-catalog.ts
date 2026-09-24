@@ -1,3 +1,4 @@
+import { dashboardElementSchemas } from "./dashboard-elements";
 import { defineCatalog } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
 import { z } from "zod";
@@ -7,11 +8,12 @@ import { z } from "zod";
  *
  * `appCatalog` is the complete copied future contract. It deliberately has no
  * matching registry here because many entries require the dashboard backend.
- * This catalog is smaller: the five direct ChatOnly elements plus the local
+ * This catalog is smaller: the direct ChatOnly elements plus the local
  * Canvas vocabulary that is actually implemented and safe to render.
  */
 export const chatCatalog = defineCatalog(schema, {
   components: {
+    ...dashboardElementSchemas,
     container: {
       props: z.object({ className: z.string().nullable() }),
       slots: ["default"],
@@ -26,6 +28,11 @@ export const chatCatalog = defineCatalog(schema, {
       props: z.object({ className: z.string().nullable() }),
       slots: [],
       description: "Local provider and model selectors behind the routing adapter.",
+    },
+    chatModeSelector: {
+      props: z.object({}),
+      slots: [],
+      description: "Door-authoritative session mode selection; unavailable projects are hidden.",
     },
     antigravityChatContainer: {
       props: z.object({
@@ -45,6 +52,11 @@ export const chatCatalog = defineCatalog(schema, {
       }),
       slots: [],
       description: "Individual message in the local Json Render state thread.",
+    },
+    chatThread: {
+      props: z.object({ streamId: z.string() }),
+      slots: [],
+      description: "Conversation messages from the selected verified session scope.",
     },
     autoTile: {
       props: z.object({

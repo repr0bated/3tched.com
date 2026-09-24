@@ -1,3 +1,5 @@
+import { readCanvasResponse } from "../json-render/references/canvas-contract";
+import { catalogPresentationMessage, referenceChatResponse } from "../json-render/references/reference-chat";
 /**
  * ChatAdapter backed by the :8090 door.
  *
@@ -10,8 +12,13 @@ import { startKnowledgeFeed, type KnowledgeFeed, type KnowledgePush } from "./kn
 import type { DoorbellStatus } from "./doorbell";
 import {
   getChatContext,
+  getNotebook,
+  listNotebooks,
   listProjects,
   selectChatMode,
+  selectNotebook,
+  type NotebookDetail,
+  type NotebookSummary,
   type ProjectSummary,
   type ResolvedChatContext,
   type SelectModeRequest,
@@ -32,8 +39,7 @@ export const TCHED_ROUTER = "tched_router";
 
 /** Method → declared capability, from the sealed tched_router schema. */
 export const TCHED_ROUTER_METHODS = {
-  ListProviders: "cap.software.3tched-router.providers.read@v1",
-  ListModels: "cap.software.3tched-router.models.read@v1",
+  GetState: "cap.software.3tched-router.state.read@v1",
   SetSelection: "cap.software.tched-router.selection.set@v1",
   Chat: "cap.software.3tched-router.chat@v1",
 } as const;
@@ -53,6 +59,14 @@ interface ModelRoute {
   available: boolean;
   status: string;
   status_reason: string;
+}
+
+interface TchedRouterState {
+  status: string;
+  selected_provider: string;
+  selected_model: string;
+  providers: Provider[];
+  model_routes: ModelRoute[];
 }
 
 interface ChatOutput {
@@ -145,35 +159,32 @@ export interface DoorChatAdapter extends ChatAdapter {
   selectChatMode(request: SelectModeRequest): Promise<ResolvedChatContext>;
   /** Projects this principal may select. */
   listProjects(): Promise<ProjectSummary[]>;
+  /** Notebooks this principal may bind to NotebookLM mode. */
+  listNotebooks(): Promise<NotebookSummary[]>;
+  /** Persist the notebook, then the caller selects notebook_lm mode. */
+  selectNotebook(notebookId: string): Promise<void>;
+  /** Sources and title for the notebook shown under the chat. */
+  getNotebook(notebookId: string): Promise<NotebookDetail>;
 }
 
 /**
- * Connect to the door, load the routable provider/model catalog, and return an
- * adapter. Throws a DoorError if the door refuses the identity or the catalog
- * has no routable model.
+ * Connect to the door, load the routable provider/model catalog from one
+ * committed state read, and return an adapter.
  */
 export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorChatAdapter> {
   const client = new DoorClient(config);
   let identity: DoorIdentity = config.identity;
 
-  const [providersOut, modelsOut] = await Promise.all([
-    client.call<{ providers: Provider[] }>(
-      TCHED_ROUTER,
-      "ListProviders",
-      {},
-      TCHED_ROUTER_METHODS.ListProviders,
-    ),
-    client.call<{ model_routes: ModelRoute[] }>(
-      TCHED_ROUTER,
-      "ListModels",
-      { provider: "" },
-      TCHED_ROUTER_METHODS.ListModels,
-    ),
-  ]);
+  const { result } = await client.call<{ state: TchedRouterState }>(
+    TCHED_ROUTER,
+    "GetState",
+    {},
+    TCHED_ROUTER_METHODS.GetState,
+  );
 
   const providers = toProviderOptions(
-    providersOut.result?.providers ?? [],
-    modelsOut.result?.model_routes ?? [],
+    result?.state?.providers ?? [],
+    result?.state?.model_routes ?? [],
   );
   if (providers.length === 0) {
     throw new DoorError("NOT_FOUND", "The router published no routable provider/model.");
@@ -191,6 +202,9 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     getChatContext: () => getChatContext(client),
     selectChatMode: (request) => selectChatMode(client, request),
     listProjects: () => listProjects(client),
+    listNotebooks: () => listNotebooks(client),
+    selectNotebook: (notebookId) => selectNotebook(client, notebookId),
+    getNotebook: (notebookId) => getNotebook(client, notebookId),
 
     followKnowledge(onKnowledge, onStatus) {
       let feed: KnowledgeFeed | null = null;
@@ -226,6 +240,9 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     },
 
     async submit(request: ChatRequest): Promise<ChatResponse> {
+      const reference = referenceChatResponse(request.message);
+      if (reference) return reference;
+      const wireMessage = catalogPresentationMessage(request.message, request.mode, request.notebook);
       const messages = request.history
         .filter((message) => message.role !== "system")
         .map((message) => ({ role: roleForWire(message.role), content: message.content }));
@@ -233,25 +250,31 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
         messages.push({ role: "user", content: request.message });
       }
 
+      messages[messages.length - 1] = { role: "user", content: wireMessage };
+
       const { result, eventHash } = await client.call<ChatOutput>(
         TCHED_ROUTER,
         "Chat",
         {
-          message: request.message,
+          message: wireMessage,
           messages,
-          provider: request.route.providerId,
-          model: request.route.modelId,
+          ...(request.mode === "control_plane" ? {} : {
+            provider: request.route.providerId,
+            model: request.route.modelId,
+          }),
         },
         TCHED_ROUTER_METHODS.Chat,
         { timeoutMs: CHAT_TIMEOUT_MS },
       );
 
       responseSequence += 1;
+      const rendered = readCanvasResponse(result.content);
       return {
+        ...(rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
         message: {
           id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`,
           role: "agent",
-          content: result.content,
+          content: rendered.content,
         },
       };
     },

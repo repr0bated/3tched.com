@@ -76,7 +76,7 @@ describe("Door connect gate", () => {
     expect(screen.queryByLabelText(/base64/i)).not.toBeInTheDocument();
   });
 
-  it("fetches identity again on retry after a door failure", async () => {
+  it("fetches identity again on retry after a catalog failure", async () => {
     const document = (sealedId: string) => new Response(JSON.stringify({
       door: "https://10.0.0.3:8090", identity: { kind: "sid1", sealedId },
     }));
@@ -84,7 +84,8 @@ describe("Door connect gate", () => {
       .mockResolvedValueOnce(document("TkVX"));
     vi.mocked(connectDoorChatAdapter).mockRejectedValueOnce(new Error("The door is not reachable right now."))
       .mockResolvedValueOnce(createLocalChatAdapter() as Awaited<ReturnType<typeof connectDoorChatAdapter>>);
-    await openGate();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Models unavailable" });
     expect(screen.getByRole("alert")).toHaveTextContent("not reachable");
     fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
     await screen.findByRole("heading", { name: "3tched Chat" });
@@ -106,7 +107,7 @@ describe("Local workbench fallback", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "3tched Chat" })).toBeInTheDocument();
     expect(screen.getByLabelText("Local model routing")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Golden workbench" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Interface canvas" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Reorder Canvas tile/i })).toHaveLength(6);
   });
 

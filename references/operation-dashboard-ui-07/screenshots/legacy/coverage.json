@@ -1,0 +1,380 @@
+{
+  "format": "od84.legacy-offline-capture.v1",
+  "captured_at": "2026-09-24T14:02:03Z",
+  "entries": [
+    {
+      "id": "chat",
+      "screenshot": "screenshots/legacy/chat.png",
+      "source": "src/pages/ChatPage.tsx",
+      "state": "offline-empty",
+      "heading": "Chat",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "accountability",
+      "screenshot": "screenshots/legacy/accountability.png",
+      "source": "src/pages/AccountabilityPage.tsx",
+      "state": "offline-empty",
+      "heading": "Chatbot Accountability",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "catalog",
+      "screenshot": "screenshots/legacy/catalog.png",
+      "source": "src/pages/CatalogPage.tsx",
+      "state": "offline-empty",
+      "heading": "UI Model Catalog",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "gallery",
+      "screenshot": "screenshots/legacy/gallery.png",
+      "source": "src/pages/GalleryPage.tsx",
+      "state": "error",
+      "heading": "UI Model Gallery",
+      "detail": "No spec source is servingGallery catalog (REST): gallery HTTP 503 · Chatbot model (3tched Router): tched_router schema HTTP 503 · Antigravity UI (sealed projection): antigravity schema HTTP 503"
+    },
+    {
+      "id": "generate",
+      "screenshot": "screenshots/legacy/generate.png",
+      "source": "src/pages/CatalogUIGeneratorPage.tsx",
+      "state": "offline-empty",
+      "heading": "Catalog + Zerolang Pattern",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "antigravity-llm",
+      "screenshot": "screenshots/legacy/antigravity-llm.png",
+      "source": "src/pages/AntiqravityLLMPage.tsx",
+      "state": "error",
+      "heading": "Antigravity LLM Projection",
+      "detail": "Failed to load UI surfacesantigravity schema HTTP 503"
+    },
+    {
+      "id": "overview",
+      "screenshot": "screenshots/legacy/overview.png",
+      "source": "src/pages/OverviewPage.tsx",
+      "state": "offline-empty",
+      "heading": "Overview",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "orchestration",
+      "screenshot": "screenshots/legacy/orchestration.png",
+      "source": "src/pages/OrchestrationPage.tsx",
+      "state": "offline-empty",
+      "heading": "Orchestration",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "services",
+      "screenshot": "screenshots/legacy/services.png",
+      "source": "src/pages/ServicesPage.tsx",
+      "state": "offline-empty",
+      "heading": "s6 Services",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "llm",
+      "screenshot": "screenshots/legacy/llm.png",
+      "source": "src/pages/LlmPage.tsx",
+      "state": "offline-empty",
+      "heading": "LLM",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "agents",
+      "screenshot": "screenshots/legacy/agents.png",
+      "source": "src/pages/AgentsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Agents",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "assistant",
+      "screenshot": "screenshots/legacy/assistant.png",
+      "source": "src/pages/AssistantPage.tsx",
+      "state": "offline-empty",
+      "heading": "Assistant Gateway",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "models",
+      "screenshot": "screenshots/legacy/models.png",
+      "source": "src/pages/RoutableModelsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Routable Models",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "tools",
+      "screenshot": "screenshots/legacy/tools.png",
+      "source": "src/pages/ToolsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Tools",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "workflows",
+      "screenshot": "screenshots/legacy/workflows.png",
+      "source": "src/pages/WorkflowsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Workflows",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "security",
+      "screenshot": "screenshots/legacy/security.png",
+      "source": "src/pages/SecurityPage.tsx",
+      "state": "offline-empty",
+      "heading": "Security & Audit",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "skills",
+      "screenshot": "screenshots/legacy/skills.png",
+      "source": "src/pages/SkillsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Cognitive Skills",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "knowledge",
+      "screenshot": "screenshots/legacy/knowledge.png",
+      "source": "src/pages/KnowledgePage.tsx",
+      "state": "offline-empty",
+      "heading": "Knowledge & ML",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "embedding",
+      "screenshot": "screenshots/legacy/embedding.png",
+      "source": "src/pages/EmbeddingPipelinePage.tsx",
+      "state": "error",
+      "heading": "Embedding Pipeline",
+      "detail": "Embedding service unavailableService unavailable — try again."
+    },
+    {
+      "id": "containers",
+      "screenshot": "screenshots/legacy/containers.png",
+      "source": "src/pages/ContainersPage.tsx",
+      "state": "offline-empty",
+      "heading": "Incus Containers",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "privacy-network",
+      "screenshot": "screenshots/legacy/privacy-network.png",
+      "source": "src/pages/PrivacyNetworkPage.tsx",
+      "state": "offline-empty",
+      "heading": "Privacy Network",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "netmaker",
+      "screenshot": "screenshots/legacy/netmaker.png",
+      "source": "src/pages/NetmakerPage.tsx",
+      "state": "error",
+      "heading": "Netmaker",
+      "detail": "Netmaker service errorService unavailable — try again."
+    },
+    {
+      "id": "ovs",
+      "screenshot": "screenshots/legacy/ovs.png",
+      "source": "src/pages/OpenSwitchPage.tsx",
+      "state": "offline-empty",
+      "heading": "Open vSwitch",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "openflow",
+      "screenshot": "screenshots/legacy/openflow.png",
+      "source": "src/pages/OpenFlowPage.tsx",
+      "state": "offline-empty",
+      "heading": "OpenFlow",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "btrfs",
+      "screenshot": "screenshots/legacy/btrfs.png",
+      "source": "src/pages/BtrfsPage.tsx",
+      "state": "error",
+      "heading": "BTRFS Storage",
+      "detail": "BTRFS service unavailableService unavailable — try again."
+    },
+    {
+      "id": "data-stores",
+      "screenshot": "screenshots/legacy/data-stores.png",
+      "source": "src/pages/DataStoresPage.tsx",
+      "state": "error",
+      "heading": "Data Stores",
+      "detail": "Data store status unavailableService unavailable — try again."
+    },
+    {
+      "id": "gateway",
+      "screenshot": "screenshots/legacy/gateway.png",
+      "source": "src/pages/GatewayPage.tsx",
+      "state": "offline-empty",
+      "heading": "Gateway",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "channels",
+      "screenshot": "screenshots/legacy/channels.png",
+      "source": "src/pages/ChannelsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Channels",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "cron",
+      "screenshot": "screenshots/legacy/cron.png",
+      "source": "src/pages/CronPage.tsx",
+      "state": "offline-empty",
+      "heading": "Scheduled Tasks",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "integrations",
+      "screenshot": "screenshots/legacy/integrations.png",
+      "source": "src/pages/IntegrationsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Integrations",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "hardware",
+      "screenshot": "screenshots/legacy/hardware.png",
+      "source": "src/pages/HardwarePage.tsx",
+      "state": "offline-empty",
+      "heading": "Hardware",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "config",
+      "screenshot": "screenshots/legacy/config.png",
+      "source": "src/pages/ConfigPage.tsx",
+      "state": "offline-empty",
+      "heading": "Config",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "inspector",
+      "screenshot": "screenshots/legacy/inspector.png",
+      "source": "src/pages/InspectorPage.tsx",
+      "state": "offline-empty",
+      "heading": "D-Bus Inspector",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "state",
+      "screenshot": "screenshots/legacy/state.png",
+      "source": "src/pages/StatePage.tsx",
+      "state": "offline-empty",
+      "heading": "Live State",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "logs",
+      "screenshot": "screenshots/legacy/logs.png",
+      "source": "src/pages/LogsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Logs",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "estop",
+      "screenshot": "screenshots/legacy/estop.png",
+      "source": "src/pages/EStopPage.tsx",
+      "state": "offline-empty",
+      "heading": "Emergency Stop",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "grpc",
+      "screenshot": "screenshots/legacy/grpc.png",
+      "source": "src/pages/GrpcDiagnosticsPage.tsx",
+      "state": "offline-empty",
+      "heading": "gRPC Diagnostics",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "explorer",
+      "screenshot": "screenshots/legacy/explorer.png",
+      "source": "src/pages/GrpcExplorerPage.tsx",
+      "state": "offline-empty",
+      "heading": "gRPC Explorer",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "invoke",
+      "screenshot": "screenshots/legacy/invoke.png",
+      "source": "src/pages/InvokePage.tsx",
+      "state": "offline-empty",
+      "heading": "Invoke",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "blobs",
+      "screenshot": "screenshots/legacy/blobs.png",
+      "source": "src/pages/BlobsPage.tsx",
+      "state": "error",
+      "heading": "Sealed Blobs",
+      "detail": "Sealed blob catalog unavailablecatalog HTTP 503"
+    },
+    {
+      "id": "plugins",
+      "screenshot": "screenshots/legacy/plugins.png",
+      "source": "src/pages/PluginsPage.tsx",
+      "state": "offline-empty",
+      "heading": "Plugins",
+      "detail": "Original JSX with backend network disabled; static labels and empty/offline state only"
+    },
+    {
+      "id": "dreams",
+      "screenshot": "screenshots/legacy/dreams.png",
+      "source": "",
+      "state": "placeholder",
+      "heading": "Dreams",
+      "detail": "No legacy JSX page"
+    },
+    {
+      "id": "reflections",
+      "screenshot": "screenshots/legacy/reflections.png",
+      "source": "",
+      "state": "placeholder",
+      "heading": "Reflections",
+      "detail": "No legacy JSX page"
+    },
+    {
+      "id": "observability",
+      "screenshot": "screenshots/legacy/observability.png",
+      "source": "",
+      "state": "placeholder",
+      "heading": "Observability",
+      "detail": "No legacy JSX page"
+    },
+    {
+      "id": "live-trace",
+      "screenshot": "screenshots/legacy/live-trace.png",
+      "source": "",
+      "state": "placeholder",
+      "heading": "Live Trace",
+      "detail": "No legacy JSX page"
+    },
+    {
+      "id": "tched-router-config",
+      "screenshot": "screenshots/legacy/tched-router-config.png",
+      "source": "src/json-render/catalog/components/tched-router-config.tsx",
+      "state": "unavailable",
+      "heading": null,
+      "detail": "Old component cannot initialize in an isolated production bundle (ReferenceError: Cannot access module binding before initialization); config-client was also stubbed offline. Screenshot records the failure, not the original visual layout."
+    }
+  ],
+  "counts": {
+    "error": 7,
+    "offline-empty": 34,
+    "placeholder": 4,
+    "unavailable": 1
+  }
+}

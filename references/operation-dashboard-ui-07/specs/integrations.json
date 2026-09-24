@@ -1,0 +1,70 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Integrations",
+        "subtitle": "ZeroClaw · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Integrations",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Integration"
+          },
+          {
+            "id": "c1",
+            "label": "Category"
+          },
+          {
+            "id": "c2",
+            "label": "Status"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-1": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Integration details",
+        "rows": [
+          {
+            "label": "Contract",
+            "value": "Admitted plugin schema"
+          },
+          {
+            "label": "Availability",
+            "value": "Not queried"
+          }
+        ]
+      }
+    }
+  }
+}

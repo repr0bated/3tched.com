@@ -118,7 +118,7 @@ select:focus-visible {
 
 .eyebrow {
   margin: 0 0 3px;
-  color: var(--faint);
+  color: var(--muted);
   font-family: var(--mono);
   font-size: 9px;
   font-weight: 700;

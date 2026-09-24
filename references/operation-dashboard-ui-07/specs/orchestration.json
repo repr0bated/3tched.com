@@ -1,0 +1,123 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Orchestration",
+        "subtitle": "Control · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTopology",
+      "props": {
+        "title": "Execution Graph",
+        "nodes": [
+          {
+            "id": "node0",
+            "label": "Plan",
+            "detail": "Illustrative topology",
+            "x": 10,
+            "y": 50
+          },
+          {
+            "id": "node1",
+            "label": "Execute",
+            "detail": "Illustrative topology",
+            "x": 50,
+            "y": 50
+          },
+          {
+            "id": "node2",
+            "label": "Verify",
+            "detail": "Illustrative topology",
+            "x": 90,
+            "y": 50
+          }
+        ],
+        "edges": [
+          {
+            "from": "node0",
+            "to": "node1",
+            "label": "Example link"
+          },
+          {
+            "from": "node1",
+            "to": "node2",
+            "label": "Example link"
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Task Ledger",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Task ID"
+          },
+          {
+            "id": "c1",
+            "label": "Agent"
+          },
+          {
+            "id": "c2",
+            "label": "Status"
+          },
+          {
+            "id": "c3",
+            "label": "Duration"
+          },
+          {
+            "id": "c4",
+            "label": "Time"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "example-task",
+              "Example agent",
+              "Pending",
+              "—",
+              "—"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Task detail",
+        "language": "json",
+        "code": "{\n  \"input\": {},\n  \"output\": null\n}"
+      }
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Logs",
+        "subtitle": "Settings · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardEventLog",
+      "props": {
+        "title": "Logs",
+        "entries": [
+          {
+            "time": "Example 09:00",
+            "title": "State committed",
+            "detail": "Illustrative event, with no identity or host data.",
+            "tone": "info"
+          },
+          {
+            "time": "Example 09:01",
+            "title": "View refreshed",
+            "detail": "Display reads the committed state.",
+            "tone": "success"
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Log filters",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Search",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          },
+          {
+            "id": "field1",
+            "label": "Severity",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    }
+  }
+}

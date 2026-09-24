@@ -5,7 +5,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage", "src/grpc/gen"] },
+  // Historical offline capture harness is archived as source, not app code.
+  { ignores: ["dist", "coverage", "src/grpc/gen", "references/operation-dashboard-ui-07/capture/**"] },
   {
     files: ["**/*.{ts,tsx}"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

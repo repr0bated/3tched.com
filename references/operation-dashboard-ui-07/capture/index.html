@@ -1,0 +1,6 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Legacy dashboard offline reference</title>
+<script>
+window.fetch = async () => new Response(JSON.stringify({error:"Offline reference capture; no backend connected"}), {status:503,headers:{"content-type":"application/json"}});
+window.WebSocket = class { static CONNECTING=0; static OPEN=1; static CLOSING=2; static CLOSED=3; readyState=3; constructor(){queueMicrotask(()=>this.onerror?.(new Event("error")))} close(){} send(){} addEventListener(){} removeEventListener(){} };
+window.EventSource = class { readyState=2; constructor(){queueMicrotask(()=>this.onerror?.(new Event("error")))} close(){} addEventListener(){} removeEventListener(){} };
+</script></head><body><div id="root"></div><script type="module" src="/main.tsx"></script></body></html>

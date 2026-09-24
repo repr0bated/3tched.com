@@ -1,0 +1,94 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Tools",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Tool search",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Search tools",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Tools",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Description"
+          },
+          {
+            "id": "c2",
+            "label": "Capability"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Execute",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Arguments",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Result",
+        "language": "json",
+        "code": "{\n  \"state\": \"Not executed\"\n}"
+      }
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Agents",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardMetric",
+      "props": {
+        "label": "Agents",
+        "value": "2",
+        "detail": "Illustrative sample"
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Agent roster",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Agent"
+          },
+          {
+            "id": "c1",
+            "label": "Status"
+          },
+          {
+            "id": "c2",
+            "label": "Model"
+          },
+          {
+            "id": "c3",
+            "label": "Risk profile"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "example-agent",
+              "Idle",
+              "Example model",
+              "Read only"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "System Prompt",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Prompt",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Agent configuration",
+        "rows": [
+          {
+            "label": "Memory",
+            "value": "Scoped to verified session"
+          },
+          {
+            "label": "Tools",
+            "value": "Require admitted grants"
+          }
+        ]
+      }
+    }
+  }
+}

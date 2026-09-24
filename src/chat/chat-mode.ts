@@ -8,16 +8,19 @@ import type { DoorClient } from "../grpc/door";
 export const PROJECT_PLUGIN = "project";
 export const CHAT_CONTEXT = "chat.context";
 export const PROJECT_READ = "project.read";
+export const NOTEBOOKLM_PLUGIN = "notebooklm";
+export const NOTEBOOKLM_READ = "notebooklm.read";
+export const NOTEBOOKLM_INVOKE = "notebooklm.invoke";
 
-export type ChatMode = "personal" | "project" | "control_plane" | "accountability" | "notebooklm" | "ui_render";
+export type ChatMode = "personal" | "project" | "control_plane" | "accountability" | "notebook_lm" | "ui_render";
 
 export const CHAT_MODES: Array<{ id: ChatMode; label: string; hint: string }> = [
   { id: "personal", label: "Personal", hint: "Your memory; optional named sub-space" },
   { id: "project", label: "Project", hint: "A project you own or were invited to" },
   { id: "control_plane", label: "Control plane", hint: "Requires the control-plane grant" },
   { id: "accountability", label: "Accountability", hint: "Ledger view; memory is read-only" },
-  { id: "notebooklm", label: "NotebookLM", hint: "The selected notebook" },
-  { id: "ui_render", label: "UI render", hint: "No memory read or written" },
+  { id: "notebook_lm", label: "NotebookLM", hint: "The selected notebook" },
+  { id: "ui_render", label: "UI render", hint: "Explore candidate interfaces; no memory read or written" },
 ];
 
 export interface ResolvedChatContext {
@@ -35,6 +38,39 @@ export interface ProjectSummary {
   project_id: string;
   title: string;
   status: string;
+}
+
+export interface NotebookSummary {
+  id: string;
+  title: string;
+}
+
+export interface NotebookSource {
+  id: string;
+  title: string;
+}
+
+export interface NotebookDetail {
+  notebook_id: string;
+  title: string;
+  source_count: number;
+  url: string;
+  sources: NotebookSource[];
+  emoji?: string | null;
+}
+
+/** The notebook titled wishlist is the default NotebookLM notebook. */
+export function defaultNotebook(notebooks: NotebookSummary[]): NotebookSummary | undefined {
+  return notebooks.find((notebook) => notebook.title.trim().toLowerCase() === "wishlist");
+}
+
+/** The notebook id persisted in a NotebookLM memory namespace, when one is selected. */
+export function notebookIdFromNamespace(namespace: string): string | null {
+  const marker = "/notebooklm/";
+  const index = namespace.indexOf(marker);
+  if (index < 0) return null;
+  const id = namespace.slice(index + marker.length);
+  return id && !id.includes("/") ? id : null;
 }
 
 export interface SelectModeRequest {
@@ -64,4 +100,36 @@ export async function listProjects(client: DoorClient): Promise<ProjectSummary[]
     PROJECT_READ,
   );
   return (result.projects ?? []).map((entry) => ("project" in entry ? entry.project : entry));
+}
+
+export async function listNotebooks(client: DoorClient): Promise<NotebookSummary[]> {
+  const { result } = await client.call<{ notebooks: NotebookSummary[] }>(
+    NOTEBOOKLM_PLUGIN,
+    "notebook_list",
+    {},
+    NOTEBOOKLM_READ,
+  );
+  return (result.notebooks ?? []).filter((notebook) => notebook.id);
+}
+
+export async function selectNotebook(client: DoorClient, notebookId: string): Promise<void> {
+  await client.call(
+    NOTEBOOKLM_PLUGIN,
+    "select_notebook",
+    { notebook_id: notebookId },
+    NOTEBOOKLM_INVOKE,
+  );
+}
+
+export async function getNotebook(client: DoorClient, notebookId: string): Promise<NotebookDetail> {
+  const { result } = await client.call<NotebookDetail>(
+    NOTEBOOKLM_PLUGIN,
+    "notebook_get",
+    { notebook_id: notebookId },
+    NOTEBOOKLM_READ,
+  );
+  return {
+    ...result,
+    sources: result.sources ?? [],
+  };
 }

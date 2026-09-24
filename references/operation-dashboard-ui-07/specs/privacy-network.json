@@ -1,0 +1,105 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Privacy Network",
+        "subtitle": "Infrastructure · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTopology",
+      "props": {
+        "title": "Privacy Network",
+        "nodes": [
+          {
+            "id": "node0",
+            "label": "Client",
+            "detail": "Illustrative topology",
+            "x": 10,
+            "y": 50
+          },
+          {
+            "id": "node1",
+            "label": "Decoy",
+            "detail": "Illustrative topology",
+            "x": 50,
+            "y": 50
+          },
+          {
+            "id": "node2",
+            "label": "Service",
+            "detail": "Illustrative topology",
+            "x": 90,
+            "y": 50
+          }
+        ],
+        "edges": [
+          {
+            "from": "node0",
+            "to": "node1",
+            "label": "Example link"
+          },
+          {
+            "from": "node1",
+            "to": "node2",
+            "label": "Example link"
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Network options",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Obfuscation Level",
+            "type": "number",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Node configuration",
+        "rows": [
+          {
+            "label": "Role",
+            "value": "Example transport node"
+          },
+          {
+            "label": "Status",
+            "value": "Not queried"
+          }
+        ]
+      }
+    }
+  }
+}

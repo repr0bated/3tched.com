@@ -1,0 +1,83 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Chat",
+        "subtitle": "Chat · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Conversation",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Session ID",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          },
+          {
+            "id": "field1",
+            "label": "Message",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardEventLog",
+      "props": {
+        "title": "Conversation transcript",
+        "entries": [
+          {
+            "time": "Example 09:00",
+            "title": "State committed",
+            "detail": "Illustrative event, with no identity or host data.",
+            "tone": "info"
+          },
+          {
+            "time": "Example 09:01",
+            "title": "View refreshed",
+            "detail": "Display reads the committed state.",
+            "tone": "success"
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Structured response",
+        "language": "json",
+        "code": "{\n  \"message\": \"Example assistant reply\"\n}"
+      }
+    }
+  }
+}

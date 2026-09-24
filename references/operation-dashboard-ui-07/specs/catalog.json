@@ -1,0 +1,76 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Catalog",
+        "subtitle": "UI Model · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Approved UI models",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Component"
+          },
+          {
+            "id": "c2",
+            "label": "Schema hash"
+          },
+          {
+            "id": "c3",
+            "label": "Status"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "Example metric",
+              "dashboardMetric",
+              "Example hash",
+              "Reference only"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-1": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Composition",
+        "language": "json",
+        "code": "{\n  \"type\": \"dashboardMetric\",\n  \"props\": {\n    \"label\": \"Example\",\n    \"value\": \"12\"\n  }\n}"
+      }
+    }
+  }
+}

@@ -11,6 +11,7 @@ import type {
   RouteSelection,
 } from "./chat-adapter";
 import { initialCanvasSpec } from "./local-chat-adapter";
+import type { ResolvedChatContext } from "./chat-mode";
 
 interface ChatRuntimeValue {
   adapter: ChatAdapter;
@@ -18,6 +19,9 @@ interface ChatRuntimeValue {
   route: RouteSelection;
   routePending: boolean;
   routeError: string | null;
+  chatContext: ResolvedChatContext | null;
+  scopeKey: string;
+  setChatContext: (context: ResolvedChatContext) => void;
   canvasSpec: Spec;
   setCanvasSpec: (spec: Spec) => void;
   selectProvider: (providerId: string) => Promise<void>;
@@ -25,6 +29,22 @@ interface ChatRuntimeValue {
 }
 
 const ChatRuntimeContext = createContext<ChatRuntimeValue | null>(null);
+
+/** The door's resolved session scope is the authority for both thread and Canvas. */
+export function chatScopeKey(context: ResolvedChatContext | null, remote: boolean): string {
+  if (!remote) return "local";
+  if (!context) return "awaiting-door";
+  return encodeURIComponent(JSON.stringify([
+    context.session_id,
+    context.mode,
+    context.project_id,
+    context.memory_namespace,
+  ]));
+}
+
+export function chatMessagesPath(streamId: string, scopeKey: string): string {
+  return `/streams/${streamId}/scopes/${scopeKey}/messages`;
+}
 
 export function ChatRuntimeProvider({
   adapter,
@@ -45,7 +65,13 @@ export function ChatRuntimeProvider({
   });
   const [routePending, setRoutePending] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
-  const [canvasSpec, setCanvasSpec] = useState<Spec>(initialCanvasSpec);
+  const [chatContext, setChatContext] = useState<ResolvedChatContext | null>(null);
+  const [canvasByScope, setCanvasByScope] = useState<Map<string, Spec>>(() => new Map());
+  const scopeKey = chatScopeKey(chatContext, adapter.kind === "remote");
+  const canvasSpec = canvasByScope.get(scopeKey) ?? initialCanvasSpec;
+  const setCanvasSpec = (spec: Spec) => {
+    setCanvasByScope(previous => new Map(previous).set(scopeKey, spec));
+  };
 
   const commitRoute = async (next: RouteSelection) => {
     setRoutePending(true);
@@ -65,6 +91,9 @@ export function ChatRuntimeProvider({
     route,
     routePending,
     routeError,
+    chatContext,
+    scopeKey,
+    setChatContext,
     canvasSpec,
     setCanvasSpec,
     selectProvider: async (providerId) => {

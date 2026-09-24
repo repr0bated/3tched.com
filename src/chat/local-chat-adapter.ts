@@ -1,3 +1,4 @@
+import { referenceChatResponse } from "../json-render/references/reference-chat";
 import type { Spec } from "@json-render/core";
 import type {
   ChatAdapter,
@@ -242,6 +243,8 @@ export function createLocalChatAdapter(delayMilliseconds = 420): ChatAdapter {
       return assertSelection(selection);
     },
     async submit(request: ChatRequest): Promise<ChatResponse> {
+      const reference = referenceChatResponse(request.message);
+      if (reference) return reference;
       assertSelection(request.route);
       await wait(delayMilliseconds);
       const subject = summarize(request.message);

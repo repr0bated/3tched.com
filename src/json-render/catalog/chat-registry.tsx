@@ -1,7 +1,10 @@
+import { dashboardComponents } from "./dashboard-components";
 import {
   Children,
   Component,
   isValidElement,
+  useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -26,9 +29,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Renderer, defineRegistry, useStateStore, useStateValue } from "@json-render/react";
 import { setByPath } from "@json-render/core";
-import { useChatRuntime } from "../../chat/ChatRuntimeProvider";
+import { chatMessagesPath, useChatRuntime } from "../../chat/ChatRuntimeProvider";
 import type { ChatMessage } from "../../chat/chat-adapter";
+import { notebookIdFromNamespace } from "../../chat/chat-mode";
+import { ModeStrip } from "../../chat/ModeStrip";
+import type { DoorChatAdapter } from "../../chat/door-chat-adapter";
 import { chatCatalog } from "./chat-catalog";
+import { notebookCanvasSpec } from "../references/canvas-contract";
 
 const ARROW: Record<string, string> = {
   up: "↑",
@@ -57,6 +64,13 @@ function isChatMessage(value: unknown): value is ChatMessage {
 
 function toMessages(value: unknown): ChatMessage[] {
   return Array.isArray(value) ? value.filter(isChatMessage) : [];
+}
+
+function ChatMessageView({ message }: { message: ChatMessage }) {
+  return <article className={`message message--${message.role}`}>
+    <p className="message__role">{message.role === "agent" ? "assistant" : message.role}</p>
+    <p>{message.content}</p>
+  </article>;
 }
 
 const TILE_PATTERN = ["hero", "wide", "compact", "tall", "wide", "compact"] as const;
@@ -157,6 +171,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
     },
   },
   components: {
+    ...dashboardComponents,
     container: ({ props, children }) => (
       <div className={props.className ?? "catalog-stack"}>{children}</div>
     ),
@@ -180,9 +195,15 @@ const registryDefinition = defineRegistry(chatCatalog, {
       );
     },
 
+    chatModeSelector: function ChatModeSelector() {
+      const { adapter, setChatContext } = useChatRuntime();
+      return <ModeStrip adapter={adapter} onContextChange={setChatContext} />;
+    },
+
     tchedRouterPicker: function TchedRouterPicker({ props }) {
       const {
         adapter,
+        chatContext,
         providers,
         route,
         routeError,
@@ -191,6 +212,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
         selectProvider,
       } = useChatRuntime();
       const remote = adapter.kind === "remote";
+      if (remote && (!chatContext || chatContext.mode === "control_plane")) return null;
       const models =
         providers.find((provider) => provider.id === route.providerId)?.models ?? [];
 
@@ -246,20 +268,53 @@ const registryDefinition = defineRegistry(chatCatalog, {
     },
 
     antigravityChatContainer: function AntigravityChatContainer({ props, children }) {
-      const [input, setInput] = useState("");
-      const [sending, setSending] = useState(false);
-      const [error, setError] = useState<string | null>(null);
-      const { adapter, canvasSpec, route, setCanvasSpec } = useChatRuntime();
+      const [inputs, setInputs] = useState<Map<string, string>>(() => new Map());
+      const [sendingScopes, setSendingScopes] = useState<Set<string>>(() => new Set());
+      const [errors, setErrors] = useState<Map<string, string>>(() => new Map());
+      const { adapter, canvasSpec, chatContext, route, scopeKey, setCanvasSpec } = useChatRuntime();
       const remote = adapter.kind === "remote";
       const { get, set } = useStateStore();
-      const messagesPath = `/streams/${props.streamId}/messages`;
+      const messagesPath = chatMessagesPath(props.streamId, scopeKey);
+      const input = inputs.get(scopeKey) ?? "";
+      const sending = sendingScopes.has(scopeKey);
+      const error = errors.get(scopeKey) ?? null;
+      const setInput = (value: string) => setInputs(previous => new Map(previous).set(scopeKey, value));
+      const setSending = (value: boolean) => setSendingScopes(previous => {
+        const next = new Set(previous);
+        if (value) next.add(scopeKey);
+        else next.delete(scopeKey);
+        return next;
+      });
+      const setError = (value: string | null) => setErrors(previous => {
+        const next = new Map(previous);
+        if (value) next.set(scopeKey, value);
+        else next.delete(scopeKey);
+        return next;
+      });
       const messageValue = useStateValue(messagesPath);
       const messages = toMessages(messageValue);
+      const notebookId = chatContext?.mode === "notebook_lm"
+        ? notebookIdFromNamespace(chatContext.memory_namespace)
+        : null;
+      const setCanvasSpecRef = useRef(setCanvasSpec);
+      setCanvasSpecRef.current = setCanvasSpec;
+      useEffect(() => {
+        if (!notebookId || typeof (adapter as DoorChatAdapter).getNotebook !== "function") return;
+        let cancelled = false;
+        void (adapter as DoorChatAdapter).getNotebook(notebookId)
+          .then((detail) => {
+            if (!cancelled) setCanvasSpecRef.current(notebookCanvasSpec(detail));
+          })
+          .catch(() => undefined);
+        return () => {
+          cancelled = true;
+        };
+      }, [adapter, notebookId]);
 
       const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const message = input.trim();
-        if (!message || sending) return;
+        if (!message || sending || (remote && !chatContext)) return;
 
         const userMessage: ChatMessage = {
           id: nextUserMessageId(),
@@ -273,7 +328,13 @@ const registryDefinition = defineRegistry(chatCatalog, {
         setSending(true);
 
         try {
-          const response = await adapter.submit({ message, history, route });
+          const notebookId = chatContext?.mode === "notebook_lm"
+            ? notebookIdFromNamespace(chatContext.memory_namespace)
+            : null;
+          const notebook = notebookId && typeof (adapter as DoorChatAdapter).getNotebook === "function"
+            ? await (adapter as DoorChatAdapter).getNotebook(notebookId).catch(() => null)
+            : undefined;
+          const response = await adapter.submit({ message, history, route, mode: chatContext?.mode, notebook });
           set(messagesPath, [
             ...toMessages(get(messagesPath)),
             response.message,
@@ -305,8 +366,8 @@ const registryDefinition = defineRegistry(chatCatalog, {
                   <strong>{remote ? "Start the conversation." : "Start with an interface brief."}</strong>
                   <p>
                     {remote
-                      ? "Each turn is one authenticated Chat call on tched_router through the door; the reply lands in the state-backed thread."
-                      : "Try “Build an incident triage board.” The local adapter will answer in the state-backed thread and repack the Canvas below."}
+                      ? "Chat uses your authenticated connection. Use /ui-reference to browse static interface examples."
+                      : "Try /ui-reference btrfs to load a dashboard example, or describe an interface."}
                   </p>
                 </div>
               ) : null}
@@ -320,10 +381,10 @@ const registryDefinition = defineRegistry(chatCatalog, {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder={props.placeholder ?? "Send a message"}
-                disabled={sending}
+                disabled={sending || (remote && !chatContext)}
                 autoComplete="off"
               />
-              <button type="submit" disabled={sending || !input.trim()}>
+              <button type="submit" disabled={sending || !input.trim() || (remote && !chatContext)}>
                 {sending ? "Sending" : "Send"}
               </button>
             </form>
@@ -352,18 +413,18 @@ const registryDefinition = defineRegistry(chatCatalog, {
                 </nav>
                 <div className="canvas-state">
                   <span aria-hidden="true" />
-                  draggable local spec
+                  catalog-validated canvas
                 </div>
               </div>
               <div className="canvas-frame">
                 <div className="canvas-intro">
                   <div>
                     <p className="eyebrow">SCHEMA-RENDERED CANVAS</p>
-                    <h2>Golden workbench</h2>
+                    <h2>Interface canvas</h2>
                   </div>
                   <p>
-                    Drag tiles to reorder and repack. A real adapter can replace
-                    this supported local sample with generated UI.
+                    Ask in any mode for a useful visual. Use UI render to explore
+                    candidate interface designs, or open /ui-reference examples.
                   </p>
                 </div>
                 <CanvasBoundary key={JSON.stringify(canvasSpec)}>
@@ -371,8 +432,8 @@ const registryDefinition = defineRegistry(chatCatalog, {
                 </CanvasBoundary>
               </div>
               <footer className="developer-status">
-                <span>@json-render/core + react</span>
-                <span>full catalog copied / ChatOnly registry active</span>
+                <span>Validated component catalog</span>
+                <span>Canvas follows the selected conversation scope</span>
               </footer>
             </section>
           ) : null}
@@ -380,14 +441,15 @@ const registryDefinition = defineRegistry(chatCatalog, {
       );
     },
 
-    chatMessage: ({ props }) => (
-      <article className={`message message--${props.role}`}>
-        <p className="message__role">
-          {props.role === "agent" ? "assistant" : props.role}
-        </p>
-        <p>{props.content}</p>
-      </article>
-    ),
+    chatMessage: ({ props }) => <ChatMessageView message={{ id: "static", ...props }} />,
+
+    chatThread: function ChatThread({ props }) {
+      const { scopeKey } = useChatRuntime();
+      const messages = toMessages(useStateValue(chatMessagesPath(props.streamId, scopeKey)));
+      return <div className="message-thread">{messages.map(message =>
+        <ChatMessageView key={message.id} message={message} />
+      )}</div>;
+    },
 
     autoTile: function AutoTile({ props, children }) {
       const childNodes = Children.toArray(children);

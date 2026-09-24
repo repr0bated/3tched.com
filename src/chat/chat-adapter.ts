@@ -1,4 +1,5 @@
 import type { Spec } from "@json-render/core";
+import type { ChatMode, NotebookDetail } from "./chat-mode";
 
 export type ChatRole = "user" | "agent" | "system";
 
@@ -29,6 +30,9 @@ export interface ChatRequest {
   message: string;
   history: ChatMessage[];
   route: RouteSelection;
+  mode?: ChatMode;
+  /** Facts the NotebookLM prompt asks the chatbot to render. */
+  notebook?: NotebookDetail | null;
 }
 
 export interface ChatResponse {

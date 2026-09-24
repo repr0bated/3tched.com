@@ -1,0 +1,56 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "E-Stop",
+        "subtitle": "Settings · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Emergency Stop Status",
+        "detail": "Not queried. No emergency control is bound in this reference.",
+        "tone": "warning"
+      }
+    },
+    "section-1": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Safety state",
+        "rows": [
+          {
+            "label": "State",
+            "value": "Unknown"
+          },
+          {
+            "label": "Authority",
+            "value": "Verified server grant required"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,951 @@
+[
+  {
+    "id": "chat",
+    "label": "Chat",
+    "route": "/antigravity/chat",
+    "section": "Chat",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/ChatPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/chat.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardEventLog",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "accountability",
+    "label": "Accountability",
+    "route": "/accountability",
+    "section": "Chat",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/AccountabilityPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/accountability.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardEventLog"
+    ]
+  },
+  {
+    "id": "catalog",
+    "label": "Catalog",
+    "route": "/catalog",
+    "section": "UI Model",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/CatalogPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/catalog.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "gallery",
+    "label": "Gallery",
+    "route": "/gallery",
+    "section": "UI Model",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/GalleryPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/gallery.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTabs",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "generate",
+    "label": "Generate",
+    "route": "/generate",
+    "section": "UI Model",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/CatalogUIGeneratorPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/generate.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardKeyValues",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "antigravity-llm",
+    "label": "Antigravity LLM",
+    "route": "/antigravity-llm",
+    "section": "UI Model",
+    "referencePage": "src/pages/AntiqravityLLMPage.tsx",
+    "sourcePaths": [
+      "src/pages/AntiqravityLLMPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/antigravity-llm.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "overview",
+    "label": "Overview",
+    "route": "/overview",
+    "section": "Control",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/OverviewPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/overview.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardMetric",
+      "dashboardProgress",
+      "dashboardKeyValues",
+      "dashboardTable",
+      "dashboardBarChart",
+      "dashboardCode",
+      "dashboardEventLog"
+    ]
+  },
+  {
+    "id": "orchestration",
+    "label": "Orchestration",
+    "route": "/orchestration",
+    "section": "Control",
+    "referencePage": "src/pages/OrchestrationPage.tsx",
+    "sourcePaths": [
+      "src/pages/OrchestrationPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/orchestration.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTopology",
+      "dashboardTable",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "services",
+    "label": "Services",
+    "route": "/services",
+    "section": "Control",
+    "referencePage": "src/pages/ServicesPage.tsx",
+    "sourcePaths": [
+      "src/pages/ServicesPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/services.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardMetric",
+      "dashboardTable",
+      "dashboardKeyValues",
+      "dashboardFormPreview"
+    ]
+  },
+  {
+    "id": "llm",
+    "label": "LLM",
+    "route": "/llm",
+    "section": "Control",
+    "referencePage": "src/pages/LlmPage.tsx",
+    "sourcePaths": [
+      "src/pages/LlmPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/llm.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardMetric",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "agents",
+    "label": "Agents",
+    "route": "/agents",
+    "section": "Agent",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/AgentsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/agents.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardMetric",
+      "dashboardTable",
+      "dashboardFormPreview",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "assistant",
+    "label": "Assistant",
+    "route": "/assistant",
+    "section": "Agent",
+    "referencePage": "src/pages/AssistantPage.tsx",
+    "sourcePaths": [
+      "src/pages/AssistantPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/assistant.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardKeyValues",
+      "dashboardFormPreview",
+      "dashboardCode",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "models",
+    "label": "Routable Models",
+    "route": "/models",
+    "section": "Agent",
+    "referencePage": "src/pages/RoutableModelsPage.tsx",
+    "sourcePaths": [
+      "src/pages/RoutableModelsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/models.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardMetric",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "tools",
+    "label": "Tools",
+    "route": "/tools",
+    "section": "Agent",
+    "referencePage": "src/pages/ToolsPage.tsx",
+    "sourcePaths": [
+      "src/pages/ToolsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/tools.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "workflows",
+    "label": "Workflows",
+    "route": "/workflows",
+    "section": "Agent",
+    "referencePage": "src/pages/WorkflowsPage.tsx",
+    "sourcePaths": [
+      "src/pages/WorkflowsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/workflows.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardTopology",
+      "dashboardFormPreview"
+    ]
+  },
+  {
+    "id": "security",
+    "label": "Security",
+    "route": "/security",
+    "section": "Agent",
+    "referencePage": "src/pages/SecurityPage.tsx",
+    "sourcePaths": [
+      "src/pages/SecurityPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/security.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardKeyValues",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardEventLog"
+    ]
+  },
+  {
+    "id": "skills",
+    "label": "Skills",
+    "route": "/skills",
+    "section": "Agent",
+    "referencePage": "src/pages/SkillsPage.tsx",
+    "sourcePaths": [
+      "src/pages/SkillsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/skills.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "knowledge",
+    "label": "Knowledge",
+    "route": "/knowledge",
+    "section": "Agent",
+    "referencePage": "src/pages/KnowledgePage.tsx",
+    "sourcePaths": [
+      "src/pages/KnowledgePage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/knowledge.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardProgress",
+      "dashboardKeyValues",
+      "dashboardTabs",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "embedding",
+    "label": "Embedding Pipeline",
+    "route": "/embedding",
+    "section": "Agent",
+    "referencePage": "src/pages/EmbeddingPipelinePage.tsx",
+    "sourcePaths": [
+      "src/pages/EmbeddingPipelinePage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/embedding.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardProgress",
+      "dashboardMetric",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "containers",
+    "label": "Containers",
+    "route": "/containers",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/ContainersPage.tsx",
+    "sourcePaths": [
+      "src/pages/ContainersPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/containers.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTabs",
+      "dashboardTable",
+      "dashboardFormPreview",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "privacy-network",
+    "label": "Privacy Network",
+    "route": "/privacy-network",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/PrivacyNetworkPage.tsx",
+    "sourcePaths": [
+      "src/pages/PrivacyNetworkPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/privacy-network.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTopology",
+      "dashboardFormPreview",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "netmaker",
+    "label": "Network Control",
+    "route": "/netmaker",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/NetmakerPage.tsx",
+    "sourcePaths": [
+      "src/pages/NetmakerPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/netmaker.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTabs",
+      "dashboardTable",
+      "dashboardKeyValues",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "ovs",
+    "label": "Open vSwitch",
+    "route": "/ovs",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/OpenSwitchPage.tsx",
+    "sourcePaths": [
+      "src/pages/OpenSwitchPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/ovs.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTopology",
+      "dashboardTable",
+      "dashboardFormPreview",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "openflow",
+    "label": "OpenFlow",
+    "route": "/openflow",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/OpenFlowPage.tsx",
+    "sourcePaths": [
+      "src/pages/OpenFlowPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/openflow.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "btrfs",
+    "label": "BTRFS Storage",
+    "route": "/btrfs",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/BtrfsPage.tsx",
+    "sourcePaths": [
+      "src/pages/BtrfsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/btrfs.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardProgress",
+      "dashboardKeyValues",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "data-stores",
+    "label": "Data Stores",
+    "route": "/data-stores",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/DataStoresPage.tsx",
+    "sourcePaths": [
+      "src/pages/DataStoresPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/data-stores.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "tched-router-config",
+    "label": "3tched Config",
+    "route": "/tched-router/config",
+    "section": "ZeroClaw",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/json-render/catalog/components/tched-router-config.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/tched-router-config.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTree",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "gateway",
+    "label": "Gateway",
+    "route": "/gateway",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/GatewayPage.tsx",
+    "sourcePaths": [
+      "src/pages/GatewayPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/gateway.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardKeyValues",
+      "dashboardTable"
+    ]
+  },
+  {
+    "id": "channels",
+    "label": "Channels",
+    "route": "/channels",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/ChannelsPage.tsx",
+    "sourcePaths": [
+      "src/pages/ChannelsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/channels.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardFormPreview"
+    ]
+  },
+  {
+    "id": "cron",
+    "label": "Cron",
+    "route": "/cron",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/CronPage.tsx",
+    "sourcePaths": [
+      "src/pages/CronPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/cron.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardFormPreview"
+    ]
+  },
+  {
+    "id": "integrations",
+    "label": "Integrations",
+    "route": "/integrations",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/IntegrationsPage.tsx",
+    "sourcePaths": [
+      "src/pages/IntegrationsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/integrations.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "hardware",
+    "label": "Hardware",
+    "route": "/hardware",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/HardwarePage.tsx",
+    "sourcePaths": [
+      "src/pages/HardwarePage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/hardware.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTable",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "config",
+    "label": "Config",
+    "route": "/config",
+    "section": "Settings",
+    "referencePage": "src/pages/ConfigPage.tsx",
+    "sourcePaths": [
+      "src/pages/ConfigPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/config.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTabs",
+      "dashboardFormPreview",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "inspector",
+    "label": "Inspector",
+    "route": "/inspector",
+    "section": "Settings",
+    "referencePage": "src/pages/InspectorPage.tsx",
+    "sourcePaths": [
+      "src/pages/InspectorPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/inspector.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTree",
+      "dashboardTable",
+      "dashboardEventLog"
+    ]
+  },
+  {
+    "id": "state",
+    "label": "State",
+    "route": "/state",
+    "section": "Settings",
+    "referencePage": "src/pages/StatePage.tsx",
+    "sourcePaths": [
+      "src/pages/StatePage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/state.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTree",
+      "dashboardEventLog",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "logs",
+    "label": "Logs",
+    "route": "/logs",
+    "section": "Settings",
+    "referencePage": "src/pages/LogsPage.tsx",
+    "sourcePaths": [
+      "src/pages/LogsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/logs.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardEventLog",
+      "dashboardFormPreview"
+    ]
+  },
+  {
+    "id": "estop",
+    "label": "E-Stop",
+    "route": "/estop",
+    "section": "Settings",
+    "referencePage": "src/pages/EStopPage.tsx",
+    "sourcePaths": [
+      "src/pages/EStopPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/estop.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "grpc",
+    "label": "gRPC Diagnostics",
+    "route": "/grpc",
+    "section": "Settings",
+    "referencePage": "src/pages/GrpcDiagnosticsPage.tsx",
+    "sourcePaths": [
+      "src/pages/GrpcDiagnosticsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/grpc.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardTabs",
+      "dashboardTable",
+      "dashboardBarChart",
+      "dashboardTree",
+      "dashboardKeyValues"
+    ]
+  },
+  {
+    "id": "explorer",
+    "label": "gRPC Explorer",
+    "route": "/explorer",
+    "section": "Settings",
+    "referencePage": "src/pages/GrpcExplorerPage.tsx",
+    "sourcePaths": [
+      "src/pages/GrpcExplorerPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/explorer.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardEventLog",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "invoke",
+    "label": "Invoke",
+    "route": "/invoke",
+    "section": "Settings",
+    "referencePage": "src/pages/InvokePage.tsx",
+    "sourcePaths": [
+      "src/pages/InvokePage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/invoke.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTree",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "blobs",
+    "label": "Sealed Blobs",
+    "route": "/blobs",
+    "section": "Blobs",
+    "referencePage": "src/pages/BlobsPage.tsx",
+    "sourcePaths": [
+      "src/pages/BlobsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/blobs.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardTree",
+      "dashboardCode"
+    ]
+  },
+  {
+    "id": "plugins",
+    "label": "Stream",
+    "route": "/plugins",
+    "section": "Plugins",
+    "referencePage": null,
+    "sourcePaths": [
+      "src/pages/PluginsPage.tsx"
+    ],
+    "placeholder": false,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/plugins.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus",
+      "dashboardFormPreview",
+      "dashboardTable",
+      "dashboardEventLog"
+    ]
+  },
+  {
+    "id": "dreams",
+    "label": "Dreams",
+    "route": "/dreams",
+    "section": "Coming Soon",
+    "referencePage": null,
+    "sourcePaths": [],
+    "placeholder": true,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/dreams.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus"
+    ]
+  },
+  {
+    "id": "reflections",
+    "label": "Reflections",
+    "route": "/reflections",
+    "section": "Coming Soon",
+    "referencePage": null,
+    "sourcePaths": [],
+    "placeholder": true,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/reflections.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus"
+    ]
+  },
+  {
+    "id": "observability",
+    "label": "Observability",
+    "route": "/observability",
+    "section": "Coming Soon",
+    "referencePage": null,
+    "sourcePaths": [],
+    "placeholder": true,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/observability.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus"
+    ]
+  },
+  {
+    "id": "live-trace",
+    "label": "Live Trace",
+    "route": "/live-trace",
+    "section": "Coming Soon",
+    "referencePage": null,
+    "sourcePaths": [],
+    "placeholder": true,
+    "referenceScreenshot": null,
+    "exampleSpec": "specs/live-trace.json",
+    "elements": [
+      "container",
+      "pageHeader",
+      "dashboardStatus"
+    ]
+  }
+]

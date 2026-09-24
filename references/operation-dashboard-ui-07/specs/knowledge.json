@@ -1,0 +1,137 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4",
+        "section-5"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Knowledge",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardProgress",
+      "props": {
+        "label": "Local Grinder — Embedding Progress",
+        "value": 68,
+        "detail": "Illustrative percentage; not host telemetry."
+      }
+    },
+    "section-1": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Embedding Provider",
+        "rows": [
+          {
+            "label": "Provider",
+            "value": "Example provider"
+          },
+          {
+            "label": "Model",
+            "value": "Example embedding model"
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardTabs",
+      "props": {
+        "label": "Knowledge views",
+        "tabs": [
+          {
+            "id": "tab0",
+            "label": "Vector Search",
+            "content": "Vector Search reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab1",
+            "label": "Model Downloader",
+            "content": "Model Downloader reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab2",
+            "label": "Store Details",
+            "content": "Store Details reference view. Live data and actions require the admitted plugin contract."
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Vector search",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Semantic search",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-4": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Semantic Matches",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Content"
+          },
+          {
+            "id": "c1",
+            "label": "Score"
+          },
+          {
+            "id": "c2",
+            "label": "Namespace"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "Example knowledge item",
+              "0.82",
+              "Example scope"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-5": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Store Details",
+        "language": "json",
+        "code": "{\n  \"source\": \"example\",\n  \"records\": 0\n}"
+      }
+    }
+  }
+}

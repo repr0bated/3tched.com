@@ -25,6 +25,7 @@ import { PluginServiceClient } from "./gen/operation.client";
 
 export const OIA1_HEADER = "x-oracle-identity-assertion-bin";
 export const SID1_HEADER = "x-opdbus-sealed-id-bin";
+const DECLARED_CAPABILITY_HEADER = "x-opdbus-capability";
 
 /** Canonical plugin object root and interface (org.opdbus.v1). */
 export const PLUGIN_OBJECT_ROOT = "/org/opdbus/v1/plugins";
@@ -56,10 +57,13 @@ export interface CallEnvelope<T> {
  */
 export class DoorError extends Error {
   readonly code: string;
-  constructor(code: string, message: string) {
+  /** Exact gRPC status detail, retained for narrow protocol decisions. */
+  readonly statusDetail?: string;
+  constructor(code: string, message: string, statusDetail?: string) {
     super(message);
     this.name = "DoorError";
     this.code = code;
+    this.statusDetail = statusDetail;
   }
 }
 
@@ -173,15 +177,18 @@ export class DoorClient {
           actorId: "",
           capabilityId: capability,
         },
-        { meta: this.meta, timeout: options.timeoutMs ?? this.timeoutMs },
+        {
+          meta: { ...this.meta, [DECLARED_CAPABILITY_HEADER]: capability },
+          timeout: options.timeoutMs ?? this.timeoutMs,
+        },
       ));
     } catch (error) {
       if (error instanceof RpcError) {
         console.error("[door] rpc failed", { pluginId, method, code: error.code, detail: error.message });
         if (error.code === "INTERNAL" && /failed to fetch|fetch failed|networkerror/i.test(error.message)) {
-          throw new DoorError("UNAVAILABLE", `Cannot reach the door at ${this.url}. Check your network connection and certificate trust.`);
+          throw new DoorError("UNAVAILABLE", `Cannot reach the door at ${this.url}. Check your network connection and certificate trust.`, error.message);
         }
-        throw new DoorError(error.code, userSafeMessage(error.code, ""));
+        throw new DoorError(error.code, userSafeMessage(error.code, ""), error.message);
       }
       console.error("[door] transport failed", { pluginId, method, error });
       throw new DoorError("UNAVAILABLE", userSafeMessage("UNAVAILABLE", ""));
@@ -219,17 +226,52 @@ export async function readSessionIdentity(
 ): Promise<DoorIdentity> {
   if (config.identity.kind === "sid1") return config.identity;
   const client = new DoorClient(config);
-  const { result: context } = await client.call<{ session_id: string }>(
-    "project", "get_context", {}, "chat.context",
-  );
+  const usedAssertions = new Set<string>([config.identity.assertion]);
+  let registrationPubkey: string | undefined;
+  let context: { session_id: string } | undefined;
+  try {
+    ({ result: context } = await client.call<{ session_id: string }>(
+      "project", "get_context", {}, "chat.context",
+    ));
+  } catch (error) {
+    if (!(error instanceof DoorError) || error.code !== "UNAUTHENTICATED" || error.statusDetail !== "UnknownPrincipal") {
+      throw error;
+    }
+    registrationPubkey = readOiaPublicKey(config.identity.assertion);
+    const registrationIdentity = await nextFreshOia();
+    client.setIdentity(registrationIdentity);
+    await client.call(
+      "human_principal",
+      "register_key",
+      { human_pubkey: registrationPubkey },
+      "human_principal.write",
+    );
+    const contextIdentity = await nextFreshOia();
+    client.setIdentity(contextIdentity);
+    ({ result: context } = await client.call<{ session_id: string }>(
+      "project", "get_context", {}, "chat.context",
+    ));
+  }
+
+  async function nextFreshOia(): Promise<Extract<DoorIdentity, { kind: "oia1" }>> {
+    const identity = await nextIdentity();
+    if (identity.kind !== "oia1" || usedAssertions.has(identity.assertion)) {
+      throw new DoorError("UNAUTHENTICATED", "A fresh identity assertion is required to read your session.");
+    }
+    // Decode every refreshed assertion in the bootstrap path and bind all
+    // subsequent calls to the same public key.
+    if (registrationPubkey && readOiaPublicKey(identity.assertion) !== registrationPubkey) {
+      throw new DoorError("UNAUTHENTICATED", "The refreshed identity belongs to a different WireGuard key.");
+    }
+    usedAssertions.add(identity.assertion);
+    return identity;
+  }
+
   if (typeof context?.session_id !== "string" || !context.session_id.trim()) {
     throw new DoorError("INTERNAL", "The server did not identify your session.");
   }
-  const fresh = await nextIdentity();
-  if (fresh.kind !== "oia1" || fresh.assertion === config.identity.assertion) {
-    throw new DoorError("UNAUTHENTICATED", "A fresh identity assertion is required to read your session.");
-  }
-  client.setIdentity(fresh);
+  const sledIdentity = await nextFreshOia();
+  client.setIdentity(sledIdentity);
   const { result } = await client.call<{ identity: { session_id: string; sealed_id: string } }>(
     "identity_sled", "get_identity", { session_id: context.session_id }, "identity_sled.read",
   );
@@ -250,4 +292,60 @@ export async function readSessionIdentity(
   } catch {
     throw new DoorError("UNAUTHENTICATED", "The server returned an invalid session credential.");
   }
+}
+
+/** Extract the public key field from the documented OIA1 wire frame. This is
+ * framing only; the bridge remains responsible for verifying its signature. */
+function readOiaPublicKey(assertion: string): string {
+  try {
+    const wire = decodeCanonicalBase64(assertion);
+    const bytes = Uint8Array.from(wire, (char) => char.charCodeAt(0));
+    if (bytes.length < 4 + 4 + 8 + 8 + 16 + 1 + 4 + 64 ||
+        bytes[0] !== 0x4f || bytes[1] !== 0x49 || bytes[2] !== 0x41 || bytes[3] !== 0x31) {
+      throw new Error("invalid OIA1 frame");
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let offset = 4;
+    const readLength = (): number => {
+      if (offset + 4 > bytes.length) throw new Error("truncated OIA1 length");
+      const length = view.getUint32(offset, true);
+      offset += 4;
+      return length;
+    };
+    const readString = (): string => {
+      const length = readLength();
+      if (offset + length > bytes.length) throw new Error("truncated OIA1 string");
+      const value = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(offset, offset + length));
+      offset += length;
+      return value;
+    };
+    const publicKey = readString();
+    if (!isWireGuardPublicKey(publicKey)) throw new Error("invalid WireGuard public key");
+    offset += 8 + 8 + 16;
+    if (offset >= bytes.length) throw new Error("truncated OIA1 address");
+    const ipFamily = bytes[offset++];
+    const ipLength = ipFamily === 4 ? 4 : ipFamily === 6 ? 16 : 0;
+    if (!ipLength || offset + ipLength > bytes.length) throw new Error("invalid OIA1 address");
+    offset += ipLength;
+    readString(); // decoy key id
+    if (offset + 64 !== bytes.length) throw new Error("invalid OIA1 signature framing");
+    return publicKey;
+  } catch {
+    throw new DoorError("UNAUTHENTICATED", "The identity assertion is malformed.");
+  }
+}
+
+function isWireGuardPublicKey(value: string): boolean {
+  try {
+    return decodeCanonicalBase64(value).length === 32;
+  } catch {
+    return false;
+  }
+}
+
+function decodeCanonicalBase64(value: string): string {
+  const normalized = assertBase64("Base64 value", value);
+  const decoded = atob(normalized);
+  if (btoa(decoded) !== normalized) throw new Error("non-canonical base64");
+  return decoded;
 }

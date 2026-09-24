@@ -1,0 +1,133 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Services",
+        "subtitle": "Control · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Historical service view",
+        "detail": "The original labels use s6; current service management is runit. This reference has no lifecycle actions.",
+        "tone": "warning"
+      }
+    },
+    "section-1": {
+      "type": "dashboardMetric",
+      "props": {
+        "label": "Services",
+        "value": "2",
+        "detail": "Illustrative sample"
+      }
+    },
+    "section-2": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Service list",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Bus"
+          },
+          {
+            "id": "c2",
+            "label": "State"
+          },
+          {
+            "id": "c3",
+            "label": "Uptime"
+          },
+          {
+            "id": "c4",
+            "label": "Restarts"
+          },
+          {
+            "id": "c5",
+            "label": "CPU"
+          },
+          {
+            "id": "c6",
+            "label": "Memory"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "example-service",
+              "system",
+              "up",
+              "15m",
+              "0",
+              "1%",
+              "32 MB"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-3": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Service details",
+        "rows": [
+          {
+            "label": "Interfaces",
+            "value": "Example interface"
+          },
+          {
+            "label": "Activatable",
+            "value": "Example only"
+          }
+        ]
+      }
+    },
+    "section-4": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Configuration",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Example setting",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    }
+  }
+}

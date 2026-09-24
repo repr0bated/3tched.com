@@ -1,0 +1,89 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Embedding Pipeline",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Embedding Worker",
+        "detail": "Example worker state",
+        "tone": "info"
+      }
+    },
+    "section-1": {
+      "type": "dashboardProgress",
+      "props": {
+        "label": "mpsc Channel",
+        "value": 25,
+        "detail": "Illustrative percentage; not host telemetry."
+      }
+    },
+    "section-2": {
+      "type": "dashboardMetric",
+      "props": {
+        "label": "Embed Queue",
+        "value": "8",
+        "detail": "Illustrative sample"
+      }
+    },
+    "section-3": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Qdrant Collection Roles",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Collection"
+          },
+          {
+            "id": "c1",
+            "label": "Role"
+          },
+          {
+            "id": "c2",
+            "label": "Vectors"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "example-knowledge",
+              "Knowledge",
+              "12"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    }
+  }
+}

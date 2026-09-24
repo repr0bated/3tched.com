@@ -11,12 +11,19 @@ function isDoorAdapter(adapter: ChatAdapter): adapter is DoorChatAdapter {
 }
 
 function summary(push: KnowledgePush): string {
-  if (push.suggested_action) return push.suggested_action;
   if (typeof push.content === "string") return push.content;
   const content = push.content as Record<string, unknown> | null;
-  const tips = content?.usage_tips;
-  if (Array.isArray(tips) && typeof tips[0] === "string") return tips[0];
+  for (const field of ["session_overview", "usage_tips", "resolution_steps", "suggested_next_steps"]) {
+    const value = content?.[field];
+    if (typeof value === "string" && value.trim()) return value;
+    if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  }
   return push.trigger_reason;
+}
+
+function readableCode(value: string): string {
+  const words = value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1).toLowerCase() : value;
 }
 
 /**
@@ -35,22 +42,29 @@ export function KnowledgeStrip({ adapter }: { adapter: ChatAdapter }) {
     );
   }, [adapter]);
 
-  if (pushes.length === 0) return null;
+  if (pushes.length === 0 && status?.state !== "closed") return null;
 
   return (
     <aside className="knowledge-strip" aria-label="Knowledge for this session">
       <header>
         <span>Knowledge</span>
         {status && status.state !== "subscribed" && (
-          <span className="knowledge-strip__status" title={status.state === "closed" ? status.reason : undefined}>
-            {status.state === "connecting" ? "connecting…" : "reconnecting…"}
+          <span className="knowledge-strip__status" role="status">
+            {status.state === "connecting"
+              ? "Connecting…"
+              : status.retryInMs === null
+                ? `Disconnected: ${status.reason}`
+                : `Reconnecting… ${status.reason}`}
           </span>
         )}
       </header>
       <ul>
         {pushes.slice(0, SHOWN).map((push) => (
           <li key={push.push_id} title={push.trigger_reason}>
-            <span className="knowledge-strip__trigger">{push.trigger}</span> {summary(push)}
+            <span className="knowledge-strip__trigger">{readableCode(push.trigger)}</span> {summary(push)}
+            {push.suggested_action && (
+              <span className="knowledge-strip__suggestion"> Suggestion: {readableCode(push.suggested_action)}.</span>
+            )}
           </li>
         ))}
       </ul>

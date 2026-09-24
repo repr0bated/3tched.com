@@ -1,0 +1,186 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4",
+        "section-5",
+        "section-6"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "BTRFS Storage",
+        "subtitle": "Infrastructure · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardProgress",
+      "props": {
+        "label": "Filesystem usage",
+        "value": 58,
+        "detail": "Illustrative percentage; not host telemetry."
+      }
+    },
+    "section-1": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Filesystem",
+        "rows": [
+          {
+            "label": "Profile",
+            "value": "Example Btrfs profile"
+          },
+          {
+            "label": "Devices",
+            "value": "Example devices"
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Subvolumes",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Path"
+          },
+          {
+            "id": "c1",
+            "label": "Purpose"
+          },
+          {
+            "id": "c2",
+            "label": "Used"
+          },
+          {
+            "id": "c3",
+            "label": "Size"
+          },
+          {
+            "id": "c4",
+            "label": "Snapshots"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "example/cache",
+              "Cache category",
+              "2 GB",
+              "8 GB",
+              "3"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-3": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Snapshots",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "ID"
+          },
+          {
+            "id": "c1",
+            "label": "Subvolume"
+          },
+          {
+            "id": "c2",
+            "label": "Size"
+          },
+          {
+            "id": "c3",
+            "label": "Pinned"
+          },
+          {
+            "id": "c4",
+            "label": "Created"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-4": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Incremental Send State",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Remote"
+          },
+          {
+            "id": "c1",
+            "label": "Last snapshot"
+          },
+          {
+            "id": "c2",
+            "label": "Status"
+          },
+          {
+            "id": "c3",
+            "label": "Transferred"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-5": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Disaster Recovery Status",
+        "rows": [
+          {
+            "label": "State",
+            "value": "Example only"
+          },
+          {
+            "label": "Vector snapshot",
+            "value": "Example only"
+          },
+          {
+            "label": "Timing snapshot",
+            "value": "Example only"
+          }
+        ]
+      }
+    },
+    "section-6": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Aligned snapshot sets",
+        "detail": "Parent snapshots exclude nested subvolumes; transport each required cache, timing, vector and state member.",
+        "tone": "info"
+      }
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "gRPC Explorer",
+        "subtitle": "Settings · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Stream filters",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Filter frames",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          },
+          {
+            "id": "field1",
+            "label": "Page size",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Streams",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "State"
+          },
+          {
+            "id": "c2",
+            "label": "Frames"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardEventLog",
+      "props": {
+        "title": "Frames",
+        "entries": [
+          {
+            "time": "Example 09:00",
+            "title": "State committed",
+            "detail": "Illustrative event, with no identity or host data.",
+            "tone": "info"
+          },
+          {
+            "time": "Example 09:01",
+            "title": "View refreshed",
+            "detail": "Display reads the committed state.",
+            "tone": "success"
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Frame detail",
+        "language": "json",
+        "code": "{\n  \"type\": \"example\",\n  \"data\": {}\n}"
+      }
+    },
+    "section-4": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "About this view",
+        "detail": "Historical stream inspector layout; current subscriptions read committed SHM state.",
+        "tone": "info"
+      }
+    }
+  }
+}

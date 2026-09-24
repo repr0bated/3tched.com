@@ -1,3 +1,5 @@
+import { dashboardElementSchemas } from "./dashboard-elements";
+import { chatCatalog } from "./chat-catalog";
 /**
  * Source contract adapted from operation-dashboard-ui-07 at commit
  * 1e72483c4227d12820419d4a901f3ef3dbf77dc9. See NOTICE for provenance.
@@ -49,6 +51,8 @@ const status = z.enum(["ok", "warn", "error", "offline"]);
 
 export const appCatalog = defineCatalog(schema, {
   components: {
+    ...dashboardElementSchemas,
+    chatThread: chatCatalog.data.components.chatThread,
     // ───────────────────────────── shell ─────────────────────────────
     appShell: {
       props: z.object({
@@ -538,6 +542,10 @@ export const appCatalog = defineCatalog(schema, {
       }),
       description: "Provider and model selectors bound to tched_router.",
     },
+    chatModeSelector: {
+      props: z.object({}),
+      description: "Door-authoritative session mode selection; unavailable projects are hidden.",
+    },
     catalogGallery: {
       props: z.object({
         className: z.string().nullable(),
@@ -552,15 +560,6 @@ export const appCatalog = defineCatalog(schema, {
         "Structured-output generate loop: catalog JSON Schema in, validated Spec out, rendered live.",
     },
 
-    cognitiveAgentsPage: {
-      props: z.object({
-        title: z.string(),
-        subtitle: z.string().nullable(),
-      }),
-      description:
-        "Agent-config parent page with Overview and Configuration tabs. Overview renders all agent child objects derived from agent_config.",
-    },
-
     tchedRouterConfig: {
       props: z.object({
         title: z.string(),
@@ -568,14 +567,6 @@ export const appCatalog = defineCatalog(schema, {
       }),
       description:
         "Typed 3tched Router / ZeroClaw config editor. Renders zeroclaw config schema sections through SchemaRenderer and writes via tched_router PatchConfig.",
-    },
-
-    hostedPage: {
-      props: z.object({
-        route: z.string(),
-      }),
-      description:
-        "Mounts the working operator page for a nav route inside json-render (Orchestration, Services, OVS, …).",
     },
 
     surface: projectionComponent("surface"),

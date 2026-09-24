@@ -1,0 +1,140 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Containers",
+        "subtitle": "Infrastructure · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTabs",
+      "props": {
+        "label": "Container ownership",
+        "tabs": [
+          {
+            "id": "tab0",
+            "label": "System",
+            "content": "System reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab1",
+            "label": "User",
+            "content": "User reference view. Live data and actions require the admitted plugin contract."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Incus Containers",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "State"
+          },
+          {
+            "id": "c2",
+            "label": "CPU"
+          },
+          {
+            "id": "c3",
+            "label": "Memory"
+          },
+          {
+            "id": "c4",
+            "label": "Disk"
+          },
+          {
+            "id": "c5",
+            "label": "Network"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Config",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Example configuration",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Devices",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Type"
+          },
+          {
+            "id": "c2",
+            "label": "Source"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-4": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Identity storage",
+        "rows": [
+          {
+            "label": "Persistence",
+            "value": "Btrfs device added during provisioning"
+          },
+          {
+            "label": "Deletion",
+            "value": "Detach persistent devices before removing the container"
+          }
+        ]
+      }
+    }
+  }
+}

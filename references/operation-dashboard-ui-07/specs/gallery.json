@@ -1,0 +1,95 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Gallery",
+        "subtitle": "UI Model · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTabs",
+      "props": {
+        "label": "Gallery",
+        "tabs": [
+          {
+            "id": "tab0",
+            "label": "Candidates",
+            "content": "Candidates reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab1",
+            "label": "Preview",
+            "content": "Preview reference view. Live data and actions require the admitted plugin contract."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Generated candidates",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Name"
+          },
+          {
+            "id": "c1",
+            "label": "Source"
+          },
+          {
+            "id": "c2",
+            "label": "Schema hash"
+          },
+          {
+            "id": "c3",
+            "label": "Review state"
+          }
+        ],
+        "rows": [
+          {
+            "id": "r0",
+            "cells": [
+              "Example status card",
+              "Catalog",
+              "Example hash",
+              "Unreviewed"
+            ]
+          }
+        ],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Preview",
+        "detail": "A visual example is not approval to execute a method.",
+        "tone": "info"
+      }
+    }
+  }
+}

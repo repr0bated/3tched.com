@@ -1,0 +1,70 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Gateway",
+        "subtitle": "ZeroClaw · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Gateway Status",
+        "rows": [
+          {
+            "label": "Status",
+            "value": "Not queried"
+          },
+          {
+            "label": "Transport",
+            "value": "Existing admitted door"
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Gateway routes",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Route"
+          },
+          {
+            "id": "c1",
+            "label": "Protocol"
+          },
+          {
+            "id": "c2",
+            "label": "Status"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    }
+  }
+}

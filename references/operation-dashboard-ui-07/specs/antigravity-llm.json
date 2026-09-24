@@ -1,0 +1,71 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Antigravity LLM",
+        "subtitle": "UI Model · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Projection",
+        "detail": "Static projection reference",
+        "tone": "info"
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Projection models",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Model"
+          },
+          {
+            "id": "c1",
+            "label": "Source"
+          },
+          {
+            "id": "c2",
+            "label": "Status"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Projection state",
+        "language": "json",
+        "code": "{\n  \"kind\": \"reference\",\n  \"live\": false\n}"
+      }
+    }
+  }
+}

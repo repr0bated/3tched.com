@@ -1,0 +1,130 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "gRPC Diagnostics",
+        "subtitle": "Settings · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTabs",
+      "props": {
+        "label": "Diagnostics",
+        "tabs": [
+          {
+            "id": "tab0",
+            "label": "Unary RPCs",
+            "content": "Unary RPCs reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab1",
+            "label": "Server Streams",
+            "content": "Server Streams reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab2",
+            "label": "Store Inspector",
+            "content": "Store Inspector reference view. Live data and actions require the admitted plugin contract."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "RPC checks",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Method"
+          },
+          {
+            "id": "c1",
+            "label": "State"
+          },
+          {
+            "id": "c2",
+            "label": "Duration"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardBarChart",
+      "props": {
+        "title": "Event Counts by Type",
+        "bars": [
+          {
+            "label": "Example state",
+            "value": 75
+          },
+          {
+            "label": "Example signal",
+            "value": 25
+          }
+        ]
+      }
+    },
+    "section-3": {
+      "type": "dashboardTree",
+      "props": {
+        "title": "Projected State Keys",
+        "nodes": [
+          {
+            "label": "Example state",
+            "detail": "Reference resource",
+            "children": [
+              {
+                "label": "Properties",
+                "detail": "Schema-derived fields"
+              },
+              {
+                "label": "Methods",
+                "detail": "Admitted methods only"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "section-4": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Latest Stats",
+        "rows": [
+          {
+            "label": "Source",
+            "value": "Static example"
+          }
+        ]
+      }
+    }
+  }
+}

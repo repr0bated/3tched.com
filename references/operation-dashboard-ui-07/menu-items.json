@@ -1,0 +1,324 @@
+[
+  {
+    "id": "chat",
+    "label": "Chat",
+    "route": "/antigravity/chat",
+    "section": "Chat",
+    "referencePage": null
+  },
+  {
+    "id": "accountability",
+    "label": "Accountability",
+    "route": "/accountability",
+    "section": "Chat",
+    "referencePage": null
+  },
+  {
+    "id": "catalog",
+    "label": "Catalog",
+    "route": "/catalog",
+    "section": "UI Model",
+    "referencePage": null
+  },
+  {
+    "id": "gallery",
+    "label": "Gallery",
+    "route": "/gallery",
+    "section": "UI Model",
+    "referencePage": null
+  },
+  {
+    "id": "generate",
+    "label": "Generate",
+    "route": "/generate",
+    "section": "UI Model",
+    "referencePage": null
+  },
+  {
+    "id": "antigravity-llm",
+    "label": "Antigravity LLM",
+    "route": "/antigravity-llm",
+    "section": "UI Model",
+    "referencePage": "src/pages/AntiqravityLLMPage.tsx"
+  },
+  {
+    "id": "overview",
+    "label": "Overview",
+    "route": "/overview",
+    "section": "Control",
+    "referencePage": null
+  },
+  {
+    "id": "orchestration",
+    "label": "Orchestration",
+    "route": "/orchestration",
+    "section": "Control",
+    "referencePage": "src/pages/OrchestrationPage.tsx"
+  },
+  {
+    "id": "services",
+    "label": "Services",
+    "route": "/services",
+    "section": "Control",
+    "referencePage": "src/pages/ServicesPage.tsx"
+  },
+  {
+    "id": "llm",
+    "label": "LLM",
+    "route": "/llm",
+    "section": "Control",
+    "referencePage": "src/pages/LlmPage.tsx"
+  },
+  {
+    "id": "agents",
+    "label": "Agents",
+    "route": "/agents",
+    "section": "Agent",
+    "referencePage": null
+  },
+  {
+    "id": "assistant",
+    "label": "Assistant",
+    "route": "/assistant",
+    "section": "Agent",
+    "referencePage": "src/pages/AssistantPage.tsx"
+  },
+  {
+    "id": "models",
+    "label": "Routable Models",
+    "route": "/models",
+    "section": "Agent",
+    "referencePage": "src/pages/RoutableModelsPage.tsx"
+  },
+  {
+    "id": "tools",
+    "label": "Tools",
+    "route": "/tools",
+    "section": "Agent",
+    "referencePage": "src/pages/ToolsPage.tsx"
+  },
+  {
+    "id": "workflows",
+    "label": "Workflows",
+    "route": "/workflows",
+    "section": "Agent",
+    "referencePage": "src/pages/WorkflowsPage.tsx"
+  },
+  {
+    "id": "security",
+    "label": "Security",
+    "route": "/security",
+    "section": "Agent",
+    "referencePage": "src/pages/SecurityPage.tsx"
+  },
+  {
+    "id": "skills",
+    "label": "Skills",
+    "route": "/skills",
+    "section": "Agent",
+    "referencePage": "src/pages/SkillsPage.tsx"
+  },
+  {
+    "id": "knowledge",
+    "label": "Knowledge",
+    "route": "/knowledge",
+    "section": "Agent",
+    "referencePage": "src/pages/KnowledgePage.tsx"
+  },
+  {
+    "id": "embedding",
+    "label": "Embedding Pipeline",
+    "route": "/embedding",
+    "section": "Agent",
+    "referencePage": "src/pages/EmbeddingPipelinePage.tsx"
+  },
+  {
+    "id": "containers",
+    "label": "Containers",
+    "route": "/containers",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/ContainersPage.tsx"
+  },
+  {
+    "id": "privacy-network",
+    "label": "Privacy Network",
+    "route": "/privacy-network",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/PrivacyNetworkPage.tsx"
+  },
+  {
+    "id": "netmaker",
+    "label": "Network Control",
+    "route": "/netmaker",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/NetmakerPage.tsx"
+  },
+  {
+    "id": "ovs",
+    "label": "Open vSwitch",
+    "route": "/ovs",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/OpenSwitchPage.tsx"
+  },
+  {
+    "id": "openflow",
+    "label": "OpenFlow",
+    "route": "/openflow",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/OpenFlowPage.tsx"
+  },
+  {
+    "id": "btrfs",
+    "label": "BTRFS Storage",
+    "route": "/btrfs",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/BtrfsPage.tsx"
+  },
+  {
+    "id": "data-stores",
+    "label": "Data Stores",
+    "route": "/data-stores",
+    "section": "Infrastructure",
+    "referencePage": "src/pages/DataStoresPage.tsx"
+  },
+  {
+    "id": "tched-router-config",
+    "label": "3tched Config",
+    "route": "/tched-router/config",
+    "section": "ZeroClaw",
+    "referencePage": null
+  },
+  {
+    "id": "gateway",
+    "label": "Gateway",
+    "route": "/gateway",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/GatewayPage.tsx"
+  },
+  {
+    "id": "channels",
+    "label": "Channels",
+    "route": "/channels",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/ChannelsPage.tsx"
+  },
+  {
+    "id": "cron",
+    "label": "Cron",
+    "route": "/cron",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/CronPage.tsx"
+  },
+  {
+    "id": "integrations",
+    "label": "Integrations",
+    "route": "/integrations",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/IntegrationsPage.tsx"
+  },
+  {
+    "id": "hardware",
+    "label": "Hardware",
+    "route": "/hardware",
+    "section": "ZeroClaw",
+    "referencePage": "src/pages/HardwarePage.tsx"
+  },
+  {
+    "id": "config",
+    "label": "Config",
+    "route": "/config",
+    "section": "Settings",
+    "referencePage": "src/pages/ConfigPage.tsx"
+  },
+  {
+    "id": "inspector",
+    "label": "Inspector",
+    "route": "/inspector",
+    "section": "Settings",
+    "referencePage": "src/pages/InspectorPage.tsx"
+  },
+  {
+    "id": "state",
+    "label": "State",
+    "route": "/state",
+    "section": "Settings",
+    "referencePage": "src/pages/StatePage.tsx"
+  },
+  {
+    "id": "logs",
+    "label": "Logs",
+    "route": "/logs",
+    "section": "Settings",
+    "referencePage": "src/pages/LogsPage.tsx"
+  },
+  {
+    "id": "estop",
+    "label": "E-Stop",
+    "route": "/estop",
+    "section": "Settings",
+    "referencePage": "src/pages/EStopPage.tsx"
+  },
+  {
+    "id": "grpc",
+    "label": "gRPC Diagnostics",
+    "route": "/grpc",
+    "section": "Settings",
+    "referencePage": "src/pages/GrpcDiagnosticsPage.tsx"
+  },
+  {
+    "id": "explorer",
+    "label": "gRPC Explorer",
+    "route": "/explorer",
+    "section": "Settings",
+    "referencePage": "src/pages/GrpcExplorerPage.tsx"
+  },
+  {
+    "id": "invoke",
+    "label": "Invoke",
+    "route": "/invoke",
+    "section": "Settings",
+    "referencePage": "src/pages/InvokePage.tsx"
+  },
+  {
+    "id": "blobs",
+    "label": "Sealed Blobs",
+    "route": "/blobs",
+    "section": "Blobs",
+    "referencePage": "src/pages/BlobsPage.tsx"
+  },
+  {
+    "id": "plugins",
+    "label": "Stream",
+    "route": "/plugins",
+    "section": "Plugins",
+    "referencePage": null
+  },
+  {
+    "id": "dreams",
+    "label": "Dreams",
+    "route": "/dreams",
+    "section": "Coming Soon",
+    "referencePage": null
+  },
+  {
+    "id": "reflections",
+    "label": "Reflections",
+    "route": "/reflections",
+    "section": "Coming Soon",
+    "referencePage": null
+  },
+  {
+    "id": "observability",
+    "label": "Observability",
+    "route": "/observability",
+    "section": "Coming Soon",
+    "referencePage": null
+  },
+  {
+    "id": "live-trace",
+    "label": "Live Trace",
+    "route": "/live-trace",
+    "section": "Coming Soon",
+    "referencePage": null
+  }
+]

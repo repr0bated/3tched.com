@@ -1,0 +1,97 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "OpenFlow",
+        "subtitle": "Infrastructure · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Global Configuration",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Controller",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          },
+          {
+            "id": "field1",
+            "label": "Protocol",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Flow Tables",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Table"
+          },
+          {
+            "id": "c1",
+            "label": "Priority"
+          },
+          {
+            "id": "c2",
+            "label": "Match"
+          },
+          {
+            "id": "c3",
+            "label": "Actions"
+          },
+          {
+            "id": "c4",
+            "label": "Packets"
+          },
+          {
+            "id": "c5",
+            "label": "Bytes"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-2": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Flow detail",
+        "language": "json",
+        "code": "{\n  \"match\": {},\n  \"actions\": [],\n  \"example\": true\n}"
+      }
+    }
+  }
+}

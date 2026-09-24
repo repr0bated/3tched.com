@@ -45,6 +45,9 @@ export const ISSUER_IDENTITY_PATH = "/identity/self";
 /** Renew an issued assertion this many seconds before it expires. */
 export const RENEW_LEAD_SECONDS = 60;
 
+/** Bound each identity pickup, including response-body parsing. */
+export const IDENTITY_PICKUP_TIMEOUT_MS = 10_000;
+
 /** Issuer origin: runtime config first, then the build-time default. */
 export function issuerUrl(): string | undefined {
   const fromRuntime = runtimeConfig().issuer;
@@ -155,28 +158,43 @@ async function fetchIdentityDocument(
   url: string,
   init: RequestInit,
 ): Promise<ProjectedIdentity | null> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    const response = await fetchImpl(url, {
-      ...init,
-      cache: "no-store",
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok) return null;
-    const body: unknown = await response.json();
-    if (!body || typeof body !== "object") return null;
-    const record = body as Record<string, unknown>;
-    if (!isDoorIdentity(record.identity)) return null;
-    const door = typeof record.door === "string" && record.door.trim() ? record.door.trim() : defaultDoorUrl();
-    if (!door) return null;
-    const expiresAt =
-      typeof record.expires_at === "number" && Number.isFinite(record.expires_at) ? record.expires_at : undefined;
-    return {
-      door,
-      identity: record.identity,
-      sessionId: typeof record.session_id === "string" ? record.session_id : undefined,
-      expiresAt,
-    };
+    return await Promise.race([
+      (async (): Promise<ProjectedIdentity | null> => {
+        const response = await fetchImpl(url, {
+          ...init,
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { accept: "application/json" },
+        });
+        if (!response.ok) return null;
+        const body: unknown = await response.json();
+        if (!body || typeof body !== "object") return null;
+        const record = body as Record<string, unknown>;
+        if (!isDoorIdentity(record.identity)) return null;
+        const door = typeof record.door === "string" && record.door.trim() ? record.door.trim() : defaultDoorUrl();
+        if (!door) return null;
+        const expiresAt =
+          typeof record.expires_at === "number" && Number.isFinite(record.expires_at) ? record.expires_at : undefined;
+        return {
+          door,
+          identity: record.identity,
+          sessionId: typeof record.session_id === "string" ? record.session_id : undefined,
+          expiresAt,
+        };
+      })(),
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => {
+          controller.abort();
+          resolve(null);
+        }, IDENTITY_PICKUP_TIMEOUT_MS);
+      }),
+    ]);
   } catch {
     return null;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }

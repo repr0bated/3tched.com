@@ -1,0 +1,130 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2",
+        "section-3",
+        "section-4"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Assistant",
+        "subtitle": "Agent · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardKeyValues",
+      "props": {
+        "title": "Assistant Gateway",
+        "rows": [
+          {
+            "label": "Identity",
+            "value": "Example identity"
+          },
+          {
+            "label": "Personality",
+            "value": "Example persona"
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "System prompt",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Prompt",
+            "type": "textarea",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Antigravity Chat Schema",
+        "language": "json",
+        "code": "{\n  \"role\": \"reference\",\n  \"properties\": {}\n}"
+      }
+    },
+    "section-3": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Soul Memories",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Agent"
+          },
+          {
+            "id": "c1",
+            "label": "Identity"
+          },
+          {
+            "id": "c2",
+            "label": "Personality"
+          },
+          {
+            "id": "c3",
+            "label": "Version"
+          },
+          {
+            "id": "c4",
+            "label": "Traits"
+          },
+          {
+            "id": "c5",
+            "label": "Updated"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    },
+    "section-4": {
+      "type": "dashboardTable",
+      "props": {
+        "caption": "Namespace Bindings",
+        "columns": [
+          {
+            "id": "c0",
+            "label": "Agent"
+          },
+          {
+            "id": "c1",
+            "label": "Namespace"
+          },
+          {
+            "id": "c2",
+            "label": "Entries"
+          }
+        ],
+        "rows": [],
+        "emptyLabel": "No live data loaded — static reference."
+      }
+    }
+  }
+}

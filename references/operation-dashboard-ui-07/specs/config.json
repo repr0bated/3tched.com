@@ -1,0 +1,79 @@
+{
+  "root": "root",
+  "elements": {
+    "root": {
+      "type": "container",
+      "props": {
+        "className": null
+      },
+      "children": [
+        "header",
+        "reference",
+        "section-0",
+        "section-1",
+        "section-2"
+      ]
+    },
+    "header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Config",
+        "subtitle": "Settings · static UI reference"
+      }
+    },
+    "reference": {
+      "type": "dashboardStatus",
+      "props": {
+        "label": "Static reference",
+        "detail": "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions.",
+        "tone": "info"
+      }
+    },
+    "section-0": {
+      "type": "dashboardTabs",
+      "props": {
+        "label": "Configuration groups",
+        "tabs": [
+          {
+            "id": "tab0",
+            "label": "General",
+            "content": "General reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab1",
+            "label": "Network",
+            "content": "Network reference view. Live data and actions require the admitted plugin contract."
+          },
+          {
+            "id": "tab2",
+            "label": "Agents",
+            "content": "Agents reference view. Live data and actions require the admitted plugin contract."
+          }
+        ]
+      }
+    },
+    "section-1": {
+      "type": "dashboardFormPreview",
+      "props": {
+        "title": "Configuration preview",
+        "fields": [
+          {
+            "id": "field0",
+            "label": "Example setting",
+            "type": "text",
+            "value": "",
+            "help": "Reference control; no request is sent."
+          }
+        ]
+      }
+    },
+    "section-2": {
+      "type": "dashboardCode",
+      "props": {
+        "title": "Schema reference",
+        "language": "json",
+        "code": "{\n  \"type\": \"object\",\n  \"properties\": {}\n}"
+      }
+    }
+  }
+}
