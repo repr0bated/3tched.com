@@ -311,6 +311,13 @@ const registryDefinition = defineRegistry(chatCatalog, {
         };
       }, [adapter, notebookId]);
 
+      // Keep the newest message in view as the thread grows.
+      const threadRef = useRef<HTMLDivElement>(null);
+      useEffect(() => {
+        const viewport = threadRef.current;
+        if (viewport) viewport.scrollTop = viewport.scrollHeight;
+      }, [messages.length, sending]);
+
       const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const message = input.trim();
@@ -360,14 +367,14 @@ const registryDefinition = defineRegistry(chatCatalog, {
               <span>LIVE THREAD</span>
               <span>{messages.length.toString().padStart(2, "0")} MESSAGES</span>
             </div>
-            <div className="thread-viewport">
+            <div className="thread-viewport" ref={threadRef}>
               {messages.length === 0 ? (
                 <div className="thread-empty">
                   <strong>{remote ? "Start the conversation." : "Start with an interface brief."}</strong>
                   <p>
                     {remote
                       ? "Chat uses your authenticated connection. Use /ui-reference to browse static interface examples."
-                      : "Try /ui-reference btrfs to load a dashboard example, or describe an interface."}
+                      : "Try /ui-reference story for the 3tched walkthrough, /ui-reference btrfs for a dashboard example, or describe an interface."}
                   </p>
                 </div>
               ) : null}

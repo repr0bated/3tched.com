@@ -2,21 +2,43 @@ import type { ChatResponse } from "../../chat/chat-adapter";
 import type { ChatMode, NotebookDetail } from "../../chat/chat-mode";
 import { canvasCatalog } from "./canvas-contract";
 import { dashboardReferences, findDashboardReference } from "./dashboard-examples";
+import { STORY_INDEX_ID, storyIndexMessage, storyReferences } from "./story-examples";
 
 let referenceSequence = 0;
+
+/** `/ui-reference story [chapter]` opens the product walkthrough; it has its own namespace. */
+function storyChatResponse(query: string): ChatResponse | undefined {
+  const [head, ...rest] = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (head !== STORY_INDEX_ID) return undefined;
+  const chapterId = rest.join(" ");
+  const chapter = chapterId ? storyReferences.find(item => item.id === chapterId) : storyReferences[0];
+  if (!chapter) {
+    return { message: { id: `story-index-${referenceSequence}`, role: "agent", content: storyIndexMessage() } };
+  }
+  return {
+    message: {
+      id: `story-${chapter.id}-${referenceSequence}`,
+      role: "agent",
+      content: chapterId ? `${chapter.label}.` : `${chapter.label}.\n\n${storyIndexMessage()}`,
+    },
+    canvasSpec: chapter.spec,
+  };
+}
 
 /** An explicit local command exposes the same examples to offline and connected chat. */
 export function referenceChatResponse(message: string): ChatResponse | undefined {
   if (!/^\/ui-reference(?:\s|$)/i.test(message.trim())) return undefined;
   referenceSequence += 1;
   const query = message.trim().replace(/^\/ui-reference\s*/i, "");
+  const story = storyChatResponse(query);
+  if (story) return story;
   const reference = dashboardReferences.find(item => item.id === query.toLowerCase()) ?? findDashboardReference(query);
   if (reference) return {
     message: { id: `reference-${reference.id}-${referenceSequence}`, role: "agent", content: `${reference.label}: static reference composed from reusable catalog elements. Values are examples; controls do not operate the host.` },
     canvasSpec: reference.spec,
   };
   return {
-    message: { id: `reference-index-${referenceSequence}`, role: "agent", content: `Use /ui-reference followed by a menu ID:\n\n${dashboardReferences.map(item => `${item.id} — ${item.label}${item.placeholder ? " (source placeholder)" : ""}`).join("\n")}` },
+    message: { id: `reference-index-${referenceSequence}`, role: "agent", content: `Use /ui-reference story for the 3tched walkthrough, or /ui-reference followed by a menu ID:\n\n${dashboardReferences.map(item => `${item.id} — ${item.label}${item.placeholder ? " (source placeholder)" : ""}`).join("\n")}` },
   };
 }
 
