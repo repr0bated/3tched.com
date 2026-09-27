@@ -9,7 +9,7 @@ import { storyReferences } from "./story-examples";
 
 describe("story walkthrough", () => {
   it("renders every chapter from catalog components only", () => {
-    expect(storyReferences.map(item => item.id)).toEqual(["stack", "identity", "organ", "accountability", "compliance"]);
+    expect(storyReferences.map(item => item.id)).toEqual(["stack", "identity", "lungs", "accountability", "compliance"]);
     for (const item of storyReferences) {
       expect(() => validateCanvasSpec(item.spec), item.id).not.toThrow();
       const markup = renderToStaticMarkup(<JsonRenderProvider><Renderer spec={item.spec} registry={chatRegistry} /></JsonRenderProvider>);
@@ -26,8 +26,8 @@ describe("story walkthrough", () => {
   });
 
   it("routes chapters inside the story namespace without shadowing dashboard references", () => {
-    const organ = storyReferences.find(item => item.id === "organ");
-    expect(referenceChatResponse("/ui-reference story organ")?.canvasSpec).toBe(organ?.spec);
+    const lungs = storyReferences.find(item => item.id === "lungs");
+    expect(referenceChatResponse("/ui-reference story lungs")?.canvasSpec).toBe(lungs?.spec);
     const storyTrial = storyReferences.find(item => item.id === "accountability");
     expect(referenceChatResponse("/ui-reference story accountability")?.canvasSpec).toBe(storyTrial?.spec);
     // The dashboard's own accountability reference is still reachable directly.

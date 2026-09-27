@@ -54,7 +54,7 @@ const chapters: StoryChapter[] = [
     parts: [
       table("The stack", ["Layer", "What it is", "What it does"], [
         ["Skin", "Private transport", "Outside, traffic looks like ordinary Cloudflare traffic; a probe finds an ordinary website."],
-        ["Body", "One door and its organ", "A single edge where credentials are verified; nothing behind it has an address."],
+        ["Body", "One door and its lungs", "A single edge where credentials are verified; nothing behind it has an address."],
         ["Minds", "Identities, human and agent", "Each has its own device and ledger and can act only through schema-checked writes."],
         ["Face", "Generated interfaces", "Screens are generated from the same sealed schema, under the same rules."],
       ]),
@@ -63,7 +63,7 @@ const chapters: StoryChapter[] = [
         ["Private transport", "Boring on the wire"],
         ["Decoy", "The only visible face"],
         ["Door", "Credential checked once"],
-        ["Organ", "Schema-checked surface"],
+        ["Lungs", "Where outside meets inside"],
         ["Identity", "No address at all"],
       ]),
       facts("Why it holds together", [
@@ -99,11 +99,11 @@ const chapters: StoryChapter[] = [
     ],
   },
   {
-    id: "organ",
-    label: "The organ",
-    summary: "Reads report live state. Writes are calls, checked against the sealed schema.",
+    id: "lungs",
+    label: "The lungs",
+    summary: "Where the outside meets the identity. It breathes in live state, and breathes out calls checked against the sealed schema.",
     parts: [
-      tree("Organ surface inside an identity", [
+      tree("The lungs inside an identity", [
         {
           label: "plugins",
           detail: "66 sealed plugins, read live",
@@ -137,8 +137,8 @@ const chapters: StoryChapter[] = [
       table("Reading the same state, per read (captured, 1,000 reads)", ["Path", "Microseconds"], [
         ["Shared-memory file directly (floor)", "35"],
         ["HTTP request to the web server", "269"],
-        ["Organ, before caching", "438"],
-        ["Organ, with caching", "172"],
+        ["Lungs, before caching", "438"],
+        ["Lungs, with caching", "172"],
       ]),
       status(
         "Next build",
