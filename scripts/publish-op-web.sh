@@ -2,9 +2,25 @@
 set -euo pipefail
 
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-url_prefix="${URL_PREFIX:-/vercel-json-render/}"
 static_root="${OP_WEB_STATIC_DIR:-/usr/local/share/op-dbus/dashboard}"
+landing="${LANDING:-}"
+url_prefix="${URL_PREFIX:-}"
 
+if [[ -n "$landing" && -n "$url_prefix" ]]; then
+  echo "Set LANDING or URL_PREFIX, not both" >&2
+  exit 2
+fi
+if [[ -n "$landing" ]]; then
+  if [[ ! "$landing" =~ ^[A-Za-z0-9._-]+$ || "$landing" == "." || "$landing" == ".." ]]; then
+    echo "LANDING must be a single name such as live, prod, or 3tched: $landing" >&2
+    exit 2
+  fi
+  url_prefix="/${landing}/"
+fi
+if [[ -z "$url_prefix" ]]; then
+  echo "Set LANDING to a mount name (live, prod, 3tched) or URL_PREFIX=/ for the dashboard root" >&2
+  exit 2
+fi
 if [[ "$url_prefix" != "/" && "$url_prefix" != /*/ ]]; then
   echo "URL_PREFIX must begin and end with '/': $url_prefix" >&2
   exit 2

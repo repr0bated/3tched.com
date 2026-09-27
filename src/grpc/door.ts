@@ -1,8 +1,8 @@
 /**
  * The :8090 door.
  *
- * op-grpc-bridge serves gRPC + gRPC-Web on one TLS listener (svc0, 10.0.0.3:8090
- * and 127.0.0.1:8090). This module is the only place the browser talks to it.
+ * Tonic serves gRPC + gRPC-Web on one TLS listener at https://10.0.0.2:8090.
+ * The browser speaks gRPC-Web straight to that door.
  * Every plugin operation goes through the one generic RPC
  * `operation.v1.PluginService/CallMethod`, carrying the plugin id, the method
  * name, the JSON arguments as a `google.protobuf.Value`, and the capability the
@@ -36,7 +36,7 @@ export type DoorIdentity =
   | { kind: "sid1"; sealedId: string };
 
 export interface DoorConfig {
-  /** Origin of the door, e.g. https://10.0.0.3:8090 */
+  /** Origin of the tonic TLS door, https://10.0.0.2:8090 */
   url: string;
   identity: DoorIdentity;
   /** Default per-call deadline in milliseconds; a call may override it. */
