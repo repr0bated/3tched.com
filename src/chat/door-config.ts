@@ -107,6 +107,23 @@ function isDoorIdentity(value: unknown): value is DoorIdentity {
   );
 }
 
+/** What one identity source answered during the most recent pickup. */
+export interface PickupAttempt {
+  source: string;
+  outcome: string;
+}
+
+let pickupAttempts: PickupAttempt[] = [];
+
+/**
+ * What each identity source answered in the most recent resolution, as one
+ * line for the connect gate, so a failed pickup names the hop that failed.
+ */
+export function identityPickupReport(): string | undefined {
+  if (pickupAttempts.length === 0) return undefined;
+  return pickupAttempts.map(attempt => `${attempt.source}: ${attempt.outcome}`).join("; ");
+}
+
 /**
  * Ask the page's own origin who this WireGuard arrival is. Resolves to null
  * (never throws) when the endpoint is absent, refuses, or answers nonsense, so
@@ -115,7 +132,7 @@ function isDoorIdentity(value: unknown): value is DoorIdentity {
 export async function fetchProjectedIdentity(
   fetchImpl: typeof fetch = fetch,
 ): Promise<ProjectedIdentity | null> {
-  return fetchIdentityDocument(fetchImpl, IDENTITY_SELF_PATH, { credentials: "same-origin" });
+  return fetchIdentityDocument(fetchImpl, IDENTITY_SELF_PATH, { credentials: "same-origin" }, "web server");
 }
 
 /**
@@ -129,11 +146,16 @@ export async function fetchIssuedIdentity(
   issuer: string | undefined = issuerUrl(),
 ): Promise<ProjectedIdentity | null> {
   const origin = issuer?.trim().replace(/\/+$/, "");
-  if (!origin) return null;
-  return fetchIdentityDocument(fetchImpl, `${origin}${ISSUER_IDENTITY_PATH}`, {
-    mode: "cors",
-    credentials: "omit",
-  });
+  if (!origin) {
+    pickupAttempts.push({ source: "decoy issuer", outcome: "not configured" });
+    return null;
+  }
+  return fetchIdentityDocument(
+    fetchImpl,
+    `${origin}${ISSUER_IDENTITY_PATH}`,
+    { mode: "cors", credentials: "omit" },
+    `decoy issuer (${origin})`,
+  );
 }
 
 /**
@@ -144,6 +166,7 @@ export async function resolveIdentity(fetchImpl: typeof fetch = fetch): Promise<
   const injected = injectedIdentity();
   const door = defaultDoorUrl();
   if (injected && door) return { door, identity: injected };
+  pickupAttempts = [];
   return (await fetchProjectedIdentity(fetchImpl)) ?? (await fetchIssuedIdentity(fetchImpl));
 }
 
@@ -157,7 +180,9 @@ async function fetchIdentityDocument(
   fetchImpl: typeof fetch,
   url: string,
   init: RequestInit,
+  source: string,
 ): Promise<ProjectedIdentity | null> {
+  const record = (outcome: string) => pickupAttempts.push({ source, outcome });
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -169,30 +194,52 @@ async function fetchIdentityDocument(
           cache: "no-store",
           headers: { accept: "application/json" },
         });
-        if (!response.ok) return null;
-        const body: unknown = await response.json();
-        if (!body || typeof body !== "object") return null;
-        const record = body as Record<string, unknown>;
-        if (!isDoorIdentity(record.identity)) return null;
-        const door = typeof record.door === "string" && record.door.trim() ? record.door.trim() : defaultDoorUrl();
-        if (!door) return null;
+        if (!response.ok) {
+          record(
+            response.status === 404
+              ? "no identity for this address (404)"
+              : response.status === 403
+                ? "refused this device (403)"
+                : `answered HTTP ${response.status}`,
+          );
+          return null;
+        }
+        const body: unknown = await response.json().catch(() => undefined);
+        const identityDocument = body && typeof body === "object" ? (body as Record<string, unknown>) : undefined;
+        if (!identityDocument || !isDoorIdentity(identityDocument.identity)) {
+          record("answered without an identity");
+          return null;
+        }
+        const door =
+          typeof identityDocument.door === "string" && identityDocument.door.trim()
+            ? identityDocument.door.trim()
+            : defaultDoorUrl();
+        if (!door) {
+          record("answered without a door address");
+          return null;
+        }
         const expiresAt =
-          typeof record.expires_at === "number" && Number.isFinite(record.expires_at) ? record.expires_at : undefined;
+          typeof identityDocument.expires_at === "number" && Number.isFinite(identityDocument.expires_at)
+            ? identityDocument.expires_at
+            : undefined;
         return {
           door,
-          identity: record.identity,
-          sessionId: typeof record.session_id === "string" ? record.session_id : undefined,
+          identity: identityDocument.identity,
+          sessionId: typeof identityDocument.session_id === "string" ? identityDocument.session_id : undefined,
           expiresAt,
         };
       })(),
       new Promise<null>((resolve) => {
         timeout = setTimeout(() => {
+          record(`no answer within ${IDENTITY_PICKUP_TIMEOUT_MS / 1000} s`);
           controller.abort();
           resolve(null);
         }, IDENTITY_PICKUP_TIMEOUT_MS);
       }),
     ]);
   } catch {
+    // A browser reports an unreachable host and a CORS refusal the same way.
+    record("no answer (unreachable, or it does not allow this page's origin)");
     return null;
   } finally {
     if (timeout) clearTimeout(timeout);

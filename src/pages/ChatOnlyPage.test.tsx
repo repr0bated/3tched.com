@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../chat/door-config", () => ({
   resolveIdentity: mocks.resolveIdentity,
   fetchIssuedIdentity: mocks.fetchIssuedIdentity,
+  identityPickupReport: () => "decoy issuer (http://issuer.test): no answer",
 }));
 vi.mock("../chat/door-chat-adapter", () => ({
   connectDoorChatAdapter: mocks.connectDoorChatAdapter,
@@ -48,6 +49,18 @@ describe("ChatOnlyPage connection gate", () => {
     expect(screen.getByText(/identity credential was obtained/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("native catalog unavailable");
     expect(screen.queryByText(/could not resolve your identity/i)).not.toBeInTheDocument();
+  });
+
+  it("names the identity hop that failed when no identity resolves", async () => {
+    mocks.resolveIdentity.mockResolvedValue(null);
+
+    render(<ChatOnlyPage />);
+
+    expect(await screen.findByRole("heading", { name: "Connect to the door" })).toBeInTheDocument();
+    expect(screen.getByText(/could not resolve your identity/i)).toHaveTextContent(
+      "Tried decoy issuer (http://issuer.test): no answer.",
+    );
+    expect(mocks.connectDoorChatAdapter).not.toHaveBeenCalled();
   });
 
   it("keeps a first-call UNAUTHENTICATED response in the identity gate", async () => {

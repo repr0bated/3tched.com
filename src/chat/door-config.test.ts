@@ -5,6 +5,7 @@ import {
   RENEW_LEAD_SECONDS,
   fetchIssuedIdentity,
   fetchProjectedIdentity,
+  identityPickupReport,
   renewalDelayMs,
   resolveIdentity,
   IDENTITY_PICKUP_TIMEOUT_MS,
@@ -113,6 +114,30 @@ describe("fetchIssuedIdentity (OIA1 pickup from the decoy issuer)", () => {
       expect(fetchImpl.mock.calls[0][1]?.signal?.aborted).toBe(true);
     } finally {
       vi.useRealTimers();
+      window.__3TCHED_CONFIG__ = priorConfig;
+    }
+  });
+
+  it("reports what each identity source answered when none resolves", async () => {
+    const priorConfig = window.__3TCHED_CONFIG__;
+    window.__3TCHED_CONFIG__ = { door: "https://10.0.0.3:8090", issuer: "http://10.10.0.1:51888" };
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url) === IDENTITY_SELF_PATH) return jsonResponse(404, { error: "none" });
+      throw new TypeError("Failed to fetch");
+    });
+    try {
+      await expect(resolveIdentity(fetchImpl as unknown as typeof fetch)).resolves.toBeNull();
+      expect(identityPickupReport()).toBe(
+        "web server: no identity for this address (404); " +
+          "decoy issuer (http://10.10.0.1:51888): no answer (unreachable, or it does not allow this page's origin)",
+      );
+      // Each resolution starts a fresh report.
+      const refused = vi.fn(async () => jsonResponse(403, {}));
+      await resolveIdentity(refused as unknown as typeof fetch);
+      expect(identityPickupReport()).toBe(
+        "web server: refused this device (403); decoy issuer (http://10.10.0.1:51888): refused this device (403)",
+      );
+    } finally {
       window.__3TCHED_CONFIG__ = priorConfig;
     }
   });

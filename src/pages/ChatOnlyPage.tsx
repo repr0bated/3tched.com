@@ -3,6 +3,7 @@ import { Renderer } from "@json-render/react";
 import type { ChatAdapter } from "../chat/chat-adapter";
 import {
   fetchIssuedIdentity,
+  identityPickupReport,
   resolveIdentity,
 } from "../chat/door-config";
 import { connectDoorChatAdapter } from "../chat/door-chat-adapter";
@@ -50,11 +51,14 @@ export default function ChatOnlyPage() {
       try {
         const projected = await resolveIdentity();
         if (cancelled) return { state: "resolving_identity" };
-        if (!projected) return {
-          state: "connect",
-          phase: "identity",
-          error: "Your server could not resolve your identity. Open this app through your configured identity connection, then retry.",
-        };
+        if (!projected) {
+          const report = identityPickupReport();
+          return {
+            state: "connect",
+            phase: "identity",
+            error: `Your server could not resolve your identity.${report ? ` Tried ${report}.` : ""} Open this app through your configured identity connection, then retry.`,
+          };
+        }
         const identity = await readSessionIdentity({ url: projected.door, identity: projected.identity }, async () => {
           const fresh = await fetchIssuedIdentity();
           if (!fresh || normalizeDoorUrl(fresh.door) !== normalizeDoorUrl(projected.door)) {
