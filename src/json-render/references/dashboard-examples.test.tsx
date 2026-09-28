@@ -60,6 +60,16 @@ describe("dashboard references", () => {
     expect(readCanvasResponse(`Example\n\`\`\`json-render\n${JSON.stringify(sample)}\n\`\`\``)).toEqual({ content: "Example", canvasSpec: sample });
     expect(readCanvasResponse("plain reply")).toEqual({ content: "plain reply" });
     expect(readCanvasResponse("```json-render\n{bad}\n```").canvasSpec).toBeUndefined();
+    const bad = readCanvasResponse("Here\n```json-render\n{bad}\n```");
+    expect(bad.canvasSpec).toBeUndefined();
+    expect(bad.content).not.toContain("```");
+    expect(bad.content).toContain("not rendered");
+    const spec = JSON.stringify(sample);
+    expect(readCanvasResponse(`Example\n\`\`\`json\n${spec}\n\`\`\``)).toEqual({ content: "Example", canvasSpec: sample });
+    expect(readCanvasResponse(`Example\r\n\`\`\`json-render \r\n${spec}\`\`\``)).toEqual({ content: "Example", canvasSpec: sample });
+    expect(readCanvasResponse(spec)).toEqual({ content: "Rendered the requested interface.", canvasSpec: sample });
+    const ordinaryJson = "Config:\n```json\n{\"a\":1}\n```";
+    expect(readCanvasResponse(ordinaryJson)).toEqual({ content: ordinaryJson });
   });
   it("rejects actions, runtime controls, undeclared props and dynamic bindings", () => {
     for (const invalid of [

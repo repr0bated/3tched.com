@@ -82,14 +82,52 @@ export function notebookCanvasSpec(notebook: NotebookDetail): Spec {
   });
 }
 
-export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec } {
-  const block = /```json-render\s*\n([\s\S]*?)\n```/.exec(content);
-  if (!block) return { content };
+const FENCE = /```[ \t]*([A-Za-z-]*)[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```/g;
+const CANVAS_LABELS = new Set(["json-render", "jsonrender", "json_render"]);
+
+function parseJson(text: string): unknown {
   try {
-    if (block[1].length > MAX_BYTES) throw new Error("Canvas exceeds its size limit.");
-    const canvasSpec = validateCanvasSpec(JSON.parse(block[1]));
-    return { content: content.replace(block[0], "").trim() || "Rendered the requested interface.", canvasSpec };
+    return JSON.parse(text);
   } catch {
-    return { content: `${content}\n\nThe generated interface did not pass catalog validation and was not rendered.` };
+    return undefined;
+  }
+}
+
+const looksLikeCanvas = (value: unknown) => object(value) && "root" in value && "elements" in value;
+
+/**
+ * Take the canvas out of a model reply. A `json-render` fence is always a
+ * canvas; a `json` or unlabelled fence, or a reply that is only JSON, is one
+ * when it parses to {root, elements}. The chat text never keeps the spec: an
+ * invalid canvas is replaced by the reason it was not rendered.
+ */
+export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec } {
+  const withoutBlock = (block: string) => content.replace(block, "").trim();
+  for (const match of content.matchAll(FENCE)) {
+    const [block, rawLabel, body] = match;
+    const label = rawLabel.toLowerCase();
+    const explicit = CANVAS_LABELS.has(label);
+    if (!explicit && label !== "json" && label !== "") continue;
+    const parsed = parseJson(body);
+    if (!explicit && !looksLikeCanvas(parsed)) continue;
+    return renderCandidate(parsed, body.length, withoutBlock(block));
+  }
+  const whole = content.trim();
+  if (whole.startsWith("{")) {
+    const parsed = parseJson(whole);
+    if (looksLikeCanvas(parsed)) return renderCandidate(parsed, whole.length, "");
+  }
+  return { content };
+}
+
+function renderCandidate(parsed: unknown, size: number, text: string): { content: string; canvasSpec?: Spec } {
+  try {
+    if (size > MAX_BYTES) throw new Error("Canvas exceeds its size limit.");
+    if (parsed === undefined) throw new Error("Canvas block is not valid JSON.");
+    const canvasSpec = validateCanvasSpec(parsed);
+    return { content: text || "Rendered the requested interface.", canvasSpec };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "invalid canvas";
+    return { content: `${text}\n\nThe generated interface did not pass catalog validation and was not rendered (${reason}).`.trim() };
   }
 }
