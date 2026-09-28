@@ -36,11 +36,13 @@ import type {
 import { DoorClient, DoorError, type DoorConfig } from "../grpc/door";
 import { uiGallery, type UiGallery } from "./ui-gallery";
 import {
+  authorizeTask,
   currentControlPlaneModel,
   listControlPlaneModels,
   setControlPlaneModel,
   type ControlPlaneModelOption,
 } from "./control-plane-model";
+import type { AuthorizeTask, Elevate } from "./SudoPrompt";
 
 export const TCHED_ROUTER = "tched_router";
 
@@ -178,8 +180,10 @@ export interface DoorChatAdapter extends ChatAdapter {
   readonly controlPlane: {
     list(): Promise<ControlPlaneModelOption[]>;
     current(): Promise<string>;
-    set(reference: string): Promise<void>;
+    set(reference: string, elevate?: Elevate): Promise<void>;
   };
+  /** One-time sudo ticket for an exact protected call. */
+  readonly authorizeTask: AuthorizeTask;
 }
 
 /**
@@ -224,8 +228,9 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     controlPlane: {
       list: () => listControlPlaneModels(client),
       current: () => currentControlPlaneModel(client),
-      set: (reference) => setControlPlaneModel(client, reference),
+      set: (reference, elevate) => setControlPlaneModel(client, reference, elevate),
     },
+    authorizeTask: (plugin, method, args, password) => authorizeTask(client, plugin, method, args, password),
 
     followKnowledge(onKnowledge, onStatus) {
       let feed: KnowledgeFeed | null = null;

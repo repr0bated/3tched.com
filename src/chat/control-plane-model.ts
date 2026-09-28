@@ -1,4 +1,5 @@
 import type { DoorClient } from "../grpc/door";
+import type { Elevate } from "./SudoPrompt";
 
 /**
  * The Control Plane model, read and set through the door: the router's
@@ -6,7 +7,8 @@ import type { DoorClient } from "../grpc/door";
  * profile, which owns the model and its wire format. Reading needs the
  * router read grant; setting is tched_router `config_set`, an admitted
  * mutation under the caller's verified session and the router write grant,
- * recorded on the chain. No credential or password leaves the door.
+ * recorded on the chain. It is a protected task: the caller first obtains a
+ * one-time sudo ticket for the exact call (`elevate`).
  */
 const TCHED_ROUTER = "tched_router";
 const READ = "cap.software.tched-router.router.read@v1";
@@ -50,9 +52,22 @@ export async function currentControlPlaneModel(client: DoorClient): Promise<stri
   return result.value ?? "";
 }
 
-export async function setControlPlaneModel(client: DoorClient, reference: string): Promise<void> {
+export async function setControlPlaneModel(client: DoorClient, reference: string, elevate?: Elevate): Promise<void> {
   if (!/^(opencode|anthropic)\.go_[A-Za-z0-9_]+$/.test(reference)) {
     throw new Error("Not an OpenCode Go control plane profile.");
   }
-  await client.call(TCHED_ROUTER, "config_set", { path: CONTROL_PLANE_PROVIDER_PATH, value: reference }, WRITE);
+  const args = { path: CONTROL_PLANE_PROVIDER_PATH, value: reference };
+  if (elevate) await elevate(TCHED_ROUTER, "config_set", args);
+  await client.call(TCHED_ROUTER, "config_set", args, WRITE);
+}
+
+/** One-time sudo ticket for an exact protected call (elevation plugin). */
+export async function authorizeTask(
+  client: DoorClient,
+  plugin: string,
+  method: string,
+  args: Record<string, unknown>,
+  password: string,
+): Promise<void> {
+  await client.call("elevation", "authorize_task", { plugin, method, args, password }, "elevation.authorize");
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DoorClient } from "../grpc/door";
 import {
   CONTROL_PLANE_PROVIDER_PATH,
+  authorizeTask,
   currentControlPlaneModel,
   listControlPlaneModels,
   setControlPlaneModel,
@@ -55,5 +56,44 @@ describe("control plane model", () => {
     });
     await expect(setControlPlaneModel(client, "custom.anything")).rejects.toThrow();
     expect(calls).toHaveLength(2);
+  });
+});
+
+describe("control plane model elevation", () => {
+  it("elevates with the exact config_set arguments before sending them", async () => {
+    const { client, calls } = fake({});
+    const elevated: unknown[] = [];
+    await setControlPlaneModel(client, "opencode.go_cp_route_grok_47", async (plugin, method, args) => {
+      elevated.push({ plugin, method, args, before: calls.length });
+    });
+    expect(elevated).toEqual([
+      {
+        plugin: "tched_router",
+        method: "config_set",
+        args: { path: CONTROL_PLANE_PROVIDER_PATH, value: "opencode.go_cp_route_grok_47" },
+        before: 0,
+      },
+    ]);
+    expect(calls[0].args).toEqual((elevated[0] as { args: unknown }).args);
+  });
+
+  it("does not send the change when elevation is refused", async () => {
+    const { client, calls } = fake({});
+    await expect(
+      setControlPlaneModel(client, "opencode.go_control_plane", async () => {
+        throw new Error("Sudo elevation cancelled.");
+      }),
+    ).rejects.toThrow("cancelled");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("authorizes a task through the elevation plugin", async () => {
+    const { client, calls } = fake({});
+    await authorizeTask(client, "json_render", "retire_catalog_entry", { entry_id: "e", reason: "" }, "pw");
+    expect(calls[0]).toEqual({
+      method: "authorize_task",
+      args: { plugin: "json_render", method: "retire_catalog_entry", args: { entry_id: "e", reason: "" }, password: "pw" },
+      capability: "elevation.authorize",
+    });
   });
 });

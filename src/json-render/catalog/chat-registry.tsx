@@ -34,6 +34,7 @@ import type { ChatMessage } from "../../chat/chat-adapter";
 import { notebookIdFromNamespace, type ChatMode } from "../../chat/chat-mode";
 import { ModeStrip } from "../../chat/ModeStrip";
 import { GalleryPanel } from "../../chat/GalleryPanel";
+import { useSudoPrompt } from "../../chat/SudoPrompt";
 import type { DoorChatAdapter } from "../../chat/door-chat-adapter";
 import type { ControlPlaneModelOption } from "../../chat/control-plane-model";
 import { chatCatalog } from "./chat-catalog";
@@ -148,7 +149,14 @@ class CanvasBoundary extends Component<
   }
 }
 
-function ControlPlaneModelSelect({ controlPlane }: { controlPlane: DoorChatAdapter["controlPlane"] }) {
+function ControlPlaneModelSelect({
+  controlPlane,
+  authorizeTask,
+}: {
+  controlPlane: DoorChatAdapter["controlPlane"];
+  authorizeTask?: DoorChatAdapter["authorizeTask"];
+}) {
+  const [elevate, sudoPrompt] = useSudoPrompt(authorizeTask);
   const [options, setOptions] = useState<ControlPlaneModelOption[]>([]);
   const [current, setCurrent] = useState("");
   const [choice, setChoice] = useState("");
@@ -180,7 +188,7 @@ function ControlPlaneModelSelect({ controlPlane }: { controlPlane: DoorChatAdapt
     setPending(true);
     setError(null);
     try {
-      await controlPlane.set(choice);
+      await controlPlane.set(choice, elevate);
       setCurrent(choice);
       const model = options.find((option) => option.reference === choice)?.model ?? choice;
       setStatus(`Control plane now uses ${model}.`);
@@ -215,6 +223,7 @@ function ControlPlaneModelSelect({ controlPlane }: { controlPlane: DoorChatAdapt
       <p className={error ? "route-status route-status--error" : "route-status"} role="status" aria-live="polite">
         {error ?? status ?? (pending ? "Loading." : "")}
       </p>
+      {sudoPrompt}
     </section>
   );
 }
@@ -289,7 +298,9 @@ const registryDefinition = defineRegistry(chatCatalog, {
       // per-session route: it has its own door-authenticated selector.
       if (remote && chatContext?.mode === "control_plane") {
         const door = adapter as DoorChatAdapter;
-        return door.controlPlane ? <ControlPlaneModelSelect controlPlane={door.controlPlane} /> : null;
+        return door.controlPlane
+          ? <ControlPlaneModelSelect controlPlane={door.controlPlane} authorizeTask={door.authorizeTask} />
+          : null;
       }
       if (remote && !chatContext) return null;
       const models =
@@ -373,6 +384,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
       const messageValue = useStateValue(messagesPath);
       const messages = toMessages(messageValue);
       const gallery = remote ? (adapter as DoorChatAdapter).gallery ?? null : null;
+      const [elevate, sudoPrompt] = useSudoPrompt(remote ? (adapter as DoorChatAdapter).authorizeTask : undefined);
       const [view, setView] = useState<"canvas" | "candidates" | "catalog">("canvas");
       const [galleryRefresh, setGalleryRefresh] = useState(0);
       const [lastCanvas, setLastCanvas] = useState<{ spec: Spec; prompt: string; mode: ChatMode; saved: boolean } | null>(null);
@@ -562,6 +574,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
                     gallery={gallery}
                     view={view}
                     refreshKey={galleryRefresh}
+                    elevate={elevate}
                     onShow={(spec) => {
                       setCanvasSpec(spec);
                       setView("canvas");
@@ -572,6 +585,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
                     <Renderer spec={canvasSpec} registry={chatRegistry} />
                   </CanvasBoundary>
                 )}
+                {sudoPrompt}
                 <p className="sr-only" role="status" aria-live="polite">{saveStatus ?? ""}</p>
               </div>
               <footer className="developer-status">

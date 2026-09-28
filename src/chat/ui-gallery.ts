@@ -1,6 +1,7 @@
 import type { Spec } from "@json-render/core";
 import type { ChatMode } from "./chat-mode";
 import type { DoorClient } from "../grpc/door";
+import type { Elevate } from "./SudoPrompt";
 
 /**
  * The json_render UI gallery and active catalog, through the door.
@@ -60,10 +61,10 @@ export interface UiGallery {
   listCandidates(before?: string | null, limit?: number): Promise<Page<CandidateSummary>>;
   getCandidate(candidateId: string): Promise<Candidate>;
   deleteCandidate(candidateId: string): Promise<boolean>;
-  promoteCandidate(candidateId: string, name: string, description: string): Promise<CatalogEntry>;
+  promoteCandidate(candidateId: string, name: string, description: string, elevate?: Elevate): Promise<CatalogEntry>;
   listCatalog(before?: string | null, limit?: number, includeRetired?: boolean): Promise<Page<CatalogEntrySummary>>;
   getCatalogEntry(entryId: string): Promise<CatalogEntry>;
-  retireCatalogEntry(entryId: string, reason?: string): Promise<CatalogEntry>;
+  retireCatalogEntry(entryId: string, reason?: string, elevate?: Elevate): Promise<CatalogEntry>;
   /** Active entries with their specs, newest first, cached briefly. */
   activeCatalog(limit?: number): Promise<CatalogEntry[]>;
 }
@@ -129,12 +130,10 @@ export function uiGallery(client: DoorClient): UiGallery {
       return (await call<{ deleted: boolean }>("delete_candidate", { candidate_id: candidateId })).deleted;
     },
 
-    async promoteCandidate(candidateId, name, description) {
-      const result = await call<{ entry: CatalogEntry }>(
-        "promote_candidate",
-        { candidate_id: candidateId, name: name.trim(), description: description.trim() },
-        PROMOTE_CAPABILITY,
-      );
+    async promoteCandidate(candidateId, name, description, elevate) {
+      const args = { candidate_id: candidateId, name: name.trim(), description: description.trim() };
+      if (elevate) await elevate(JSON_RENDER, "promote_candidate", args);
+      const result = await call<{ entry: CatalogEntry }>("promote_candidate", args, PROMOTE_CAPABILITY);
       forget();
       return result.entry;
     },
@@ -151,12 +150,10 @@ export function uiGallery(client: DoorClient): UiGallery {
       return (await call<{ entry: CatalogEntry }>("get_catalog_entry", { entry_id: entryId })).entry;
     },
 
-    async retireCatalogEntry(entryId, reason = "") {
-      const result = await call<{ entry: CatalogEntry }>(
-        "retire_catalog_entry",
-        { entry_id: entryId, reason: reason.trim() },
-        PROMOTE_CAPABILITY,
-      );
+    async retireCatalogEntry(entryId, reason = "", elevate) {
+      const args = { entry_id: entryId, reason: reason.trim() };
+      if (elevate) await elevate(JSON_RENDER, "retire_catalog_entry", args);
+      const result = await call<{ entry: CatalogEntry }>("retire_catalog_entry", args, PROMOTE_CAPABILITY);
       forget();
       return result.entry;
     },

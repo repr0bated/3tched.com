@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Spec } from "@json-render/core";
 import type { CandidateSummary, CatalogEntrySummary, UiGallery } from "./ui-gallery";
+import type { Elevate } from "./SudoPrompt";
 
 type View = "candidates" | "catalog";
 
@@ -24,8 +25,10 @@ export function GalleryPanel({
   view,
   onShow,
   refreshKey,
+  elevate,
 }: {
   gallery: UiGallery;
+  elevate?: Elevate;
   view: View;
   onShow: (spec: Spec) => void;
   refreshKey: number;
@@ -98,7 +101,7 @@ export function GalleryPanel({
   async function promote(id: string) {
     setError(null);
     try {
-      const entry = await gallery.promoteCandidate(id, name, description);
+      const entry = await gallery.promoteCandidate(id, name, description, elevate);
       setStatus(`Promoted to the catalog as “${entry.name}”.`);
       setPromoting(null);
       setName("");
@@ -112,7 +115,7 @@ export function GalleryPanel({
   async function retire(id: string) {
     setError(null);
     try {
-      const entry = await gallery.retireCatalogEntry(id);
+      const entry = await gallery.retireCatalogEntry(id, "", elevate);
       setStatus(`Retired “${entry.name}” from the catalog.`);
       await load(null);
     } catch (cause) {

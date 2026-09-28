@@ -111,3 +111,22 @@ describe("clipBytes", () => {
     expect(clipBytes("short", 200)).toBe("short");
   });
 });
+
+describe("catalog elevation", () => {
+  it("elevates promote and retire with the arguments they send", async () => {
+    const { client, calls } = fakeClient({
+      promote_candidate: { entry: entry("e", "Status") },
+      retire_catalog_entry: { entry: entry("e", "Status") },
+    });
+    const elevated: Array<{ method: string; args: Record<string, unknown> }> = [];
+    const gallery = uiGallery(client);
+    await gallery.promoteCandidate("c", " Status ", "", async (_plugin, method, args) => {
+      elevated.push({ method, args });
+    });
+    await gallery.retireCatalogEntry("e", "", async (_plugin, method, args) => {
+      elevated.push({ method, args });
+    });
+    expect(elevated.map((item) => item.method)).toEqual(["promote_candidate", "retire_catalog_entry"]);
+    expect(calls.map((call) => call.args)).toEqual(elevated.map((item) => item.args));
+  });
+});
