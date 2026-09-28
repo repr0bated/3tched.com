@@ -74,16 +74,12 @@ const CATALOG_TTL_MS = 60_000;
 
 /** Longest prefix of `text` within `bytes` UTF-8 bytes, never splitting a character. */
 export function clipBytes(text: string, bytes: number): string {
-  const encoder = new TextEncoder();
-  let used = 0;
-  let out = "";
-  for (const character of text) {
-    const size = encoder.encode(character).length;
-    if (used + size > bytes) break;
-    used += size;
-    out += character;
-  }
-  return out;
+  const encoded = new TextEncoder().encode(text);
+  if (encoded.length <= bytes) return text;
+  let end = Math.max(0, bytes);
+  // Back up to the start of the character that would be split.
+  while (end > 0 && (encoded[end] & 0xc0) === 0x80) end -= 1;
+  return new TextDecoder().decode(encoded.subarray(0, end));
 }
 
 /** A gallery title from the request that produced a canvas. */
@@ -167,10 +163,16 @@ export function uiGallery(client: DoorClient): UiGallery {
 
     async activeCatalog(limit = 6) {
       if (cached && cached.limit === limit && Date.now() - cached.at < CATALOG_TTL_MS) return cached.entries;
-      const page = await gallery.listCatalog(null, limit);
-      const entries = await Promise.all(page.items.map((item) => gallery.getCatalogEntry(item.entry_id)));
-      cached = { at: Date.now(), limit, entries };
-      return entries;
+      try {
+        const page = await gallery.listCatalog(null, limit);
+        const entries = await Promise.all(page.items.map((item) => gallery.getCatalogEntry(item.entry_id)));
+        cached = { at: Date.now(), limit, entries };
+        return entries;
+      } catch (error) {
+        // A failed refresh keeps the last catalog rather than dropping it.
+        if (cached && cached.limit === limit) return cached.entries;
+        throw error;
+      }
     },
   };
   return gallery;

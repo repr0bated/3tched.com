@@ -102,3 +102,12 @@ describe("catalog in prompts", () => {
     expect(catalogPresentationMessage("status", "personal")).not.toContain("Promoted catalog compositions");
   });
 });
+
+describe("clipBytes", () => {
+  it("never splits a multi-byte character", () => {
+    expect(clipBytes("a€b", 3)).toBe("a");
+    expect(clipBytes("a€b", 4)).toBe("a€");
+    expect(clipBytes("😀x", 3)).toBe("");
+    expect(clipBytes("short", 200)).toBe("short");
+  });
+});

@@ -141,7 +141,7 @@ export function GalleryPanel({
                 <div className="gallery-item__main">
                   <strong>{item.title}</strong>
                   <small>
-                    {item.mode.replace("_", " ")} · {when(item.created_at)}
+                    {item.mode.replaceAll("_", " ")} · {when(item.created_at)}
                     {item.promoted_entry_id ? " · promoted" : ""}
                   </small>
                 </div>
