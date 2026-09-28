@@ -14,7 +14,9 @@ const TCHED_ROUTER = "tched_router";
 const READ = "cap.software.tched-router.router.read@v1";
 const WRITE = "cap.software.tched-router.router.write@v1";
 export const CONTROL_PLANE_PROVIDER_PATH = "agents.control_plane.model_provider";
-const PROFILE = /^providers\.models\.(opencode|anthropic)\.(go_control_plane|go_cp_route_[A-Za-z0-9_]+)\.model$/;
+// OpenCode Go control plane profiles and Cheaper Inference.
+const PROFILE =
+  /^providers\.models\.((?:opencode|anthropic)\.(?:go_control_plane|go_cp_route_[A-Za-z0-9_]+)|custom\.cheaper_inference)\.model$/;
 
 export interface ControlPlaneModelOption {
   /** `family.alias`, the value written to the agent's model_provider. */
@@ -37,7 +39,7 @@ export async function listControlPlaneModels(client: DoorClient): Promise<Contro
   const options: ControlPlaneModelOption[] = [];
   for (const entry of result.entries ?? []) {
     const match = PROFILE.exec(entry.path);
-    if (match && entry.value) options.push({ reference: `${match[1]}.${match[2]}`, model: entry.value });
+    if (match && entry.value) options.push({ reference: match[1], model: entry.value });
   }
   return options.sort((a, b) => a.model.localeCompare(b.model) || a.reference.localeCompare(b.reference));
 }
@@ -53,8 +55,8 @@ export async function currentControlPlaneModel(client: DoorClient): Promise<stri
 }
 
 export async function setControlPlaneModel(client: DoorClient, reference: string, elevate?: Elevate): Promise<void> {
-  if (!/^(opencode|anthropic)\.go_[A-Za-z0-9_]+$/.test(reference)) {
-    throw new Error("Not an OpenCode Go control plane profile.");
+  if (!/^((opencode|anthropic)\.go_[A-Za-z0-9_]+|custom\.cheaper_inference)$/.test(reference)) {
+    throw new Error("Not a control plane provider profile.");
   }
   const args = { path: CONTROL_PLANE_PROVIDER_PATH, value: reference };
   if (elevate) await elevate(TCHED_ROUTER, "config_set", args);

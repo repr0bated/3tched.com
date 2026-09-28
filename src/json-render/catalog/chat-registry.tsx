@@ -204,7 +204,7 @@ function ControlPlaneModelSelect({
     <section className="routing-strip" aria-label="Control plane model">
       <div className="routing-strip__label">
         <span>CONTROL PLANE</span>
-        <small>OpenCode Go, set through the door</small>
+        <small>OpenCode Go or Cheaper Inference, set through the door</small>
       </div>
       <label className="model-select">
         <span>Model</span>

@@ -28,6 +28,8 @@ describe("control plane model", () => {
           { path: "providers.models.opencode.go_cp_route_grok_47.model", value: "grok-4.7" },
           { path: "providers.models.anthropic.go_cp_route_qwen38_flash.model", value: "qwen3.8-flash" },
           { path: "providers.models.opencode.go_dashboard.model", value: "glm-5.3-flash" },
+          { path: "providers.models.custom.cheaper_inference.model", value: "gpt-5.4-mini" },
+          { path: "providers.models.custom.other.model", value: "x" },
           { path: "providers.models.opencode.go_cp_route_grok_47.api_key", value: "****" },
         ],
       },
@@ -35,6 +37,7 @@ describe("control plane model", () => {
     const options = await listControlPlaneModels(client);
     expect(options.map((option) => option.reference)).toEqual([
       "opencode.go_control_plane",
+      "custom.cheaper_inference",
       "opencode.go_cp_route_grok_47",
       "anthropic.go_cp_route_qwen38_flash",
     ]);
