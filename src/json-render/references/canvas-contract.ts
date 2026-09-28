@@ -1,4 +1,5 @@
 import { defineCatalog, type Spec } from "@json-render/core";
+import { z } from "zod";
 import { schema } from "@json-render/react/schema";
 import type { NotebookDetail } from "../../chat/chat-mode";
 import { chatCatalog } from "../catalog/chat-catalog";
@@ -56,6 +57,29 @@ export function validateCanvasSpec(value: unknown): Spec {
   visit(value.root, 0);
   if (seen.size !== ids.length) throw new Error("Canvas has unreachable elements.");
   return value as unknown as Spec;
+}
+
+/**
+ * The Canvas contract as data for the OP-DBUS json_render plugin, which
+ * validates saved and promoted canvases with it. Props are closed, matching
+ * validateCanvasSpec's undeclared-prop rule.
+ */
+export function canvasProfileExport() {
+  const components = Object.entries(canvasCatalog.data.components).map(([name, declaration]) => {
+    const props_schema = z.toJSONSchema(declaration.props, { target: "draft-7", io: "input" }) as Record<string, unknown>;
+    props_schema.additionalProperties = false;
+    return {
+      name,
+      description: declaration.description ?? "",
+      slots: declaration.slots ?? [],
+      props_schema,
+    };
+  });
+  return {
+    format: "3tched.canvas-profile.v1",
+    limits: { max_bytes: MAX_BYTES, max_elements: MAX_ELEMENTS, max_depth: MAX_DEPTH },
+    components,
+  };
 }
 
 const clip = (value: string) => value.slice(0, 400);

@@ -8,6 +8,7 @@ for (const entry of referenceBundle.examples) {
   fs.writeFileSync(`${root}/specs/${entry.id}.json`, JSON.stringify(entry.spec, null, 2) + '\n');
 }
 fs.writeFileSync(`${root}/catalog.schema.json`, JSON.stringify(referenceBundle.catalogSchema, null, 2) + '\n');
+fs.writeFileSync('references/canvas-profile.json', JSON.stringify(referenceBundle.canvasProfile, null, 2) + '\n');
 fs.writeFileSync(`${root}/catalog.prompt.txt`, referenceBundle.catalogPrompt + '\n');
 const manifest = JSON.parse(fs.readFileSync(`${root}/manifest.json`, 'utf8'));
 manifest.catalog = { schema: 'catalog.schema.json', prompt: 'catalog.prompt.txt', inventory: 'element-inventory.json' };

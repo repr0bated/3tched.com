@@ -47,7 +47,7 @@ For lists where users can add/remove items (todos, carts, etc.), use pushState a
 
 IMPORTANT: State paths use RFC 6901 JSON Pointer syntax (e.g. "/todos/0/title"). Do NOT use JavaScript-style dot notation (e.g. "/todos.length" is WRONG). To generate unique IDs for new items, use "$id" instead of trying to read array length.
 
-AVAILABLE COMPONENTS (21):
+AVAILABLE COMPONENTS (23):
 
 - dashboardPanel: { title: string, subtitle?: string, tone?: "neutral" | "info" | "success" | "warning" | "danger" } - Reusable titled dashboard panel for spec-composed content. [accepts children]
 - dashboardDisclosure: { title: string, summary?: string, initiallyOpen?: boolean } - Expandable details region for static reference content. [accepts children]
@@ -63,6 +63,8 @@ AVAILABLE COMPONENTS (21):
 - dashboardCode: { title: string, language?: string, code: string } - Escaped code or structured-text sample.
 - dashboardTree: { title: string, nodes: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<{ label: string, detail?: string, children?: Array<unknown> }> }> }> }> }> }> }> }> } - Nested read-only resource hierarchy.
 - dashboardTopology: { title: string, nodes: Array<{ id: string, label: string, detail?: string, x: number, y: number }>, edges: Array<{ from: string, to: string, label?: string }> } - Static topology with an accessible node and edge list.
+- notebookHeader: { title: string, sourceCount: number, url?: string, emoji?: string } - Selected notebook title, source count, and URL. Static props only.
+- notebookSourceList: { sources: Array<{ id: string, title: string }> } - Read-only list of a notebook's sources. Static props only.
 - container: { className?: string } - Vertical stack of children. [accepts children]
 - pageHeader: { title: string, subtitle?: string } - Compact page title and runtime subtitle.
 - heading: { text: string, level?: 1 | 2 | 3 } - Canvas heading.

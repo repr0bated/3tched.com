@@ -25,6 +25,8 @@
               "dashboardCode",
               "dashboardTree",
               "dashboardTopology",
+              "notebookHeader",
+              "notebookSourceList",
               "container",
               "pageHeader",
               "heading",
