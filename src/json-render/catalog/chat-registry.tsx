@@ -146,6 +146,104 @@ class CanvasBoundary extends Component<
   }
 }
 
+function ControlPlaneModelPicker() {
+  const [password, setPassword] = useState("");
+  const [models, setModels] = useState<string[]>([]);
+  const [model, setModel] = useState("");
+  const [wire, setWire] = useState("chat_completions");
+  const [status, setStatus] = useState("Enter the sudo password to load models.");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function unlock() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/control-plane/models", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const body = await response.json() as { models?: Array<{ id: string }>; error?: string };
+      if (!response.ok) throw new Error(body.error || "sudo password was not accepted");
+      const ids = (body.models ?? []).map((item) => item.id);
+      setModels(ids);
+      setModel(ids[0] ?? "");
+      setStatus("Catalog loaded. The password is checked again when you apply a model.");
+    } catch (cause) {
+      setModels([]);
+      setError(cause instanceof Error ? cause.message : "could not load models");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function apply() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/control-plane/model", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password, model, wire }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error || "model was not changed");
+      setPassword("");
+      setStatus(`Control plane is now ${model}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "could not change the model");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="routing-strip" aria-label="Control plane model">
+      <div className="routing-strip__label">
+        <span>CONTROL PLANE</span>
+        <small>sudo password, live catalog</small>
+      </div>
+      <label>
+        <span>Sudo password</span>
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          disabled={pending}
+        />
+      </label>
+      {models.length > 0 ? (
+        <>
+          <label className="model-select">
+            <span>Model</span>
+            <select value={model} onChange={(event) => setModel(event.target.value)} disabled={pending}>
+              {models.map((id) => (
+                <option key={id} value={id}>{id}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>API</span>
+            <select value={wire} onChange={(event) => setWire(event.target.value)} disabled={pending}>
+              <option value="chat_completions">chat completions</option>
+              <option value="responses">responses</option>
+              <option value="messages">messages</option>
+            </select>
+          </label>
+        </>
+      ) : null}
+      <button type="button" disabled={pending || password.length === 0 || (models.length > 0 && !model)} onClick={() => void (models.length > 0 ? apply() : unlock())}>
+        {models.length > 0 ? "Apply" : "Unlock"}
+      </button>
+      <p className={error ? "route-status route-status--error" : "route-status"} role="status">
+        {error ?? status}
+      </p>
+    </section>
+  );
+}
+
 const registryDefinition = defineRegistry(chatCatalog, {
   actions: {
     setState: async (params, setState) => {
@@ -212,7 +310,10 @@ const registryDefinition = defineRegistry(chatCatalog, {
         selectProvider,
       } = useChatRuntime();
       const remote = adapter.kind === "remote";
-      if (remote && (!chatContext || chatContext.mode === "control_plane")) return null;
+      if (remote && chatContext?.mode === "control_plane") {
+        return <ControlPlaneModelPicker />;
+      }
+      if (remote && !chatContext) return null;
       const models =
         providers.find((provider) => provider.id === route.providerId)?.models ?? [];
 
