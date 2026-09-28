@@ -35,6 +35,12 @@ import type {
 } from "./chat-adapter";
 import { DoorClient, DoorError, type DoorConfig } from "../grpc/door";
 import { uiGallery, type UiGallery } from "./ui-gallery";
+import {
+  currentControlPlaneModel,
+  listControlPlaneModels,
+  setControlPlaneModel,
+  type ControlPlaneModelOption,
+} from "./control-plane-model";
 
 export const TCHED_ROUTER = "tched_router";
 
@@ -168,6 +174,12 @@ export interface DoorChatAdapter extends ChatAdapter {
   getNotebook(notebookId: string): Promise<NotebookDetail>;
   /** Saved canvas candidates and the promoted catalog (json_render). */
   readonly gallery: UiGallery;
+  /** The Control Plane model, set through the router's admitted config_set. */
+  readonly controlPlane: {
+    list(): Promise<ControlPlaneModelOption[]>;
+    current(): Promise<string>;
+    set(reference: string): Promise<void>;
+  };
 }
 
 /**
@@ -209,6 +221,11 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     selectNotebook: (notebookId) => selectNotebook(client, notebookId),
     getNotebook: (notebookId) => getNotebook(client, notebookId),
     gallery: uiGallery(client),
+    controlPlane: {
+      list: () => listControlPlaneModels(client),
+      current: () => currentControlPlaneModel(client),
+      set: (reference) => setControlPlaneModel(client, reference),
+    },
 
     followKnowledge(onKnowledge, onStatus) {
       let feed: KnowledgeFeed | null = null;
