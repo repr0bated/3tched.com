@@ -68,6 +68,8 @@ describe("dashboard references", () => {
     expect(readCanvasResponse(`Example\n\`\`\`json\n${spec}\n\`\`\``)).toEqual({ content: "Example", canvasSpec: sample });
     expect(readCanvasResponse(`Example\r\n\`\`\`json-render \r\n${spec}\`\`\``)).toEqual({ content: "Example", canvasSpec: sample });
     expect(readCanvasResponse(spec)).toEqual({ content: "Rendered the requested interface.", canvasSpec: sample });
+    const repeated = `Example\n\`\`\`json-render\n${spec}\n\`\`\`\nAgain\n\`\`\`json-render\n${spec}\n\`\`\`\n\`\`\`json-render\n{bad}\n\`\`\``;
+    expect(readCanvasResponse(repeated)).toEqual({ content: "Example\n\nAgain", canvasSpec: sample });
     const ordinaryJson = "Config:\n```json\n{\"a\":1}\n```";
     expect(readCanvasResponse(ordinaryJson)).toEqual({ content: ordinaryJson });
   });

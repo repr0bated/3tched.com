@@ -102,7 +102,13 @@ const looksLikeCanvas = (value: unknown) => object(value) && "root" in value && 
  * invalid canvas is replaced by the reason it was not rendered.
  */
 export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec } {
-  const withoutBlock = (block: string) => content.replace(block, "").trim();
+  // The chat text keeps no canvas code: drop the chosen block wherever it
+  // repeats, and any other json-render block the reply carried.
+  const withoutBlock = (block: string) =>
+    content
+      .replaceAll(block, "")
+      .replace(FENCE, (fence: string, label: string) => (CANVAS_LABELS.has(label.toLowerCase()) ? "" : fence))
+      .trim();
   for (const match of content.matchAll(FENCE)) {
     const [block, rawLabel, body] = match;
     const label = rawLabel.toLowerCase();
