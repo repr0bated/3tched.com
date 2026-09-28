@@ -1,5 +1,6 @@
 import type { Spec } from "@json-render/core";
 import type { ChatMode, NotebookDetail } from "./chat-mode";
+import type { CatalogEntry } from "./ui-gallery";
 
 export type ChatRole = "user" | "agent" | "system";
 
@@ -33,6 +34,8 @@ export interface ChatRequest {
   mode?: ChatMode;
   /** Facts the NotebookLM prompt asks the chatbot to render. */
   notebook?: NotebookDetail | null;
+  /** Promoted catalog compositions the normal modes compose from. */
+  catalog?: CatalogEntry[];
 }
 
 export interface ChatResponse {

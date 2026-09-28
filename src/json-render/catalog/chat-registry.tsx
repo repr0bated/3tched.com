@@ -28,11 +28,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Renderer, defineRegistry, useStateStore, useStateValue } from "@json-render/react";
-import { setByPath } from "@json-render/core";
+import { setByPath, type Spec } from "@json-render/core";
 import { chatMessagesPath, useChatRuntime } from "../../chat/ChatRuntimeProvider";
 import type { ChatMessage } from "../../chat/chat-adapter";
-import { notebookIdFromNamespace } from "../../chat/chat-mode";
+import { notebookIdFromNamespace, type ChatMode } from "../../chat/chat-mode";
 import { ModeStrip } from "../../chat/ModeStrip";
+import { GalleryPanel } from "../../chat/GalleryPanel";
 import type { DoorChatAdapter } from "../../chat/door-chat-adapter";
 import { chatCatalog } from "./chat-catalog";
 import { notebookCanvasSpec } from "../references/canvas-contract";
@@ -212,6 +213,9 @@ const registryDefinition = defineRegistry(chatCatalog, {
         selectProvider,
       } = useChatRuntime();
       const remote = adapter.kind === "remote";
+      // Control Plane's model is the router's control_plane profile, not a
+      // per-session choice; the picker is hidden there.
+      if (remote && chatContext?.mode === "control_plane") return null;
       if (remote && !chatContext) return null;
       const models =
         providers.find((provider) => provider.id === route.providerId)?.models ?? [];
@@ -293,6 +297,22 @@ const registryDefinition = defineRegistry(chatCatalog, {
       });
       const messageValue = useStateValue(messagesPath);
       const messages = toMessages(messageValue);
+      const gallery = remote ? (adapter as DoorChatAdapter).gallery ?? null : null;
+      const [view, setView] = useState<"canvas" | "candidates" | "catalog">("canvas");
+      const [galleryRefresh, setGalleryRefresh] = useState(0);
+      const [lastCanvas, setLastCanvas] = useState<{ spec: Spec; prompt: string; mode: ChatMode; saved: boolean } | null>(null);
+      const [saveStatus, setSaveStatus] = useState<string | null>(null);
+      const keepCanvas = async (kept: { spec: Spec; prompt: string; mode: ChatMode }) => {
+        if (!gallery) return;
+        try {
+          await gallery.saveCandidate({ spec: kept.spec, title: kept.prompt, mode: kept.mode, prompt: kept.prompt });
+          setLastCanvas((current) => (current?.spec === kept.spec ? { ...current, saved: true } : current));
+          setSaveStatus("Saved to candidates.");
+          setGalleryRefresh((value) => value + 1);
+        } catch (cause) {
+          setSaveStatus(cause instanceof Error ? cause.message : "The canvas was not saved.");
+        }
+      };
       const notebookId = chatContext?.mode === "notebook_lm"
         ? notebookIdFromNamespace(chatContext.memory_namespace)
         : null;
@@ -341,12 +361,27 @@ const registryDefinition = defineRegistry(chatCatalog, {
           const notebook = notebookId && typeof (adapter as DoorChatAdapter).getNotebook === "function"
             ? await (adapter as DoorChatAdapter).getNotebook(notebookId).catch(() => null)
             : undefined;
-          const response = await adapter.submit({ message, history, route, mode: chatContext?.mode, notebook });
+          const mode = chatContext?.mode;
+          // Normal modes compose from the active catalog; UI render proposes.
+          const catalog = gallery && mode && mode !== "ui_render"
+            ? await gallery.activeCatalog().catch(() => [])
+            : undefined;
+          const response = await adapter.submit({ message, history, route, mode, notebook, catalog });
           set(messagesPath, [
             ...toMessages(get(messagesPath)),
             response.message,
           ]);
-          if (response.canvasSpec) setCanvasSpec(response.canvasSpec);
+          if (response.canvasSpec) {
+            setCanvasSpec(response.canvasSpec);
+            setView("canvas");
+            setSaveStatus(null);
+            if (mode) {
+              const kept = { spec: response.canvasSpec, prompt: message, mode };
+              setLastCanvas({ ...kept, saved: false });
+              // UI render keeps every canvas it draws as a candidate.
+              if (mode === "ui_render") void keepCanvas(kept);
+            }
+          }
         } catch (submitError) {
           setError(
             submitError instanceof Error
@@ -411,13 +446,26 @@ const registryDefinition = defineRegistry(chatCatalog, {
               </div>
               <div className="workspace-controls">
                 <nav aria-label="Workspace views">
-                  <button type="button" className="workspace-tab workspace-tab--active" aria-current="page">
-                    Canvas
-                  </button>
-                  <button type="button" className="workspace-tab" disabled>
-                    Spec trace
-                  </button>
+                  {([
+                    ["canvas", "Canvas"],
+                    ...(gallery ? [["candidates", "Candidates"], ["catalog", "Catalog"]] as const : []),
+                  ] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`workspace-tab ${view === id ? "workspace-tab--active" : ""}`}
+                      aria-current={view === id ? "page" : undefined}
+                      onClick={() => setView(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </nav>
+                {gallery && view === "canvas" && lastCanvas && !lastCanvas.saved ? (
+                  <button type="button" className="workspace-save" onClick={() => void keepCanvas(lastCanvas)}>
+                    Save to gallery
+                  </button>
+                ) : null}
                 <div className="canvas-state">
                   <span aria-hidden="true" />
                   catalog-validated canvas
@@ -434,9 +482,22 @@ const registryDefinition = defineRegistry(chatCatalog, {
                     candidate interface designs, or open /ui-reference examples.
                   </p>
                 </div>
-                <CanvasBoundary key={JSON.stringify(canvasSpec)}>
-                  <Renderer spec={canvasSpec} registry={chatRegistry} />
-                </CanvasBoundary>
+                {gallery && view !== "canvas" ? (
+                  <GalleryPanel
+                    gallery={gallery}
+                    view={view}
+                    refreshKey={galleryRefresh}
+                    onShow={(spec) => {
+                      setCanvasSpec(spec);
+                      setView("canvas");
+                    }}
+                  />
+                ) : (
+                  <CanvasBoundary key={JSON.stringify(canvasSpec)}>
+                    <Renderer spec={canvasSpec} registry={chatRegistry} />
+                  </CanvasBoundary>
+                )}
+                <p className="sr-only" role="status" aria-live="polite">{saveStatus ?? ""}</p>
               </div>
               <footer className="developer-status">
                 <span>Validated component catalog</span>

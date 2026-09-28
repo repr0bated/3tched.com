@@ -1,5 +1,6 @@
 import type { ChatResponse } from "../../chat/chat-adapter";
 import type { ChatMode, NotebookDetail } from "../../chat/chat-mode";
+import type { CatalogEntry } from "../../chat/ui-gallery";
 import { canvasCatalog } from "./canvas-contract";
 import { dashboardReferences, findDashboardReference } from "./dashboard-examples";
 import { STORY_INDEX_ID, storyIndexMessage, storyReferences } from "./story-examples";
@@ -43,7 +44,7 @@ export function referenceChatResponse(message: string): ChatResponse | undefined
 }
 
 /** Every connected mode may present a validated Canvas; UI render designs candidates. */
-export function catalogPresentationMessage(message: string, mode?: ChatMode, notebook?: NotebookDetail | null): string {
+export function catalogPresentationMessage(message: string, mode?: ChatMode, notebook?: NotebookDetail | null, catalog?: CatalogEntry[]): string {
   const reference = findDashboardReference(message);
   const designMode = mode === "ui_render";
   const notebookMode = mode === "notebook_lm";
@@ -57,6 +58,9 @@ export function catalogPresentationMessage(message: string, mode?: ChatMode, not
     "Use only static props and children in a json-render block. No actions, bindings, HTML, remote URLs, chat controls or new component types. Pages are compositions of reusable elements. Label fictional data as illustrative; never claim it is live telemetry. A form preview does not authorize an operation. The visual does not change the selected mode, permissions, or model route.",
     canvasCatalog.prompt(),
     `Available reference menu IDs: ${dashboardReferences.map(item => item.id).join(", ")}.`,
+    !designMode && catalog?.length
+      ? `Promoted catalog compositions (the active catalog; prefer adapting one when it fits):\n${catalog.map(entry => `${entry.name}${entry.description ? ` — ${entry.description}` : ""}:\n${JSON.stringify(entry.spec)}`).join("\n\n")}`
+      : "",
     reference ? `Relevant static reference (${reference.id}):\n${JSON.stringify(reference.spec)}` : "Choose reusable panels, tables, metrics and controls only if they fit the request.",
     `User request:\n${message}`,
   ].filter((part) => part.length > 0).join("\n\n");

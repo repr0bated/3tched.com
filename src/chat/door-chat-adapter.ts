@@ -34,6 +34,7 @@ import type {
   RouteSelection,
 } from "./chat-adapter";
 import { DoorClient, DoorError, type DoorConfig } from "../grpc/door";
+import { uiGallery, type UiGallery } from "./ui-gallery";
 
 export const TCHED_ROUTER = "tched_router";
 
@@ -165,6 +166,8 @@ export interface DoorChatAdapter extends ChatAdapter {
   selectNotebook(notebookId: string): Promise<void>;
   /** Sources and title for the notebook shown under the chat. */
   getNotebook(notebookId: string): Promise<NotebookDetail>;
+  /** Saved canvas candidates and the promoted catalog (json_render). */
+  readonly gallery: UiGallery;
 }
 
 /**
@@ -205,6 +208,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     listNotebooks: () => listNotebooks(client),
     selectNotebook: (notebookId) => selectNotebook(client, notebookId),
     getNotebook: (notebookId) => getNotebook(client, notebookId),
+    gallery: uiGallery(client),
 
     followKnowledge(onKnowledge, onStatus) {
       let feed: KnowledgeFeed | null = null;
@@ -242,7 +246,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     async submit(request: ChatRequest): Promise<ChatResponse> {
       const reference = referenceChatResponse(request.message);
       if (reference) return reference;
-      const wireMessage = catalogPresentationMessage(request.message, request.mode, request.notebook);
+      const wireMessage = catalogPresentationMessage(request.message, request.mode, request.notebook, request.catalog);
       const messages = request.history
         .filter((message) => message.role !== "system")
         .map((message) => ({ role: roleForWire(message.role), content: message.content }));
