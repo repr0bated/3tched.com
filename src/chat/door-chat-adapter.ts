@@ -278,31 +278,43 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
 
       messages[messages.length - 1] = { role: "user", content: wireMessage };
 
-      const { result, eventHash } = await client.call<ChatOutput>(
-        TCHED_ROUTER,
-        "Chat",
-        {
-          message: wireMessage,
-          messages,
-          ...(request.mode === "control_plane" ? {} : {
-            provider: request.route.providerId,
-            model: request.route.modelId,
-          }),
-        },
-        TCHED_ROUTER_METHODS.Chat,
-        { timeoutMs: CHAT_TIMEOUT_MS },
-      );
+      try {
+        const { result, eventHash } = await client.call<ChatOutput>(
+          TCHED_ROUTER,
+          "Chat",
+          {
+            message: wireMessage,
+            messages,
+            ...(request.mode === "control_plane" ? {} : {
+              provider: request.route.providerId,
+              model: request.route.modelId,
+            }),
+          },
+          TCHED_ROUTER_METHODS.Chat,
+          { timeoutMs: CHAT_TIMEOUT_MS },
+        );
 
-      responseSequence += 1;
-      const rendered = readCanvasResponse(result.content);
-      return {
-        ...(rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
-        message: {
-          id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`,
-          role: "agent",
-          content: rendered.content,
-        },
-      };
+        responseSequence += 1;
+        const rendered = readCanvasResponse(result.content);
+        return {
+          ...(rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
+          message: {
+            id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`,
+            role: "agent",
+            content: rendered.content,
+          },
+        };
+      } catch (error) {
+        responseSequence += 1;
+        const errorMsg = error instanceof Error ? error.message : "Chat service unavailable";
+        return {
+          message: {
+            id: `door-error-${responseSequence}`,
+            role: "agent",
+            content: `⚠️ Chat unavailable: ${errorMsg}. Try semantic search on vectorized repos instead, or configure an LLM provider in control plane.`,
+          },
+        };
+      }
     },
   };
 }
