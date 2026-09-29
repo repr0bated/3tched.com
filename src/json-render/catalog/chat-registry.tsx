@@ -303,6 +303,22 @@ const registryDefinition = defineRegistry(chatCatalog, {
           : null;
       }
       if (remote && !chatContext) return null;
+
+      // Fallback when no providers available
+      if (providers.length === 0) {
+        return (
+          <section className={`routing-strip ${props.className ?? ""}`} aria-label="Router unavailable">
+            <div className="routing-strip__label">
+              <span>ROUTE</span>
+              <small>{remote ? "tched_router via :8090" : "local demo only"}</small>
+            </div>
+            <p className="route-status route-status--error">
+              No providers available. Configure an LLM provider (Claude, GPT, etc.) in the control plane, or use semantic search on vectorized repos.
+            </p>
+          </section>
+        );
+      }
+
       const models =
         providers.find((provider) => provider.id === route.providerId)?.models ?? [];
 
