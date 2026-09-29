@@ -1,0 +1,58 @@
+/* Model and Provider Registry in Cozo */
+
+/* Providers */
+{
+  put provider {
+    id, name, kind, description
+  }
+  [[
+    ['openai', 'OpenAI', 'api', 'OpenAI GPT models'],
+    ['openrouter', 'OpenRouter', 'api', 'Multi-model router'],
+    ['cheaper-inference', 'Cheaper Inference', 'api', 'Cost-optimized inference'],
+  ]}
+}
+
+/* Models */
+{
+  put model {
+    id, provider_id, name, available, kind
+  }
+  [[
+    ['gpt-4-turbo', 'openai', 'GPT-4 Turbo', true, 'chat'],
+    ['gpt-3.5-turbo', 'openai', 'GPT-3.5 Turbo', true, 'chat'],
+    ['gpt-4', 'openai', 'GPT-4', true, 'chat'],
+    ['openai/gpt-4-turbo', 'openrouter', 'GPT-4 Turbo', true, 'chat'],
+    ['anthropic/claude-3-opus', 'openrouter', 'Claude 3 Opus', true, 'chat'],
+    ['anthropic/claude-3-sonnet', 'openrouter', 'Claude 3 Sonnet', true, 'chat'],
+    ['claude', 'cheaper-inference', 'Claude', true, 'chat'],
+  ]}
+}
+
+/* API Keys (linked to providers) */
+{
+  put api_credential {
+    provider_id, key_name, last_validated
+  }
+  [[
+    ['openai', 'OPENAI_API_KEY', now()],
+    ['openrouter', 'OPENROUTER_API_KEY', now()],
+    ['cheaper-inference', 'CHEAPERINFERENE_API_KEY', now()],
+  ]}
+}
+
+/* Query: Get all providers with their models */
+{
+  ?[provider_id, provider_name, model_id, model_name, available] :=
+    provider[id: provider_id, name: provider_name],
+    model[provider_id, id: model_id, name: model_name, available]
+}
+
+/* Query: Get messaging config */
+{
+  put messaging_config {
+    service, enabled, key_name
+  }
+  [[
+    ['claude-code', true, 'CLAUDE_CODE_MESSAGING_TOKEN'],
+  ]}
+}

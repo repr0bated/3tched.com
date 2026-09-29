@@ -1,0 +1,639 @@
+{
+  "root": "cms-module",
+  "elements": {
+    "cms-module": {
+      "type": "container",
+      "props": {
+        "className": "schema-controlled-cms-module"
+      },
+      "children": [
+        "cms-header",
+        "mount-banner",
+        "metrics-grid",
+        "control-split",
+        "workspace-heading",
+        "workspace-grid",
+        "governance-split"
+      ]
+    },
+    "cms-header": {
+      "type": "pageHeader",
+      "props": {
+        "title": "Schema-Controlled CMS",
+        "subtitle": "Drop-in editorial workspace driven by the existing schema registry, validation lifecycle, and projected plugin state."
+      },
+      "children": []
+    },
+    "mount-banner": {
+      "type": "statusBanner",
+      "props": {
+        "title": "Schema Control → CMS",
+        "message": "The module is isolated from application chrome and ready to mount as a child surface under Schema Control. Live schema data remains authoritative; the editorial records below are seeded preview content.",
+        "tone": "ok"
+      },
+      "children": []
+    },
+    "metrics-grid": {
+      "type": "grid",
+      "props": {
+        "cols": 4,
+        "gap": 16,
+        "className": "cms-metrics"
+      },
+      "children": [
+        "metric-content-types",
+        "metric-entries",
+        "metric-validation",
+        "metric-publishing"
+      ]
+    },
+    "metric-content-types": {
+      "type": "statCard",
+      "props": {
+        "label": "Content types",
+        "value": {
+          "$state": "/cmsMetrics/contentTypes"
+        },
+        "sub": "registered preview models",
+        "variant": "default"
+      },
+      "children": []
+    },
+    "metric-entries": {
+      "type": "statCard",
+      "props": {
+        "label": "Seed entries",
+        "value": {
+          "$state": "/cmsMetrics/entries"
+        },
+        "sub": "across all locales",
+        "variant": "default"
+      },
+      "children": []
+    },
+    "metric-validation": {
+      "type": "statCard",
+      "props": {
+        "label": "Schema validation",
+        "value": {
+          "$state": "/cmsMetrics/validation"
+        },
+        "sub": "required before dispatch",
+        "variant": "ok"
+      },
+      "children": []
+    },
+    "metric-publishing": {
+      "type": "statCard",
+      "props": {
+        "label": "Publishing flow",
+        "value": {
+          "$state": "/cmsMetrics/publishing"
+        },
+        "sub": "draft → review → publish",
+        "variant": "ok"
+      },
+      "children": []
+    },
+    "control-split": {
+      "type": "splitPane",
+      "props": {
+        "direction": "horizontal",
+        "className": "cms-control-plane"
+      },
+      "children": [
+        "schema-control-card",
+        "cms-contract-card"
+      ]
+    },
+    "schema-control-card": {
+      "type": "cardEl",
+      "props": {
+        "title": "Live Schema Control",
+        "subtitle": "Current StateSync projection for the sealed schema renderer plugin."
+      },
+      "children": [
+        "schema-live-object"
+      ]
+    },
+    "schema-live-object": {
+      "type": "schemaRenderer",
+      "props": {
+        "className": "cms-schema-live-state"
+      },
+      "children": []
+    },
+    "cms-contract-card": {
+      "type": "cardEl",
+      "props": {
+        "title": "Drop-in Contract",
+        "subtitle": "Boundaries that keep content operations governed by the existing control plane."
+      },
+      "children": [
+        "cms-contract-notes"
+      ]
+    },
+    "cms-contract-notes": {
+      "type": "notesPanel",
+      "props": {
+        "title": "Integration lifecycle",
+        "subtitle": "No parallel schema authority is introduced by this module.",
+        "notes": [
+          {
+            "title": "Discover",
+            "desc": "Resolve content models from the schema registry and catalog projection."
+          },
+          {
+            "title": "Hydrate",
+            "desc": "Generate editorial surfaces from schema-defined fields and defaults."
+          },
+          {
+            "title": "Validate",
+            "desc": "Reject writes that do not satisfy the active schema contract."
+          },
+          {
+            "title": "Dispatch",
+            "desc": "Route accepted mutations through plugin method dispatch and project the resulting state."
+          }
+        ]
+      },
+      "children": []
+    },
+    "workspace-heading": {
+      "type": "heading",
+      "props": {
+        "text": "Editorial workspace preview",
+        "level": 2
+      },
+      "children": []
+    },
+    "workspace-grid": {
+      "type": "grid",
+      "props": {
+        "cols": 3,
+        "gap": 18,
+        "className": "cms-editorial-grid"
+      },
+      "children": [
+        "content-types-column",
+        "entries-column",
+        "pipeline-column"
+      ]
+    },
+    "content-type-status-row": {
+      "type": "row",
+      "props": {
+        "className": "content-type-status"
+      },
+      "children": [
+        "content-type-status",
+        "content-type-version"
+      ]
+    },
+    "content-type-status": {
+      "type": "badge",
+      "props": {
+        "text": {
+          "$item": "status"
+        },
+        "tone": {
+          "$item": "tone"
+        }
+      },
+      "children": []
+    },
+    "content-type-version": {
+      "type": "badge",
+      "props": {
+        "text": {
+          "$item": "version"
+        },
+        "tone": "info"
+      },
+      "children": []
+    },
+    "content-type-handle": {
+      "type": "kv",
+      "props": {
+        "label": "Collection handle",
+        "value": {
+          "$item": "handle"
+        },
+        "kind": "schema"
+      },
+      "children": []
+    },
+    "content-type-fields": {
+      "type": "kv",
+      "props": {
+        "label": "Schema fields",
+        "value": {
+          "$item": "fieldCount"
+        },
+        "kind": "number"
+      },
+      "children": []
+    },
+    "content-type-card": {
+      "type": "card",
+      "props": {
+        "title": {
+          "$item": "name"
+        },
+        "subtitle": {
+          "$item": "description"
+        }
+      },
+      "children": [
+        "content-type-status-row",
+        "content-type-handle",
+        "content-type-fields"
+      ]
+    },
+    "content-types-repeat": {
+      "type": "container",
+      "props": {
+        "className": "content-type-list"
+      },
+      "repeat": {
+        "statePath": "/contentTypes",
+        "key": "id"
+      },
+      "children": [
+        "content-type-card"
+      ]
+    },
+    "content-types-column": {
+      "type": "cardEl",
+      "props": {
+        "title": "Content models",
+        "subtitle": "Seed models representing schema-backed collections."
+      },
+      "children": [
+        "content-types-repeat"
+      ]
+    },
+    "entry-status-row": {
+      "type": "row",
+      "props": {
+        "className": "entry-status"
+      },
+      "children": [
+        "entry-status",
+        "entry-type"
+      ]
+    },
+    "entry-status": {
+      "type": "badge",
+      "props": {
+        "text": {
+          "$item": "status"
+        },
+        "tone": {
+          "$item": "tone"
+        }
+      },
+      "children": []
+    },
+    "entry-type": {
+      "type": "badge",
+      "props": {
+        "text": {
+          "$item": "type"
+        },
+        "tone": "info"
+      },
+      "children": []
+    },
+    "entry-owner": {
+      "type": "kv",
+      "props": {
+        "label": "Owner",
+        "value": {
+          "$item": "owner"
+        },
+        "kind": "identity"
+      },
+      "children": []
+    },
+    "entry-updated": {
+      "type": "kv",
+      "props": {
+        "label": "Last updated",
+        "value": {
+          "$item": "updated"
+        },
+        "kind": "datetime"
+      },
+      "children": []
+    },
+    "entry-locale": {
+      "type": "kv",
+      "props": {
+        "label": "Locale",
+        "value": {
+          "$item": "locale"
+        },
+        "kind": "locale"
+      },
+      "children": []
+    },
+    "entry-excerpt": {
+      "type": "text",
+      "props": {
+        "text": {
+          "$item": "excerpt"
+        },
+        "className": "entry-excerpt"
+      },
+      "children": []
+    },
+    "entry-card": {
+      "type": "card",
+      "props": {
+        "title": {
+          "$item": "title"
+        },
+        "subtitle": {
+          "$item": "slug"
+        },
+        "tone": {
+          "$item": "tone"
+        }
+      },
+      "children": [
+        "entry-status-row",
+        "entry-owner",
+        "entry-updated",
+        "entry-locale",
+        "entry-excerpt"
+      ]
+    },
+    "entries-repeat": {
+      "type": "container",
+      "props": {
+        "className": "cms-entry-list"
+      },
+      "repeat": {
+        "statePath": "/entries",
+        "key": "id"
+      },
+      "children": [
+        "entry-card"
+      ]
+    },
+    "entries-column": {
+      "type": "cardEl",
+      "props": {
+        "title": "Recent entries",
+        "subtitle": "Representative records rendered from the seeded CMS state model."
+      },
+      "children": [
+        "entries-repeat"
+      ]
+    },
+    "pipeline-stage-status": {
+      "type": "badge",
+      "props": {
+        "text": {
+          "$item": "status"
+        },
+        "tone": {
+          "$item": "tone"
+        }
+      },
+      "children": []
+    },
+    "pipeline-stage-description": {
+      "type": "text",
+      "props": {
+        "text": {
+          "$item": "description"
+        },
+        "className": "pipeline-stage-description"
+      },
+      "children": []
+    },
+    "pipeline-stage-card": {
+      "type": "card",
+      "props": {
+        "title": {
+          "$item": "name"
+        },
+        "subtitle": {
+          "$item": "sequence"
+        },
+        "tone": {
+          "$item": "tone"
+        }
+      },
+      "children": [
+        "pipeline-stage-status",
+        "pipeline-stage-description"
+      ]
+    },
+    "pipeline-repeat": {
+      "type": "container",
+      "props": {
+        "className": "publishing-pipeline"
+      },
+      "repeat": {
+        "statePath": "/publishingPipeline",
+        "key": "id"
+      },
+      "children": [
+        "pipeline-stage-card"
+      ]
+    },
+    "pipeline-column": {
+      "type": "cardEl",
+      "props": {
+        "title": "Publishing policy",
+        "subtitle": "Schema-aware gates applied before a content mutation is projected."
+      },
+      "children": [
+        "pipeline-repeat"
+      ]
+    },
+    "governance-split": {
+      "type": "splitPane",
+      "props": {
+        "direction": "horizontal",
+        "className": "cms-governance"
+      },
+      "children": [
+        "schema-registry-card",
+        "component-catalog-card"
+      ]
+    },
+    "schema-registry-card": {
+      "type": "cardEl",
+      "props": {
+        "title": "Schema Renderer Registry",
+        "subtitle": "Unmodified live plugin object available to the CMS integration surface."
+      },
+      "children": [
+        "schema-registry-stream"
+      ]
+    },
+    "schema-registry-stream": {
+      "type": "streamObject",
+      "props": {
+        "pluginId": "schema_renderer",
+        "className": "cms-schema-registry"
+      },
+      "children": []
+    },
+    "component-catalog-card": {
+      "type": "cardEl",
+      "props": {
+        "title": "Registered UI Catalog",
+        "subtitle": "Available schema-compatible projection and control surfaces."
+      },
+      "children": [
+        "component-catalog-index"
+      ]
+    },
+    "component-catalog-index": {
+      "type": "catalogIndex",
+      "props": {
+        "className": "cms-component-catalog"
+      },
+      "children": []
+    }
+  },
+  "state": {
+    "cmsMetrics": {
+      "contentTypes": 4,
+      "entries": 12,
+      "validation": "Enforced",
+      "publishing": "Configured"
+    },
+    "contentTypes": [
+      {
+        "id": "type-article",
+        "name": "Editorial Article",
+        "description": "Long-form stories with structured authorship, taxonomy, and search metadata.",
+        "handle": "articles",
+        "fieldCount": 14,
+        "status": "Active",
+        "version": "v3.2",
+        "tone": "ok"
+      },
+      {
+        "id": "type-landing",
+        "name": "Landing Page",
+        "description": "Composable campaign pages with governed blocks and conversion metadata.",
+        "handle": "landing-pages",
+        "fieldCount": 18,
+        "status": "Active",
+        "version": "v2.4",
+        "tone": "ok"
+      },
+      {
+        "id": "type-release",
+        "name": "Release Note",
+        "description": "Product announcements linked to versions, services, and rollout stages.",
+        "handle": "release-notes",
+        "fieldCount": 11,
+        "status": "Active",
+        "version": "v1.8",
+        "tone": "ok"
+      },
+      {
+        "id": "type-policy",
+        "name": "Policy Document",
+        "description": "Controlled documentation with ownership, review dates, and approval evidence.",
+        "handle": "policies",
+        "fieldCount": 16,
+        "status": "Review",
+        "version": "v1.1",
+        "tone": "warn"
+      }
+    ],
+    "entries": [
+      {
+        "id": "entry-001",
+        "title": "Operating the New Control Plane",
+        "slug": "/insights/new-control-plane",
+        "type": "Editorial Article",
+        "status": "Published",
+        "owner": "Maya Chen",
+        "updated": "21 Aug 2026, 09:42 UTC",
+        "locale": "en-US",
+        "excerpt": "A practical guide to schema projection, validated mutations, and observable runtime state.",
+        "tone": "ok"
+      },
+      {
+        "id": "entry-002",
+        "title": "Autumn Platform Launch",
+        "slug": "/campaigns/autumn-platform-launch",
+        "type": "Landing Page",
+        "status": "In review",
+        "owner": "Jon Bell",
+        "updated": "20 Aug 2026, 16:18 UTC",
+        "locale": "en-GB",
+        "excerpt": "Campaign workspace covering launch positioning, proof points, and regional calls to action.",
+        "tone": "warn"
+      },
+      {
+        "id": "entry-003",
+        "title": "Router 6.4 Release Notes",
+        "slug": "/releases/router-6-4",
+        "type": "Release Note",
+        "status": "Scheduled",
+        "owner": "Priya Nair",
+        "updated": "19 Aug 2026, 12:05 UTC",
+        "locale": "en-US",
+        "excerpt": "Highlights safer dispatch, richer state projections, and improved control-plane diagnostics.",
+        "tone": "info"
+      },
+      {
+        "id": "entry-004",
+        "title": "Editorial Data Retention Policy",
+        "slug": "/policies/editorial-retention",
+        "type": "Policy Document",
+        "status": "Draft",
+        "owner": "Elena García",
+        "updated": "18 Aug 2026, 14:31 UTC",
+        "locale": "en-US",
+        "excerpt": "Defines retention, review, archival, and deletion requirements for governed content records.",
+        "tone": "default"
+      }
+    ],
+    "publishingPipeline": [
+      {
+        "id": "stage-draft",
+        "name": "Draft validation",
+        "sequence": "Stage 1",
+        "status": "Required",
+        "description": "Validate field types, required values, references, and schema version before review.",
+        "tone": "ok"
+      },
+      {
+        "id": "stage-review",
+        "name": "Editorial review",
+        "sequence": "Stage 2",
+        "status": "Two-person review",
+        "description": "Require an editor other than the author to approve substantive content changes.",
+        "tone": "ok"
+      },
+      {
+        "id": "stage-policy",
+        "name": "Policy gate",
+        "sequence": "Stage 3",
+        "status": "Conditional",
+        "description": "Request policy-owner approval for regulated or retention-sensitive collections.",
+        "tone": "warn"
+      },
+      {
+        "id": "stage-publish",
+        "name": "Publish and project",
+        "sequence": "Stage 4",
+        "status": "Event driven",
+        "description": "Dispatch the accepted mutation and expose the resulting record through projected state.",
+        "tone": "info"
+      }
+    ]
+  }
+}

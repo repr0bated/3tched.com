@@ -1,0 +1,52 @@
+{
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "models": [
+        {
+          "id": "gpt-4-turbo",
+          "label": "GPT-4 Turbo",
+          "available": true
+        },
+        {
+          "id": "gpt-3.5-turbo",
+          "label": "GPT-3.5 Turbo",
+          "available": true
+        }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "models": [
+        {
+          "id": "openai/gpt-4-turbo",
+          "label": "GPT-4 Turbo (via OpenRouter)",
+          "available": true
+        },
+        {
+          "id": "anthropic/claude-3-opus",
+          "label": "Claude 3 Opus (via OpenRouter)",
+          "available": true
+        }
+      ]
+    },
+    {
+      "id": "cheaper-inference",
+      "name": "Cheaper Inference",
+      "models": [
+        {
+          "id": "claude",
+          "label": "Claude (Cheaper)",
+          "available": true
+        }
+      ]
+    }
+  ],
+  "messaging": {
+    "enabled": true,
+    "token": "configured"
+  },
+  "lastUpdated": "2026-09-29T05:54:00Z"
+}
