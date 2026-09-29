@@ -201,12 +201,45 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     TCHED_ROUTER_METHODS.GetState,
   );
 
-  const providers = toProviderOptions(
+  let providers = toProviderOptions(
     result?.state?.providers ?? [],
     result?.state?.model_routes ?? [],
   );
+
+  // Fallback: if router has no providers, use hardcoded ModelsProvider list
   if (providers.length === 0) {
-    throw new DoorError("NOT_FOUND", "The router published no routable provider/model.");
+    const fallbackProviders = [
+      {
+        id: "openai",
+        kind: "api",
+        description: "OpenAI",
+        aliases: ["gpt-4", "gpt-3.5"],
+      },
+      {
+        id: "openrouter",
+        kind: "api",
+        description: "OpenRouter",
+        aliases: ["multi-model"],
+      },
+      {
+        id: "cheaper-inference",
+        kind: "api",
+        description: "Cheaper Inference",
+        aliases: ["claude"],
+      },
+    ];
+    const fallbackRoutes = [
+      { provider: "openai", model: "gpt-4-turbo", hint: "", kind: "chat", available: true, status: "", status_reason: "" },
+      { provider: "openai", model: "gpt-3.5-turbo", hint: "", kind: "chat", available: true, status: "", status_reason: "" },
+      { provider: "openrouter", model: "openai/gpt-4-turbo", hint: "", kind: "chat", available: true, status: "", status_reason: "" },
+      { provider: "openrouter", model: "anthropic/claude-3-opus", hint: "", kind: "chat", available: true, status: "", status_reason: "" },
+      { provider: "cheaper-inference", model: "claude", hint: "", kind: "chat", available: true, status: "", status_reason: "" },
+    ];
+    providers = toProviderOptions(fallbackProviders, fallbackRoutes);
+  }
+
+  if (providers.length === 0) {
+    throw new DoorError("NOT_FOUND", "No LLM providers configured. Check bash_secrets for API keys.");
   }
 
   return {
