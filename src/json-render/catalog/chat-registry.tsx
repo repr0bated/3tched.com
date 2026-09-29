@@ -169,12 +169,28 @@ function ControlPlaneModelSelect({
     void Promise.all([controlPlane.list(), controlPlane.current()])
       .then(([list, selected]) => {
         if (cancelled) return;
-        setOptions(list);
+        // Fallback: if router returns no control plane options, provide defaults
+        const fallbackOptions: ControlPlaneModelOption[] = list.length > 0 ? list : [
+          { reference: "openai.go_control_plane", model: "gpt-4-turbo" },
+          { reference: "openrouter.go_control_plane", model: "gpt-4-turbo (openrouter)" },
+          { reference: "custom.cheaper_inference", model: "claude" },
+        ];
+        setOptions(fallbackOptions);
         setCurrent(selected);
-        setChoice(selected);
+        setChoice(selected || fallbackOptions[0]?.reference || "");
       })
       .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Control plane models are unavailable.");
+        if (!cancelled) {
+          // Provide fallback options even on error
+          const fallbackOptions: ControlPlaneModelOption[] = [
+            { reference: "openai.go_control_plane", model: "gpt-4-turbo" },
+            { reference: "openrouter.go_control_plane", model: "gpt-4-turbo (openrouter)" },
+            { reference: "custom.cheaper_inference", model: "claude" },
+          ];
+          setOptions(fallbackOptions);
+          setChoice(fallbackOptions[0]?.reference || "");
+          setError(cause instanceof Error ? cause.message : "Control plane models are unavailable, using defaults.");
+        }
       })
       .finally(() => {
         if (!cancelled) setPending(false);
