@@ -31,7 +31,7 @@ browser ──gRPC-Web/TLS──▶ op-grpc-bridge :8090 ──D-Bus──▶ tc
 
   | ChatAdapter | tched_router method | declared capability |
   |---|---|---|
-  | providers (load) | ListProviders + ListModels | cap.software.3tched-router.providers.read@v1, cap.software.3tched-router.models.read@v1 |
+  | providers (load) | GetState | cap.software.3tched-router.state.read@v1 |
   | selectRoute | SetSelection | cap.software.tched-router.selection.set@v1 |
   | submit | Chat | cap.software.3tched-router.chat@v1 |
 
@@ -44,7 +44,10 @@ browser ──gRPC-Web/TLS──▶ op-grpc-bridge :8090 ──D-Bus──▶ tc
   GET /api/identity/self (op-web maps the WireGuard arrival's TCP source
   address to its identity-sled session and returns that session's SID1, so a
   human who came in over WireGuard is connected without touching anything);
-  then the configured issuer, if present. If identity lookup or connection
+  then the configured issuer, if present. Production builds include the public
+  door and decoy issuer addresses from `.env.production`; environment variables
+  or `.env.production.local` can override them. Publication checks that both
+  addresses are included before replacing the served files. If identity lookup or connection
   fails, a retry panel fetches identity again without asking for credentials. "Use local
   workbench" keeps the deterministic in-browser adapter for UI work with no
   backend.

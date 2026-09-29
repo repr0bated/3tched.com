@@ -114,6 +114,27 @@ describe("ModeStrip", () => {
     expect(await screen.findByText("session/own-session/notebooklm/nb-1")).toBeInTheDocument();
   });
 
+  it("auto-selects the wishlist notebook when it arrives after NotebookLM is requested", async () => {
+    let resolveNotebooks!: (list: NotebookSummary[]) => void;
+    const { adapter, selectChatMode, selectNotebook, listNotebooks } = doorAdapter();
+    listNotebooks.mockImplementation(() => new Promise((resolve) => { resolveNotebooks = resolve; }));
+    render(<ModeStrip adapter={adapter} />);
+    const mode = await screen.findByRole("combobox", { name: "Mode" });
+
+    fireEvent.change(mode, { target: { value: "notebook_lm" } });
+    expect(screen.getByRole("combobox", { name: "Notebook" })).toBeInTheDocument();
+    expect(selectNotebook).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveNotebooks([{ id: "wish", title: "wishlist" }]);
+    });
+
+    expect(selectNotebook).toHaveBeenCalledTimes(1);
+    expect(selectNotebook).toHaveBeenCalledWith("wish");
+    expect(selectChatMode).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("session/own-session/notebooklm/nb-1")).toBeInTheDocument();
+  });
+
   it("continues to show a server-selected project if the project list no longer includes it", async () => {
     const context: ResolvedChatContext = {
       ...personal,

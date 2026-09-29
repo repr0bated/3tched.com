@@ -51,13 +51,13 @@ describe("Door connect gate", () => {
     expect(fetch).toHaveBeenCalledWith("/api/identity/self", expect.objectContaining({ cache: "no-store" }));
   });
 
-  it("uses the decoy identity when the gateway cannot project a local SID1", async () => {
+  it("uses the decoy identity when the web server refuses local identity pickup", async () => {
     vi.stubEnv("VITE_OPDBUS_ISSUER", "http://10.0.0.1:51888");
     const identity = { kind: "oia1", assertion: "T0lBMQ==" };
     vi.spyOn(PluginServiceClient.prototype, "callMethod")
       .mockReturnValueOnce(Promise.resolve({ response: { result: Value.fromJson({ result: { session_id: "own-session" } }) } }) as never)
       .mockReturnValueOnce(Promise.resolve({ response: { result: Value.fromJson({ result: { identity: { session_id: "own-session", sealed_id: "sid1:U0lEMQ" } } }) } }) as never);
-    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 404 }))
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 403 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         door: "https://10.0.0.3:8090", identity,
         expires_at: Date.now() / 1000 + 300,

@@ -53,6 +53,25 @@ fi
 cd "$project_root"
 npm run build -- --base "$url_prefix"
 
+# A new index replaces any host-injected runtime configuration. Verify the
+# build contains its own public endpoints before replacing the served files.
+node --input-type=module <<'NODE'
+import { readFileSync, readdirSync } from "node:fs";
+import { loadEnv } from "vite";
+
+const config = loadEnv("production", process.cwd(), "VITE_OPDBUS_");
+const assets = readdirSync("dist/assets")
+  .filter((file) => file.endsWith(".js"))
+  .map((file) => readFileSync(`dist/assets/${file}`, "utf8"));
+
+for (const key of ["VITE_OPDBUS_DOOR", "VITE_OPDBUS_ISSUER"]) {
+  const value = config[key]?.trim();
+  if (!value || !assets.some((asset) => asset.includes(value))) {
+    throw new Error(`Cannot publish: the dashboard build is missing ${key}.`);
+  }
+}
+NODE
+
 privileged=()
 if [[ ! -d "$static_root" || ! -w "$static_root" ]]; then
   privileged=(sudo)

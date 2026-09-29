@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatAdapter } from "./chat-adapter";
 import type { DoorChatAdapter } from "./door-chat-adapter";
 import { CHAT_MODES, defaultNotebook, notebookIdFromNamespace, type ChatMode, type NotebookSummary, type ProjectSummary, type ResolvedChatContext } from "./chat-mode";
@@ -19,12 +19,36 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
   const [notebooks, setNotebooks] = useState<NotebookSummary[]>([]);
   const [notebookListError, setNotebookListError] = useState<string | null>(null);
   const [notebookPending, setNotebookPending] = useState(false);
-  const [defaultAttempt, setDefaultAttempt] = useState<string | null>(null);
+  const notebookPendingRef = useRef(false);
+  const defaultSelectionInFlightRef = useRef(false);
   const [namespace, setNamespace] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+
+  const selectDefaultNotebook = useCallback((list: NotebookSummary[]) => {
+    if (!isDoorAdapter(adapter) || !notebookPendingRef.current || defaultSelectionInFlightRef.current) return;
+    const wishlist = defaultNotebook(list);
+    if (!wishlist) return;
+    defaultSelectionInFlightRef.current = true;
+    setBusy(true);
+    setError(null);
+    void adapter
+      .selectNotebook(wishlist.id)
+      .then(() => adapter.selectChatMode({ mode: "notebook_lm" }))
+      .then((selected) => {
+        notebookPendingRef.current = false;
+        setContext(selected);
+        onContextChange?.(selected);
+        setNotebookPending(false);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "selection refused"))
+      .finally(() => {
+        defaultSelectionInFlightRef.current = false;
+        setBusy(false);
+      });
+  }, [adapter, onContextChange]);
 
   useEffect(() => {
     if (!isDoorAdapter(adapter)) return;
@@ -64,12 +88,14 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
           if (!cancelled) {
             setNotebooks(list);
             setNotebookListError(null);
+            selectDefaultNotebook(list);
           }
         })
         .catch(() => {
           if (!cancelled) {
             setNotebooks([]);
             setNotebookListError("Notebooks unavailable.");
+            notebookPendingRef.current = false;
             setNotebookPending(false);
           }
         });
@@ -77,26 +103,7 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
     return () => {
       cancelled = true;
     };
-  }, [adapter, attempt, onContextChange]);
-
-  useEffect(() => {
-    if (!isDoorAdapter(adapter) || !notebookPending || busy) return;
-    const wishlist = defaultNotebook(notebooks);
-    if (!wishlist || defaultAttempt === wishlist.id) return;
-    setDefaultAttempt(wishlist.id);
-    setBusy(true);
-    setError(null);
-    void adapter
-      .selectNotebook(wishlist.id)
-      .then(() => adapter.selectChatMode({ mode: "notebook_lm" }))
-      .then((selected) => {
-        setContext(selected);
-        onContextChange?.(selected);
-        setNotebookPending(false);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "selection refused"))
-      .finally(() => setBusy(false));
-  }, [adapter, notebookPending, notebooks, busy, defaultAttempt, onContextChange]);
+  }, [adapter, attempt, onContextChange, selectDefaultNotebook]);
 
   if (!isDoorAdapter(adapter)) return null;
 
@@ -123,6 +130,7 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
   }
 
   const select = async (mode: ChatMode, projectId?: string, personalNamespace?: string) => {
+    notebookPendingRef.current = false;
     setBusy(true);
     setError(null);
     try {
@@ -139,6 +147,7 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
   };
 
   const selectNotebookMode = async (notebookId: string) => {
+    notebookPendingRef.current = false;
     setBusy(true);
     setError(null);
     try {
@@ -170,14 +179,18 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
           onChange={(e) => {
             const mode = e.target.value as ChatMode;
             if (mode === "project" && context.mode !== "project") {
+              notebookPendingRef.current = false;
               setProjectPending(true);
               setNotebookPending(false);
               setError(null);
             } else if (mode === "notebook_lm" && context.mode !== "notebook_lm") {
+              notebookPendingRef.current = true;
               setNotebookPending(true);
               setProjectPending(false);
               setError(null);
+              selectDefaultNotebook(notebooks);
             } else {
+              notebookPendingRef.current = false;
               setProjectPending(false);
               setNotebookPending(false);
               void select(mode);

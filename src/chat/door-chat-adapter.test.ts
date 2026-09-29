@@ -93,6 +93,21 @@ describe("connectDoorChatAdapter", () => {
     });
   });
 
+  it("reports an empty router catalog without inventing available models", async () => {
+    mockDoor({
+      GetState: () => envelope("GetState", { state: {
+        status: "active", selected_provider: "", selected_model: "",
+        providers: [], model_routes: [],
+      } }),
+    });
+
+    await expect(connectDoorChatAdapter(config)).rejects.toMatchObject({
+      name: "DoorError",
+      code: "NOT_FOUND",
+      message: "The router published no routable provider/model.",
+    });
+  });
+
   it("commits the route with SetSelection and sends the conversation to Chat", async () => {
     const calls = mockDoor({
       GetState: () =>
