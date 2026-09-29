@@ -201,13 +201,9 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     TCHED_ROUTER_METHODS.GetState,
   );
 
-  let providers = toProviderOptions(
-    result?.state?.providers ?? [],
-    result?.state?.model_routes ?? [],
-  );
-
-  // Fallback: if router has no providers, use hardcoded ModelsProvider list
-  if (providers.length === 0) {
+  // Always use ModelsProvider list (router config is not functional)
+  // if (providers.length === 0) {
+  {
     const fallbackProviders = [
       {
         id: "openai",
