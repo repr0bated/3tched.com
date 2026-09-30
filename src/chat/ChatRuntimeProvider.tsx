@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,6 +22,9 @@ interface ChatRuntimeValue {
   route: RouteSelection;
   routePending: boolean;
   routeError: string | null;
+  catalogPending: boolean;
+  catalogError: string | null;
+  refreshProviders: () => Promise<void>;
   chatContext: ResolvedChatContext | null;
   scopeKey: string;
   setChatContext: (context: ResolvedChatContext) => void;
@@ -55,15 +59,28 @@ export function ChatRuntimeProvider({
   adapter: ChatAdapter;
   children: ReactNode;
 }) {
-  const firstProvider = adapter.providers[0];
-  if (!firstProvider) {
-    throw new Error("ChatAdapter must expose at least one provider.");
-  }
-
-  const [route, setRoute] = useState<RouteSelection>({
-    providerId: firstProvider.id,
-    modelId: firstProvider.models[0]?.id ?? "",
+  const [providers, setProviders] = useState(adapter.providers);
+  const [route, setRoute] = useState<RouteSelection>(() => {
+    const firstProvider = adapter.providers[0];
+    if (!firstProvider) throw new Error("ChatAdapter must expose at least one provider.");
+    return { providerId: firstProvider.id, modelId: firstProvider.models[0]?.id ?? "" };
   });
+  const [catalogPending, setCatalogPending] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const catalogRead = useRef<Promise<void> | null>(null);
+  const refreshProviders = (): Promise<void> => {
+    if (!adapter.refreshProviders) return Promise.resolve();
+    if (catalogRead.current) return catalogRead.current;
+    setCatalogPending(true);
+    setCatalogError(null);
+    catalogRead.current = adapter.refreshProviders().then(setProviders).catch((error: unknown) => {
+      setCatalogError(error instanceof Error ? error.message : "Model catalog refresh failed.");
+    }).finally(() => {
+      setCatalogPending(false);
+      catalogRead.current = null;
+    });
+    return catalogRead.current;
+  };
   const [routePending, setRoutePending] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [chatContext, setChatContext] = useState<ResolvedChatContext | null>(null);
@@ -100,7 +117,10 @@ export function ChatRuntimeProvider({
 
   const value: ChatRuntimeValue = {
     adapter,
-    providers: adapter.providers,
+    providers,
+    catalogPending,
+    catalogError,
+    refreshProviders,
     route,
     routePending,
     routeError,
@@ -110,7 +130,7 @@ export function ChatRuntimeProvider({
     canvasSpec,
     setCanvasSpec,
     selectProvider: async (providerId) => {
-      const provider = adapter.providers.find((entry) => entry.id === providerId);
+      const provider = providers.find((entry) => entry.id === providerId);
       const model = provider?.models[0];
       if (!provider) return;
       if (!model) {

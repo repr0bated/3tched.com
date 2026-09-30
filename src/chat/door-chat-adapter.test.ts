@@ -320,3 +320,28 @@ describe("UI reference and rendering transport", () => {
     expect(calls).toHaveLength(before);
   });
 });
+
+it("reloads Cozo choices without mutating routing and preserves them when a reload fails", async () => {
+  let current = "old";
+  let fail = false;
+  const calls = mockDoor({
+    list_providers: () => {
+      if (fail) throw new Error("catalog unavailable");
+      return envelope("list_providers", { providers: [{ provider_id: "vendor", configured: true, enabled: true, status: "ok", control_plane_profiles: ["custom.control_plane"] }], revision: 1 });
+    },
+    list_models: () => envelope("list_models", { models: [{ provider_id: "vendor", model_id: current, available: true }], more: false, revision: 1 }),
+  });
+  const adapter = await connectDoorChatAdapter(config);
+  expect(adapter.providers[0].models[0].id).toBe("old");
+  current = "new";
+  const one = adapter.refreshProviders!();
+  const two = adapter.refreshProviders!();
+  expect(one).toBe(two);
+  await one;
+  expect(adapter.providers[0].models[0].id).toBe("new");
+  expect(adapter.providers[0].models.some(m => m.id === "custom.control_plane")).toBe(false);
+  fail = true;
+  await expect(adapter.refreshProviders!()).rejects.toThrow("The door is not reachable right now.");
+  expect(adapter.providers[0].models[0].id).toBe("new");
+  expect(calls.map(c => c.request.methodName)).toEqual(["list_providers", "list_models", "list_providers", "list_models", "list_providers"]);
+});

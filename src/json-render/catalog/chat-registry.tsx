@@ -39,6 +39,11 @@ import type { DoorChatAdapter } from "../../chat/door-chat-adapter";
 import { chatCatalog } from "./chat-catalog";
 import { registerScratchCatalogObject } from "../references/chat-scratch";
 import { notebookCanvasSpec } from "../references/canvas-contract";
+import { WorkbenchNavigation } from "../../workbench/WorkbenchNavigation";
+import { WorkbenchControls } from "../../workbench/WorkbenchControls";
+import { WorkbenchPanels } from "../../workbench/WorkbenchPanels";
+import { AccountabilityEvidence } from "../../workbench/AccountabilityEvidence";
+import { useWorkbench } from "../../workbench/WorkbenchProvider";
 
 const ARROW: Record<string, string> = {
   up: "↑",
@@ -203,6 +208,8 @@ const registryDefinition = defineRegistry(chatCatalog, {
       return <ModeStrip adapter={adapter} onContextChange={setChatContext} />;
     },
 
+    workbenchNavigation: () => <WorkbenchNavigation />,
+
     tchedRouterPicker: function TchedRouterPicker({ props }) {
       const {
         adapter,
@@ -211,6 +218,9 @@ const registryDefinition = defineRegistry(chatCatalog, {
         route,
         routeError,
         routePending,
+        catalogPending,
+        catalogError,
+        refreshProviders,
         selectModel,
         selectProvider,
       } = useChatRuntime();
@@ -228,6 +238,8 @@ const registryDefinition = defineRegistry(chatCatalog, {
             <p className="route-status route-status--error">
               No provider is configured.
             </p>
+            {remote ? <button type="button" onClick={() => void refreshProviders()} disabled={catalogPending}>Refresh models</button> : null}
+            {catalogError ? <p role="status">{catalogError}</p> : null}
           </section>
         );
       }
@@ -248,9 +260,12 @@ const registryDefinition = defineRegistry(chatCatalog, {
             <span>Provider</span>
             <select
               value={route.providerId}
+              onFocus={() => void refreshProviders()}
               onChange={(event) => void selectProvider(event.target.value)}
               disabled={routePending}
             >
+              {!providers.some((provider) => provider.id === route.providerId) ?
+                <option value={route.providerId} disabled>{route.providerId} (no longer listed)</option> : null}
               {providers.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.label}
@@ -262,10 +277,13 @@ const registryDefinition = defineRegistry(chatCatalog, {
             <span>Model</span>
             <select
               value={models.length === 0 ? "" : route.modelId}
+              onFocus={() => void refreshProviders()}
               onChange={(event) => void selectModel(event.target.value)}
               disabled={routePending || models.length === 0}
             >
               {models.length === 0 ? <option value="">No models for this provider yet</option> : null}
+              {models.length > 0 && !models.some((model) => model.id === route.modelId) ?
+                <option value={route.modelId} disabled>{route.modelId || "Select a model"} (no longer listed)</option> : null}
               {models.map((model) => (
                 <option key={model.id} value={model.id}>
                   {model.label}
@@ -273,16 +291,21 @@ const registryDefinition = defineRegistry(chatCatalog, {
               ))}
             </select>
           </label>
-          <p className={routeError ? "route-status route-status--error" : "route-status"} role="status">
-            {routeError ??
-              (routePending
-                ? remote
-                  ? "committing selection to the router"
-                  : "switching local route"
-                : remote
-                  ? "selection is committed server-side"
-                  : "no network calls")}
-          </p>
+          <div className="route-catalog">
+            {remote ? (
+              <button type="button" onClick={() => void refreshProviders()} disabled={catalogPending}>
+                Refresh models
+              </button>
+            ) : null}
+            <p className={routeError || catalogError ? "route-status route-status--error" : "route-status"} role="status">
+              {routeError ?? catalogError ??
+                (catalogPending
+                  ? "reading the model catalog"
+                  : routePending
+                    ? remote ? "committing selection to the router" : "switching local route"
+                    : remote ? "selection is committed server-side" : "no network calls")}
+            </p>
+          </div>
         </section>
       );
     },
@@ -292,6 +315,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
       const [sendingScopes, setSendingScopes] = useState<Set<string>>(() => new Set());
       const [errors, setErrors] = useState<Map<string, string>>(() => new Map());
       const { adapter, canvasSpec, chatContext, route, scopeKey, setCanvasSpec } = useChatRuntime();
+      const workbench = useWorkbench();
       const remote = adapter.kind === "remote";
       const { get, set } = useStateStore();
       const messagesPath = chatMessagesPath(props.streamId, scopeKey);
@@ -414,10 +438,11 @@ const registryDefinition = defineRegistry(chatCatalog, {
       };
 
       return (
-        <div className="workbench">
+        <div className={`workbench identity-workbench identity-workbench--${workbench.layout}`}>
+          <div className="conversation-column">
           <section className="chat-panel" aria-label="Conversation">
             <div className="panel-label-row">
-              <span>LIVE THREAD</span>
+              <span>{chatContext?.mode === "control_plane" ? "CONTROL-PLANE CONVERSATION" : "LIVE THREAD"}</span>
               <span>{messages.length.toString().padStart(2, "0")} MESSAGES</span>
             </div>
             <div className="thread-viewport" ref={threadRef}>
@@ -456,13 +481,17 @@ const registryDefinition = defineRegistry(chatCatalog, {
                 : error ?? "Ready."}
             </p>
           </section>
+          <AccountabilityEvidence />
+          </div>
+
+          {props.workspace !== false ? <WorkbenchControls /> : null}
 
           {props.workspace !== false ? (
             <section className="workspace" aria-label="Canvas workspace">
               <div className="workspace-rule" aria-hidden="true">
                 <span>MODEL WORKBENCH</span>
               </div>
-              <div className="workspace-controls">
+              <div className="workspace-controls" hidden={workbench.view !== "canvas" && workbench.view !== "accountability"}>
                 <nav aria-label="Workspace views">
                   {([
                     ["canvas", "Canvas"],
@@ -489,7 +518,12 @@ const registryDefinition = defineRegistry(chatCatalog, {
                   catalog-validated canvas
                 </div>
               </div>
-              <div className="canvas-frame">
+              <WorkbenchPanels />
+              {workbench.inspecting ? <details className="workbench-spec-inspector" open>
+                <summary>Current canvas spec · {Object.keys(canvasSpec.elements).length} elements</summary>
+                <pre>{JSON.stringify(canvasSpec, null, 2)}</pre>
+              </details> : null}
+              <div className="canvas-frame" hidden={workbench.view !== "canvas" && workbench.view !== "accountability"}>
                 <div className="canvas-intro">
                   <div>
                     <p className="eyebrow">SCHEMA-RENDERED CANVAS</p>
@@ -512,7 +546,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
                     }}
                   />
                 ) : (
-                  <CanvasBoundary key={JSON.stringify(canvasSpec)}>
+                  <CanvasBoundary key={`${workbench.renderRevision}:${JSON.stringify(canvasSpec)}`}>
                     <Renderer spec={canvasSpec} registry={chatRegistry} />
                   </CanvasBoundary>
                 )}

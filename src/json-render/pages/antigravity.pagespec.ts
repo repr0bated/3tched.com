@@ -11,7 +11,7 @@ export const antigravitySpec: Spec = {
     root: {
       type: "container",
       props: { className: "chat-only-layout" },
-      children: ["chat-header", "chat-mode", "tched-picker", "antigravity-chat"],
+      children: ["chat-header", "workspace-navigation", "chat-mode", "tched-picker", "antigravity-chat"],
     },
     "chat-header": {
       type: "pageHeader",
@@ -22,6 +22,10 @@ export const antigravitySpec: Spec = {
     },
     "chat-mode": {
       type: "chatModeSelector",
+      props: {},
+    },
+    "workspace-navigation": {
+      type: "workbenchNavigation",
       props: {},
     },
     "tched-picker": {

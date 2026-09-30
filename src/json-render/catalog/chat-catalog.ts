@@ -24,6 +24,11 @@ export const chatCatalog = defineCatalog(schema, {
       slots: [],
       description: "Compact page title and runtime subtitle.",
     },
+    workbenchNavigation: {
+      props: z.object({}),
+      slots: [],
+      description: "Local workspace navigation for canvas, independent accountability evidence, compliance, and routing drafts; does not select a chat mode or grant permissions.",
+    },
     tchedRouterPicker: {
       props: z.object({ className: z.string().nullable() }),
       slots: [],

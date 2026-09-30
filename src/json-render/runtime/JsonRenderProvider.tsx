@@ -14,6 +14,7 @@ import {
 import { ChatRuntimeProvider } from "../../chat/ChatRuntimeProvider";
 import type { ChatAdapter } from "../../chat/chat-adapter";
 import { createLocalChatAdapter } from "../../chat/local-chat-adapter";
+import { WorkbenchProvider } from "../../workbench/WorkbenchProvider";
 import { chatRegistry } from "../catalog/chat-registry";
 
 interface JsonRenderContextValue {
@@ -50,7 +51,7 @@ export function JsonRenderProvider({
               declaration is the allowlist; no host method invoker is installed. */}
           <ActionProvider>
             <ChatRuntimeProvider adapter={resolvedAdapter}>
-              {children}
+              <WorkbenchProvider>{children}</WorkbenchProvider>
             </ChatRuntimeProvider>
           </ActionProvider>
         </VisibilityProvider>

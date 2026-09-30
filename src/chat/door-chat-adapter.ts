@@ -147,7 +147,8 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
   let identity: DoorIdentity = config.identity;
 
   const catalog = await listCatalog(client);
-  const providers = catalogOptions(catalog.providers, catalog.models);
+  let providers = catalogOptions(catalog.providers, catalog.models);
+  let refreshing: Promise<ProviderOption[]> | undefined;
 
   if (providers.length === 0) {
     throw new DoorError("NOT_FOUND", "No provider is configured.");
@@ -156,7 +157,16 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
   return {
     kind: "remote",
     door: client.url,
-    providers,
+    get providers() { return providers; },
+    refreshProviders: () => {
+      if (!refreshing) {
+        refreshing = listCatalog(client).then((next) => {
+          providers = catalogOptions(next.providers, next.models);
+          return providers;
+        }).finally(() => { refreshing = undefined; });
+      }
+      return refreshing;
+    },
     setIdentity: (next: DoorIdentity) => {
       identity = next;
       client.setIdentity(next);

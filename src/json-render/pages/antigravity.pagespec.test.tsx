@@ -161,3 +161,30 @@ describe("ChatOnly page spec", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Personal route failed");
   });
 });
+
+it("refreshes the picker from the shared lookup on focus and button without selecting a replacement", async () => {
+  const old = [{ id: "vendor", label: "Vendor", models: [{ id: "old", label: "Old", detail: "" }] }];
+  const next = [{ ...old[0], models: [{ id: "new", label: "New", detail: "" }] }];
+  const refreshProviders = vi.fn().mockResolvedValue(next);
+  const selectRoute = vi.fn();
+  const adapter = {
+    ...createLocalChatAdapter(),
+    kind: "remote",
+    providers: old,
+    refreshProviders,
+    selectRoute,
+    getChatContext: vi.fn().mockResolvedValue(personal),
+    selectChatMode: vi.fn().mockResolvedValue(personal),
+    listProjects: vi.fn().mockResolvedValue([]),
+  } as unknown as DoorChatAdapter;
+  render(<JsonRenderProvider adapter={adapter}><CatalogPage /></JsonRenderProvider>);
+  const model = await screen.findByRole("combobox", { name: "Model" });
+  await act(async () => { fireEvent.focus(model); });
+  expect(screen.getByRole("option", { name: "New" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "old (no longer listed)" })).toBeDisabled();
+  expect(model).toHaveValue("old");
+  expect(selectRoute).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Refresh models" })); });
+  expect(refreshProviders).toHaveBeenCalledTimes(2);
+  expect(selectRoute).not.toHaveBeenCalled();
+});

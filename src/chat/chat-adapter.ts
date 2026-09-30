@@ -53,6 +53,8 @@ export interface ChatResponse {
 export interface ChatAdapter {
   readonly kind: "local" | "remote";
   readonly providers: ProviderOption[];
+  /** Re-read the shared model lookup; absent on the offline adapter. */
+  refreshProviders?(): Promise<ProviderOption[]>;
   selectRoute(selection: RouteSelection): Promise<RouteSelection>;
   submit(request: ChatRequest): Promise<ChatResponse>;
 }
