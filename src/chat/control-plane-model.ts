@@ -1,22 +1,23 @@
 import type { DoorClient } from "../grpc/door";
+import { listCatalog } from "./model-catalog";
 import type { Elevate } from "./SudoPrompt";
 
 /**
  * The Control Plane model, read and set through the door: the router's
  * `agents.control_plane.model_provider` names one configured provider
- * profile, which owns the model and its wire format. Reading needs the
- * router read grant; setting is tched_router `config_set`, an admitted
- * mutation under the caller's verified session and the router write grant,
- * recorded on the chain. It is a protected task: the caller first obtains a
- * one-time sudo ticket for the exact call (`elevate`).
+ * profile, which owns the model and its wire format. The choices are the
+ * profiles on the shared provider list. Setting is tched_router `config_set`,
+ * an admitted mutation under the caller's verified session and the router
+ * write grant, recorded on the chain. It is a protected task: the caller
+ * first obtains a one-time sudo ticket for the exact call (`elevate`).
  */
 const TCHED_ROUTER = "tched_router";
 const READ = "cap.software.tched-router.router.read@v1";
 const WRITE = "cap.software.tched-router.router.write@v1";
 export const CONTROL_PLANE_PROVIDER_PATH = "agents.control_plane.model_provider";
-// OpenCode Go control plane profiles and Cheaper Inference.
-const PROFILE =
-  /^providers\.models\.((?:opencode|anthropic)\.(?:go_control_plane|go_cp_route_[A-Za-z0-9_]+)|custom\.cheaper_inference)\.model$/;
+/** `family.alias` for a router family the provider list may name. */
+const PROFILE_REF =
+  /^(anthropic|custom|deepseek|gemini|groq|ollama|openai|opencode|openrouter|xai)\.[a-z][a-z0-9_]{0,63}$/;
 
 export interface ControlPlaneModelOption {
   /** `family.alias`, the value written to the agent's model_provider. */
@@ -24,22 +25,16 @@ export interface ControlPlaneModelOption {
   model: string;
 }
 
-interface ConfigListEntry {
-  path: string;
-  value?: string | null;
-}
-
 export async function listControlPlaneModels(client: DoorClient): Promise<ControlPlaneModelOption[]> {
-  const { result } = await client.call<{ entries: ConfigListEntry[] }>(
-    TCHED_ROUTER,
-    "config_list",
-    { prefix: "providers.models" },
-    READ,
-  );
+  const { providers } = await listCatalog(client, { models: false });
   const options: ControlPlaneModelOption[] = [];
-  for (const entry of result.entries ?? []) {
-    const match = PROFILE.exec(entry.path);
-    if (match && entry.value) options.push({ reference: match[1], model: entry.value });
+  for (const provider of providers) {
+    if (!provider.configured || !provider.enabled) continue;
+    const label = provider.name?.trim() || provider.provider_id;
+    for (const reference of provider.control_plane_profiles ?? []) {
+      if (!PROFILE_REF.test(reference)) continue;
+      options.push({ reference, model: label });
+    }
   }
   return options.sort((a, b) => a.model.localeCompare(b.model) || a.reference.localeCompare(b.reference));
 }
@@ -55,7 +50,7 @@ export async function currentControlPlaneModel(client: DoorClient): Promise<stri
 }
 
 export async function setControlPlaneModel(client: DoorClient, reference: string, elevate?: Elevate): Promise<void> {
-  if (!/^((opencode|anthropic)\.go_[A-Za-z0-9_]+|custom\.cheaper_inference)$/.test(reference)) {
+  if (!PROFILE_REF.test(reference)) {
     throw new Error("Not a control plane provider profile.");
   }
   const args = { path: CONTROL_PLANE_PROVIDER_PATH, value: reference };

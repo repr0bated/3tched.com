@@ -1,9 +1,11 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react";
+import { removeScratchCatalogObject } from "../json-render/references/chat-scratch";
 import type { Spec } from "@json-render/core";
 import type {
   ChatAdapter,
@@ -54,20 +56,31 @@ export function ChatRuntimeProvider({
   children: ReactNode;
 }) {
   const firstProvider = adapter.providers[0];
-  const firstModel = firstProvider?.models[0];
-  if (!firstProvider || !firstModel) {
-    throw new Error("ChatAdapter must expose at least one provider and model.");
+  if (!firstProvider) {
+    throw new Error("ChatAdapter must expose at least one provider.");
   }
 
   const [route, setRoute] = useState<RouteSelection>({
     providerId: firstProvider.id,
-    modelId: firstModel.id,
+    modelId: firstProvider.models[0]?.id ?? "",
   });
   const [routePending, setRoutePending] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [chatContext, setChatContext] = useState<ResolvedChatContext | null>(null);
   const [canvasByScope, setCanvasByScope] = useState<Map<string, Spec>>(() => new Map());
   const scopeKey = chatScopeKey(chatContext, adapter.kind === "remote");
+  useEffect(() => {
+    const key = scopeKey;
+    return () => {
+      removeScratchCatalogObject(key);
+      setCanvasByScope((previous) => {
+        if (!previous.has(key)) return previous;
+        const next = new Map(previous);
+        next.delete(key);
+        return next;
+      });
+    };
+  }, [scopeKey]);
   const canvasSpec = canvasByScope.get(scopeKey) ?? initialCanvasSpec;
   const setCanvasSpec = (spec: Spec) => {
     setCanvasByScope(previous => new Map(previous).set(scopeKey, spec));
@@ -99,7 +112,12 @@ export function ChatRuntimeProvider({
     selectProvider: async (providerId) => {
       const provider = adapter.providers.find((entry) => entry.id === providerId);
       const model = provider?.models[0];
-      if (!provider || !model) return;
+      if (!provider) return;
+      if (!model) {
+        setRoute({ providerId: provider.id, modelId: "" });
+        setRouteError(`${provider.label} has no models yet.`);
+        return;
+      }
       await commitRoute({ providerId: provider.id, modelId: model.id });
     },
     selectModel: async (modelId) => {

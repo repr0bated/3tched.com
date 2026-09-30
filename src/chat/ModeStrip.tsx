@@ -1,7 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatAdapter } from "./chat-adapter";
 import type { DoorChatAdapter } from "./door-chat-adapter";
-import { CHAT_MODES, defaultNotebook, notebookIdFromNamespace, type ChatMode, type NotebookSummary, type ProjectSummary, type ResolvedChatContext } from "./chat-mode";
+import { CHAT_MODES, DEFAULT_PERSONAL_NAMESPACE, defaultNotebook, notebookIdFromNamespace, personalSubspace, type ChatMode, type NotebookSummary, type ProjectSummary, type ResolvedChatContext } from "./chat-mode";
+
+const NEW_NAMESPACE = "__new__";
+const STORED_NAMESPACES = "3tched.personal-namespaces";
+
+function storedNamespaces(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORED_NAMESPACES) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((name): name is string => typeof name === "string" && personalSubspace(`/personal/${name}`) === name);
+  } catch {
+    return [];
+  }
+}
+
+function rememberNamespace(name: string): string[] {
+  const next = [...new Set([DEFAULT_PERSONAL_NAMESPACE, ...storedNamespaces(), name])];
+  localStorage.setItem(STORED_NAMESPACES, JSON.stringify(next));
+  return next;
+}
 
 function isDoorAdapter(adapter: ChatAdapter): adapter is DoorChatAdapter {
   return adapter.kind === "remote" && typeof (adapter as DoorChatAdapter).selectChatMode === "function";
@@ -21,7 +40,18 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
   const [notebookPending, setNotebookPending] = useState(false);
   const notebookPendingRef = useRef(false);
   const defaultSelectionInFlightRef = useRef(false);
-  const [namespace, setNamespace] = useState("");
+  const [namespaces, setNamespaces] = useState<string[]>(storedNamespaces);
+  const [naming, setNaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const ensuredMain = useRef(false);
+  const lastPersonal = useRef(DEFAULT_PERSONAL_NAMESPACE);
+  const keepNamespace = useCallback((namespace: string) => {
+    const name = personalSubspace(namespace);
+    if (!name) return;
+    lastPersonal.current = name;
+    setNamespaces(rememberNamespace(name));
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -55,8 +85,26 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
     let cancelled = false;
     void adapter
       .getChatContext()
-      .then((ctx) => {
+      .then(async (ctx) => {
+        if (cancelled) return;
+        if (ctx.mode === "personal" && !personalSubspace(ctx.memory_namespace) && !ensuredMain.current) {
+          ensuredMain.current = true;
+          try {
+            const selected = await adapter.selectChatMode({
+              mode: "personal",
+              personalNamespace: DEFAULT_PERSONAL_NAMESPACE,
+            });
+            if (cancelled) return;
+            keepNamespace(selected.memory_namespace);
+            setContext(selected);
+            onContextChange?.(selected);
+            return;
+          } catch (e) {
+            if (!cancelled) setError(e instanceof Error ? e.message : "selection refused");
+          }
+        }
         if (!cancelled) {
+          keepNamespace(ctx.memory_namespace);
           setContext(ctx);
           onContextChange?.(ctx);
         }
@@ -103,7 +151,7 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
     return () => {
       cancelled = true;
     };
-  }, [adapter, attempt, onContextChange, selectDefaultNotebook]);
+  }, [adapter, attempt, keepNamespace, onContextChange, selectDefaultNotebook]);
 
   if (!isDoorAdapter(adapter)) return null;
 
@@ -135,6 +183,7 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
     setError(null);
     try {
       const selected = await adapter.selectChatMode({ mode, projectId, personalNamespace });
+      keepNamespace(selected.memory_namespace);
       setContext(selected);
       onContextChange?.(selected);
       setProjectPending(false);
@@ -165,7 +214,6 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
 
   const current = CHAT_MODES.find((m) => m.id === context.mode);
   const readyProjects = projects.filter((project) => project.status === "ready");
-  const projectAvailable = readyProjects.length > 0 || context.mode === "project";
   const currentNotebookId = context.mode === "notebook_lm" ? notebookIdFromNamespace(context.memory_namespace) : null;
   const modeValue = projectPending ? "project" : notebookPending ? "notebook_lm" : context.mode;
 
@@ -193,11 +241,15 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
               notebookPendingRef.current = false;
               setProjectPending(false);
               setNotebookPending(false);
-              void select(mode);
+              void select(
+                mode,
+                undefined,
+                mode === "personal" ? lastPersonal.current : undefined,
+              );
             }
           }}
         >
-          {CHAT_MODES.filter((mode) => mode.id !== "project" || projectAvailable).map((m) => (
+          {CHAT_MODES.map((m) => (
             <option key={m.id} value={m.id} title={m.hint}>
               {m.label}
             </option>
@@ -247,18 +299,66 @@ export function ModeStrip({ adapter, onContextChange }: { adapter: ChatAdapter; 
         </label>
       )}
       {context.mode === "personal" && (
+        <label>
+          Namespace
+          <select
+            aria-label="Namespace"
+            value={personalSubspace(context.memory_namespace) || DEFAULT_PERSONAL_NAMESPACE}
+            disabled={busy}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === NEW_NAMESPACE) {
+                setDraft("");
+                setNameError(null);
+                setNaming(true);
+                return;
+              }
+              void select("personal", undefined, value);
+            }}
+          >
+            {[...new Set([DEFAULT_PERSONAL_NAMESPACE, ...namespaces, personalSubspace(context.memory_namespace)].filter(Boolean))].map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+            <option value={NEW_NAMESPACE}>New…</option>
+          </select>
+        </label>
+      )}
+      {naming && (
         <form
+          className="namespace-prompt"
+          role="dialog"
+          aria-modal="true"
+          aria-label="New namespace"
           onSubmit={(e) => {
             e.preventDefault();
-            void select("personal", undefined, namespace.trim() || undefined);
+            const name = draft.trim();
+            if (personalSubspace(`/personal/${name}`) !== name) {
+              setNameError("Use 1 to 64 characters: a-z, 0-9, _ or -.");
+              return;
+            }
+            setNamespaces(rememberNamespace(name));
+            setNaming(false);
+            void select("personal", undefined, name);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setNaming(false);
           }}
         >
-          <input
-            placeholder="sub-space (a-z0-9_-)"
-            value={namespace}
-            disabled={busy}
-            onChange={(e) => setNamespace(e.target.value)}
-          />
+          <p className="namespace-prompt__title">Name this namespace</p>
+          <label>
+            Name
+            <input
+              autoFocus
+              value={draft}
+              disabled={busy}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+          </label>
+          {nameError && <span className="mode-strip__error" role="alert">{nameError}</span>}
+          <div className="namespace-prompt__actions">
+            <button type="submit" disabled={busy || !draft.trim()}>Add</button>
+            <button type="button" onClick={() => setNaming(false)} disabled={busy}>Cancel</button>
+          </div>
         </form>
       )}
       <span className="mode-strip__namespace" title={current?.hint}>

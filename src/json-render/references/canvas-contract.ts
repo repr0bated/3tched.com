@@ -1,4 +1,5 @@
 import { defineCatalog, type Spec } from "@json-render/core";
+import { compileChatCanvas } from "./chat-scratch";
 import { z } from "zod";
 import { schema } from "@json-render/react/schema";
 import type { NotebookDetail } from "../../chat/chat-mode";
@@ -106,13 +107,19 @@ export function notebookCanvasSpec(notebook: NotebookDetail): Spec {
   });
 }
 
-export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec } {
+export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec; scratch?: boolean } {
   const block = /```json-render\s*\n([\s\S]*?)\n```/.exec(content);
   if (!block) return { content };
   try {
     if (block[1].length > MAX_BYTES) throw new Error("Canvas exceeds its size limit.");
-    const canvasSpec = validateCanvasSpec(JSON.parse(block[1]));
-    return { content: content.replace(block[0], "").trim() || "Rendered the requested interface.", canvasSpec };
+    const prose = content.replace(block[0], "").trim() || "Rendered the requested interface.";
+    try {
+      return { content: prose, canvasSpec: validateCanvasSpec(JSON.parse(block[1])) };
+    } catch {
+      // A chat fence may be the JSONL stream the catalog prompt asks for.
+      // That canvas is a scratch catalog object, not a promoted composition.
+      return { content: prose, canvasSpec: compileChatCanvas(block[1]), scratch: true };
+    }
   } catch {
     return { content: `${content}\n\nThe generated interface did not pass catalog validation and was not rendered.` };
   }

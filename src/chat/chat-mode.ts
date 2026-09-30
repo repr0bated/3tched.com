@@ -14,8 +14,22 @@ export const NOTEBOOKLM_INVOKE = "notebooklm.invoke";
 
 export type ChatMode = "personal" | "project" | "control_plane" | "accountability" | "notebook_lm" | "ui_render";
 
+/** Personal memory always has a namespace. The interface opens on this one. */
+export const DEFAULT_PERSONAL_NAMESPACE = "main";
+
+const PERSONAL_NAMESPACE_NAME = /^[a-z0-9_-]{1,64}$/;
+
+/** The named personal namespace in a door memory path, or empty when the path has none. */
+export function personalSubspace(namespace: string): string {
+  const marker = "/personal/";
+  const at = namespace.lastIndexOf(marker);
+  if (at < 0) return "";
+  const name = namespace.slice(at + marker.length);
+  return PERSONAL_NAMESPACE_NAME.test(name) ? name : "";
+}
+
 export const CHAT_MODES: Array<{ id: ChatMode; label: string; hint: string }> = [
-  { id: "personal", label: "Personal", hint: "Your memory; optional named sub-space" },
+  { id: "personal", label: "Personal", hint: "Your memory, in the main namespace unless you choose another" },
   { id: "project", label: "Project", hint: "A project you own or were invited to" },
   { id: "control_plane", label: "Control plane", hint: "Requires the control-plane grant" },
   { id: "accountability", label: "Accountability", hint: "Ledger view; memory is read-only" },
@@ -87,7 +101,9 @@ export async function getChatContext(client: DoorClient): Promise<ResolvedChatCo
 export async function selectChatMode(client: DoorClient, request: SelectModeRequest): Promise<ResolvedChatContext> {
   const args: Record<string, unknown> = { mode: request.mode };
   if (request.mode === "project" && request.projectId) args.project_id = request.projectId;
-  if (request.mode === "personal" && request.personalNamespace) args.personal_namespace = request.personalNamespace;
+  if (request.mode === "personal") {
+    args.personal_namespace = request.personalNamespace || DEFAULT_PERSONAL_NAMESPACE;
+  }
   const { result } = await client.call<ResolvedChatContext>(PROJECT_PLUGIN, "select_context", args, CHAT_CONTEXT);
   return result;
 }

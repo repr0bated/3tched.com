@@ -41,6 +41,8 @@ export interface ChatRequest {
 export interface ChatResponse {
   message: ChatMessage;
   canvasSpec?: Spec;
+  /** The canvas is a scratch catalog object for this chat, not a promoted entry. */
+  scratch?: boolean;
 }
 
 /**

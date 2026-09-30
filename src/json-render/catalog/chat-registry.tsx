@@ -36,8 +36,8 @@ import { ModeStrip } from "../../chat/ModeStrip";
 import { GalleryPanel } from "../../chat/GalleryPanel";
 import { useSudoPrompt } from "../../chat/SudoPrompt";
 import type { DoorChatAdapter } from "../../chat/door-chat-adapter";
-import type { ControlPlaneModelOption } from "../../chat/control-plane-model";
 import { chatCatalog } from "./chat-catalog";
+import { registerScratchCatalogObject } from "../references/chat-scratch";
 import { notebookCanvasSpec } from "../references/canvas-contract";
 
 const ARROW: Record<string, string> = {
@@ -149,101 +149,6 @@ class CanvasBoundary extends Component<
   }
 }
 
-function ControlPlaneModelSelect({
-  controlPlane,
-  authorizeTask,
-}: {
-  controlPlane: DoorChatAdapter["controlPlane"];
-  authorizeTask?: DoorChatAdapter["authorizeTask"];
-}) {
-  const [elevate, sudoPrompt] = useSudoPrompt(authorizeTask);
-  const [options, setOptions] = useState<ControlPlaneModelOption[]>([]);
-  const [current, setCurrent] = useState("");
-  const [choice, setChoice] = useState("");
-  const [pending, setPending] = useState(true);
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([controlPlane.list(), controlPlane.current()])
-      .then(([list, selected]) => {
-        if (cancelled) return;
-        // Fallback: if router returns no control plane options, provide defaults
-        const fallbackOptions: ControlPlaneModelOption[] = list.length > 0 ? list : [
-          { reference: "openai.go_control_plane", model: "gpt-4-turbo" },
-          { reference: "openrouter.go_control_plane", model: "gpt-4-turbo (openrouter)" },
-          { reference: "custom.cheaper_inference", model: "claude" },
-        ];
-        setOptions(fallbackOptions);
-        setCurrent(selected);
-        setChoice(selected || fallbackOptions[0]?.reference || "");
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          // Provide fallback options even on error
-          const fallbackOptions: ControlPlaneModelOption[] = [
-            { reference: "openai.go_control_plane", model: "gpt-4-turbo" },
-            { reference: "openrouter.go_control_plane", model: "gpt-4-turbo (openrouter)" },
-            { reference: "custom.cheaper_inference", model: "claude" },
-          ];
-          setOptions(fallbackOptions);
-          setChoice(fallbackOptions[0]?.reference || "");
-          setError(cause instanceof Error ? cause.message : "Control plane models are unavailable, using defaults.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setPending(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [controlPlane]);
-
-  async function apply() {
-    setPending(true);
-    setError(null);
-    try {
-      await controlPlane.set(choice, elevate);
-      setCurrent(choice);
-      const model = options.find((option) => option.reference === choice)?.model ?? choice;
-      setStatus(`Control plane now uses ${model}.`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The control plane model was not changed.");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  const known = options.some((option) => option.reference === current);
-  return (
-    <section className="routing-strip" aria-label="Control plane model">
-      <div className="routing-strip__label">
-        <span>CONTROL PLANE</span>
-        <small>OpenCode Go or Cheaper Inference, set through the door</small>
-      </div>
-      <label className="model-select">
-        <span>Model</span>
-        <select value={choice} onChange={(event) => setChoice(event.target.value)} disabled={pending || options.length === 0}>
-          {!known && current ? <option value={current}>{current}</option> : null}
-          {options.map((option) => (
-            <option key={option.reference} value={option.reference}>
-              {option.model} ({option.reference})
-            </option>
-          ))}
-        </select>
-      </label>
-      <button type="button" disabled={pending || !choice || choice === current} onClick={() => void apply()}>
-        Apply
-      </button>
-      <p className={error ? "route-status route-status--error" : "route-status"} role="status" aria-live="polite">
-        {error ?? status ?? (pending ? "Loading." : "")}
-      </p>
-      {sudoPrompt}
-    </section>
-  );
-}
-
 const registryDefinition = defineRegistry(chatCatalog, {
   actions: {
     setState: async (params, setState) => {
@@ -310,14 +215,6 @@ const registryDefinition = defineRegistry(chatCatalog, {
         selectProvider,
       } = useChatRuntime();
       const remote = adapter.kind === "remote";
-      // Control Plane's model is the router's control_plane profile, not a
-      // per-session route: it has its own door-authenticated selector.
-      if (remote && chatContext?.mode === "control_plane") {
-        const door = adapter as DoorChatAdapter;
-        return door.controlPlane
-          ? <ControlPlaneModelSelect controlPlane={door.controlPlane} authorizeTask={door.authorizeTask} />
-          : null;
-      }
       if (remote && !chatContext) return null;
 
       // Fallback when no providers available
@@ -326,10 +223,10 @@ const registryDefinition = defineRegistry(chatCatalog, {
           <section className={`routing-strip ${props.className ?? ""}`} aria-label="Router unavailable">
             <div className="routing-strip__label">
               <span>ROUTE</span>
-              <small>{remote ? "tched_router via :8090" : "local demo only"}</small>
+              <small>{remote ? "keyed by provider" : "local demo only"}</small>
             </div>
             <p className="route-status route-status--error">
-              No providers available. Configure an LLM provider (Claude, GPT, etc.) in the control plane, or use semantic search on vectorized repos.
+              No provider is configured.
             </p>
           </section>
         );
@@ -364,10 +261,11 @@ const registryDefinition = defineRegistry(chatCatalog, {
           <label className="model-select">
             <span>Model</span>
             <select
-              value={route.modelId}
+              value={models.length === 0 ? "" : route.modelId}
               onChange={(event) => void selectModel(event.target.value)}
-              disabled={routePending}
+              disabled={routePending || models.length === 0}
             >
+              {models.length === 0 ? <option value="">No models for this provider yet</option> : null}
               {models.map((model) => (
                 <option key={model.id} value={model.id}>
                   {model.label}
@@ -491,6 +389,7 @@ const registryDefinition = defineRegistry(chatCatalog, {
             response.message,
           ]);
           if (response.canvasSpec) {
+            if (response.scratch) registerScratchCatalogObject(scopeKey, response.canvasSpec);
             setCanvasSpec(response.canvasSpec);
             setView("canvas");
             setSaveStatus(null);

@@ -16,7 +16,7 @@ export function DoorConnectPanel({
     <section className="door-connect" aria-labelledby={titleId}>
       <h1 id={titleId}>{phase === "catalog" ? "Models unavailable" : "Connect to the door"}</h1>
       <p>{phase === "catalog"
-        ? "Your identity credential was obtained, but the router model catalog could not be loaded. Retry to try again."
+        ? "Your identity credential was obtained, but the provider list could not be loaded. Retry to try again."
         : "Your server supplies your identity automatically. Retry to reconnect using your registered session."}</p>
       {error ? <p className="chat-error" role="alert">{error}</p> : null}
       <div className="door-connect__actions">
@@ -27,7 +27,7 @@ export function DoorConnectPanel({
       </div>
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {phase === "catalog"
-          ? "The router model catalog is unavailable. Retry to load models."
+          ? "The provider list is unavailable. Retry to load models."
           : "Connection unavailable. Retry to resolve your identity from the server."}
       </p>
     </section>

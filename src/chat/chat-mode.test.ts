@@ -3,7 +3,7 @@ import type { DoorClient } from "../grpc/door";
 import { defaultNotebook, getChatContext, getNotebook, listNotebooks, listProjects, selectChatMode, selectNotebook } from "./chat-mode";
 
 describe("chat mode", () => {
-  it("asks the door to select and never invents a namespace", async () => {
+  it("asks the door to select and opens personal on main", async () => {
     const calls: Array<[string, string, Record<string, unknown>, string]> = [];
     const client = {
       call: vi.fn(async (plugin: string, method: string, args: Record<string, unknown>, cap: string) => {
@@ -28,6 +28,7 @@ describe("chat mode", () => {
     const current = await getChatContext(client);
     expect(current.memory_namespace).toBe("door-decided");
     await selectChatMode(client, { mode: "personal", personalNamespace: "notes", projectId: "ignored" });
+    await selectChatMode(client, { mode: "personal" });
     await selectChatMode(client, { mode: "project", projectId: "p1", personalNamespace: "ignored" });
     await selectChatMode(client, { mode: "accountability" });
     await selectChatMode(client, { mode: "notebook_lm" });
@@ -42,6 +43,7 @@ describe("chat mode", () => {
     expect(calls.map(([p, m, a, c]) => [p, m, a, c])).toEqual([
       ["project", "get_context", {}, "chat.context"],
       ["project", "select_context", { mode: "personal", personal_namespace: "notes" }, "chat.context"],
+      ["project", "select_context", { mode: "personal", personal_namespace: "main" }, "chat.context"],
       ["project", "select_context", { mode: "project", project_id: "p1" }, "chat.context"],
       ["project", "select_context", { mode: "accountability" }, "chat.context"],
       ["project", "select_context", { mode: "notebook_lm" }, "chat.context"],

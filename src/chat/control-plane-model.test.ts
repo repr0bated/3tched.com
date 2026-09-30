@@ -20,31 +20,31 @@ function fake(results: Record<string, unknown>) {
 }
 
 describe("control plane model", () => {
-  it("offers only the OpenCode Go control plane profiles", async () => {
+  it("offers every configured provider profile, not only OpenCode and custom", async () => {
     const { client, calls } = fake({
-      config_list: {
-        entries: [
-          { path: "providers.models.opencode.go_control_plane.model", value: "glm-5.3-flash" },
-          { path: "providers.models.opencode.go_cp_route_grok_47.model", value: "grok-4.7" },
-          { path: "providers.models.anthropic.go_cp_route_qwen38_flash.model", value: "qwen3.8-flash" },
-          { path: "providers.models.opencode.go_dashboard.model", value: "glm-5.3-flash" },
-          { path: "providers.models.custom.cheaper_inference.model", value: "gpt-5.4-mini" },
-          { path: "providers.models.custom.other.model", value: "x" },
-          { path: "providers.models.opencode.go_cp_route_grok_47.api_key", value: "****" },
+      list_providers: {
+        providers: [
+          { provider_id: "opencode_go", name: "OpenCode Go", configured: true, enabled: true, status: "never", control_plane_profiles: ["opencode.go_control_plane", "anthropic.go_control_plane_messages"] },
+          { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "never", control_plane_profiles: ["openrouter.control_plane"] },
+          { provider_id: "cheaper_inference", name: "Cheaper Inference", configured: true, enabled: true, status: "never", control_plane_profiles: ["custom.cheaper_inference_control_plane"] },
+          { provider_id: "openai", name: "OpenAI", configured: true, enabled: true, status: "never", control_plane_profiles: ["openai.control_plane"] },
+          { provider_id: "retired", name: "Retired", configured: false, enabled: false, status: "removed", control_plane_profiles: ["xai.control_plane"] },
+          { provider_id: "broken", name: "Broken", configured: true, enabled: true, status: "ok", control_plane_profiles: ["not a profile"] },
         ],
       },
     });
     const options = await listControlPlaneModels(client);
-    expect(options.map((option) => option.reference)).toEqual([
-      "opencode.go_control_plane",
-      "custom.cheaper_inference",
-      "opencode.go_cp_route_grok_47",
-      "anthropic.go_cp_route_qwen38_flash",
+    expect(options).toEqual([
+      { reference: "custom.cheaper_inference_control_plane", model: "Cheaper Inference" },
+      { reference: "openai.control_plane", model: "OpenAI" },
+      { reference: "anthropic.go_control_plane_messages", model: "OpenCode Go" },
+      { reference: "opencode.go_control_plane", model: "OpenCode Go" },
+      { reference: "openrouter.control_plane", model: "OpenRouter" },
     ]);
     expect(calls[0]).toEqual({
-      method: "config_list",
-      args: { prefix: "providers.models" },
-      capability: "cap.software.tched-router.router.read@v1",
+      method: "list_providers",
+      args: {},
+      capability: "model_registry.read",
     });
   });
 
@@ -57,8 +57,14 @@ describe("control plane model", () => {
       args: { path: CONTROL_PLANE_PROVIDER_PATH, value: "opencode.go_cp_route_grok_47" },
       capability: "cap.software.tched-router.router.write@v1",
     });
-    await expect(setControlPlaneModel(client, "custom.anything")).rejects.toThrow();
-    expect(calls).toHaveLength(2);
+    await expect(setControlPlaneModel(client, "not-a-profile")).rejects.toThrow();
+    await setControlPlaneModel(client, "openrouter.control_plane");
+    expect(calls[2]).toEqual({
+      method: "config_set",
+      args: { path: CONTROL_PLANE_PROVIDER_PATH, value: "openrouter.control_plane" },
+      capability: "cap.software.tched-router.router.write@v1",
+    });
+    expect(calls).toHaveLength(3);
   });
 });
 

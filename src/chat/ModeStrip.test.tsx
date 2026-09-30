@@ -8,7 +8,7 @@ const personal: ResolvedChatContext = {
   mode: "personal",
   session_id: "own-session",
   project_id: null,
-  memory_namespace: "session/own-session/personal",
+  memory_namespace: "session/own-session/personal/main",
   read_only: false,
   effective_capabilities: ["chat.context"],
   allowed_agents: [],
@@ -24,33 +24,75 @@ function doorAdapter(
   const listProjects = vi.fn().mockResolvedValue(projects);
   const listNotebooks = vi.fn().mockResolvedValue(notebooks);
   const selectNotebook = vi.fn().mockResolvedValue(undefined);
-  const selectChatMode = vi.fn().mockImplementation(async ({ mode }: { mode: string }) => ({
+  const selectChatMode = vi.fn().mockImplementation(async ({ mode, personalNamespace }: { mode: string; personalNamespace?: string }) => ({
     ...personal,
     mode,
     memory_namespace: mode === "ui_render"
       ? ""
       : mode === "notebook_lm"
         ? "session/own-session/notebooklm/nb-1"
-        : `session/own-session/${mode}`,
+        : mode === "personal"
+          ? `session/own-session/personal/${personalNamespace ?? "main"}`
+          : `session/own-session/${mode}`,
   }));
   const adapter = { kind: "remote", getChatContext, listProjects, listNotebooks, selectNotebook, selectChatMode } as unknown as ChatAdapter;
   return { adapter, getChatContext, listProjects, listNotebooks, selectNotebook, selectChatMode };
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 describe("ModeStrip", () => {
-  it("shows loading and Personal, but hides Project when no ready project exists", async () => {
+  it("shows loading, Personal, and Project even when no project is ready", async () => {
     const { adapter } = doorAdapter();
     render(<ModeStrip adapter={adapter} />);
     expect(screen.getByRole("status")).toHaveTextContent("Loading chat mode");
 
     const selector = await screen.findByRole("combobox", { name: "Mode" });
     expect(selector).toHaveValue("personal");
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "Personal", "Control plane", "Accountability", "NotebookLM", "UI render",
+    expect([...selector.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "Personal", "Project", "Control plane", "Accountability", "NotebookLM", "UI render",
     ]);
-    expect(screen.getByText("session/own-session/personal")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Namespace" })).toHaveValue("main");
+    expect(screen.getByText("session/own-session/personal/main")).toBeInTheDocument();
+  });
+
+  it("loads main when personal mode has no namespace", async () => {
+    const { adapter, selectChatMode } = doorAdapter([], {
+      ...personal,
+      memory_namespace: "session/own-session/personal",
+    });
+    render(<ModeStrip adapter={adapter} />);
+    expect(await screen.findByRole("combobox", { name: "Namespace" })).toHaveValue("main");
+    expect(selectChatMode).toHaveBeenCalledWith({
+      mode: "personal",
+      projectId: undefined,
+      personalNamespace: "main",
+    });
+    expect(await screen.findByText("session/own-session/personal/main")).toBeInTheDocument();
+  });
+
+  it("adds a namespace from New and selects it", async () => {
+    const { adapter, selectChatMode } = doorAdapter();
+    render(<ModeStrip adapter={adapter} />);
+    const namespaces = await screen.findByRole("combobox", { name: "Namespace" });
+    fireEvent.change(namespaces, { target: { value: "__new__" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Not Valid" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("1 to 64");
+    expect(selectChatMode).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "notes" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(selectChatMode).toHaveBeenCalledWith({
+      mode: "personal",
+      projectId: undefined,
+      personalNamespace: "notes",
+    });
+    expect(await screen.findByRole("option", { name: "notes" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Namespace" })).toHaveValue("notes");
   });
 
   it("requires choosing a ready accessible project before selecting Project mode", async () => {

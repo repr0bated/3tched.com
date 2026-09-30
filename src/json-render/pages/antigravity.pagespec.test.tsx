@@ -12,7 +12,7 @@ const personal: ResolvedChatContext = {
   mode: "personal",
   session_id: "own-session",
   project_id: null,
-  memory_namespace: "session/own-session/personal",
+  memory_namespace: "session/own-session/personal/main",
   read_only: false,
   effective_capabilities: ["chat.context"],
   allowed_agents: [],
@@ -61,7 +61,7 @@ describe("ChatOnly page spec", () => {
     );
     const mode = await screen.findByRole("combobox", { name: "Mode" });
     expect(mode).toHaveValue("personal");
-    expect(screen.queryByRole("option", { name: "Project" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Project" })).toBeInTheDocument();
 
     fireEvent.change(mode, { target: { value: "ui_render" } });
     expect(selectChatMode).toHaveBeenCalledWith({
@@ -77,7 +77,7 @@ describe("ChatOnly page spec", () => {
     expect(screen.getByText("no memory")).toBeInTheDocument();
   });
 
-  it("hides the catalog model picker after the door confirms Control Plane", async () => {
+  it("keeps the provider picker after the door confirms Control Plane", async () => {
     const adapter = {
       ...createLocalChatAdapter(),
       kind: "remote",
@@ -90,7 +90,7 @@ describe("ChatOnly page spec", () => {
     expect(screen.getByRole("region", { name: "Router model selection" })).toBeInTheDocument();
     fireEvent.change(mode, { target: { value: "control_plane" } });
     expect(await screen.findByRole("combobox", { name: "Mode" })).toHaveValue("control_plane");
-    expect(screen.queryByRole("region", { name: "Router model selection" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Router model selection" })).toBeInTheDocument();
   });
 
   it("keeps each verified mode's thread and Canvas separate across a late reply", async () => {

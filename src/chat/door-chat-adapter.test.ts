@@ -44,24 +44,49 @@ const config = {
   identity: { kind: "oia1" as const, assertion: "QUJDRA==" },
 };
 
+function catalog(providers: unknown[] = [], models: unknown[] = [], more = false) {
+  return {
+    list_providers: () => envelope("list_providers", { providers, revision: 1 }),
+    list_models: (args: unknown) => {
+      const query = args as { after?: unknown; provider_id?: string };
+      if (query.after) return envelope("list_models", { models: [], more: false, revision: 1 });
+      const page = query.provider_id
+        ? models.filter((model) => (model as { provider_id?: string }).provider_id === query.provider_id)
+        : models;
+      return envelope("list_models", { models: page, more, revision: 1 });
+    },
+  };
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("connectDoorChatAdapter", () => {
-  it("loads providers and models in one GetState call with the declared capability and identity", async () => {
+  it("loads the shared provider catalog and leaves the router families behind once models exist", async () => {
     const calls = mockDoor({
+      ...catalog(
+        [
+          { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: ["openrouter.control_plane"] },
+          { provider_id: "openai", name: "OpenAI", configured: true, enabled: true, status: "ok", control_plane_profiles: ["openai.control_plane"] },
+          { provider_id: "disabled", name: "Off", configured: true, enabled: false, status: "ok", control_plane_profiles: [] },
+        ],
+        [
+          { provider_id: "openrouter", model_id: "anthropic/claude", name: "Claude", available: true, context_length: 200000 },
+          { provider_id: "openai", model_id: "gpt-5", name: "", available: true },
+        ],
+      ),
       GetState: () =>
         envelope("GetState", {
           state: {
             status: "active",
-            selected_provider: "anthropic",
-            selected_model: "claude-opus-5",
+            selected_provider: "opencode",
+            selected_model: "glm",
             providers: [
-            { id: "anthropic", kind: "provider", description: "Anthropic", aliases: [] },
-            { id: "orphan", kind: "provider", description: "", aliases: [] },
+              { id: "opencode", kind: "provider", description: "OpenCode", aliases: [] },
+              { id: "custom", kind: "provider", description: "Custom", aliases: [] },
             ],
             model_routes: [
-            { provider: "anthropic", model: "claude-opus-5", hint: "reasoning", kind: "chat", available: true, status: "ok", status_reason: "" },
-            { provider: "anthropic", model: "claude-opus-5", hint: "code", kind: "chat", available: true, status: "ok", status_reason: "" },
+              { provider: "opencode", model: "glm", hint: "runtime", kind: "chat", available: true, status: "ok", status_reason: "" },
+              { provider: "custom", model: "loopback", hint: "runtime", kind: "chat", available: true, status: "ok", status_reason: "" },
             ],
           },
         }),
@@ -73,28 +98,65 @@ describe("connectDoorChatAdapter", () => {
     expect(adapter.door).toBe("https://10.0.0.3:8090");
     expect(adapter.providers).toEqual([
       {
-        id: "anthropic",
-        label: "anthropic — Anthropic",
-        models: [{ id: "claude-opus-5", label: "claude-opus-5", detail: "chat · reasoning" }],
+        id: "openrouter",
+        label: "OpenRouter",
+        models: [{ id: "anthropic/claude", label: "Claude", detail: "200000 ctx" }],
+      },
+      {
+        id: "openai",
+        label: "OpenAI",
+        models: [{ id: "gpt-5", label: "gpt-5", detail: "" }],
       },
     ]);
 
     const byMethod = Object.fromEntries(calls.map((call) => [call.request.methodName, call]));
-    expect(calls).toHaveLength(1);
-    expect(byMethod.GetState.request).toMatchObject({
-      pluginId: "tched_router",
-      objectPath: `${PLUGIN_OBJECT_ROOT}/tched_router`,
+    expect(byMethod.list_providers.request).toMatchObject({
+      pluginId: "model_registry",
+      objectPath: `${PLUGIN_OBJECT_ROOT}/model_registry`,
       interfaceName: PLUGIN_INTERFACE,
-      capabilityId: TCHED_ROUTER_METHODS.GetState,
+      capabilityId: "model_registry.read",
     });
-    expect(byMethod.GetState.meta).toEqual({
+    expect(byMethod.list_providers.meta).toEqual({
       [OIA1_HEADER]: "QUJDRA==",
-      "x-opdbus-capability": TCHED_ROUTER_METHODS.GetState,
+      "x-opdbus-capability": "model_registry.read",
     });
+    const modelLookups = calls.filter((call) => call.request.methodName === "list_models");
+    expect(modelLookups.map((call) => Value.toJson(call.request.arguments[0]))).toEqual([
+      { provider_id: "openrouter", limit: 500 },
+      { provider_id: "openai", limit: 500 },
+    ]);
   });
 
-  it("reports an empty router catalog without inventing available models", async () => {
+  it("lists only the catalog keyed by provider and does not invent router models", async () => {
+    const calls = mockDoor({
+      ...catalog([
+        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "never", control_plane_profiles: [] },
+        { provider_id: "xai", name: "SpaceXAI", configured: true, enabled: true, status: "never", control_plane_profiles: [] },
+      ]),
+      GetState: () => envelope("GetState", { state: {
+        status: "active", selected_provider: "opencode", selected_model: "glm",
+        providers: [
+          { id: "opencode", kind: "provider", description: "OpenCode family", aliases: [] },
+          { id: "custom", kind: "provider", description: "", aliases: [] },
+        ],
+        model_routes: [
+          { provider: "opencode", model: "glm", hint: "runtime", kind: "chat", available: true, status: "ok", status_reason: "" },
+          { provider: "custom", model: "loopback", hint: "", kind: "chat", available: true, status: "", status_reason: "" },
+        ],
+      } }),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    expect(adapter.providers).toEqual([
+      { id: "openrouter", label: "OpenRouter", models: [] },
+      { id: "xai", label: "SpaceXAI", models: [] },
+    ]);
+    expect(calls.some((call) => call.request.methodName === "GetState")).toBe(false);
+    expect(calls.filter((call) => call.request.methodName === "list_models")).toHaveLength(2);
+  });
+
+  it("reports an empty catalog without inventing available models", async () => {
     mockDoor({
+      ...catalog(),
       GetState: () => envelope("GetState", { state: {
         status: "active", selected_provider: "", selected_model: "",
         providers: [], model_routes: [],
@@ -104,12 +166,15 @@ describe("connectDoorChatAdapter", () => {
     await expect(connectDoorChatAdapter(config)).rejects.toMatchObject({
       name: "DoorError",
       code: "NOT_FOUND",
-      message: "The router published no routable provider/model.",
+      message: "No provider is configured.",
     });
   });
 
   it("commits the route with SetSelection and sends the conversation to Chat", async () => {
     const calls = mockDoor({
+      ...catalog([
+        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
+      ]),
       GetState: () =>
         envelope("GetState", { state: {
           status: "active", selected_provider: "local", selected_model: "gemma",
@@ -156,6 +221,9 @@ describe("connectDoorChatAdapter", () => {
 
   it("does not send the personal provider or model in Control Plane mode", async () => {
     const calls = mockDoor({
+      ...catalog([
+        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
+      ]),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "gemma", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "gemma", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
       Chat: () => envelope("Chat", { content: "control plane reply", provider: "", model: "", finish_reason: "stop", usage: {} }),
     });
@@ -173,7 +241,7 @@ describe("connectDoorChatAdapter", () => {
 
   it("surfaces a bridge refusal as a DoorError, never as empty data", async () => {
     mockDoor({
-      GetState: () => ({
+      list_providers: () => ({
         success: false,
         result: undefined,
         eventId: "0",
@@ -202,6 +270,9 @@ describe("UI reference and rendering transport", () => {
   it.each(["personal", "control_plane", "accountability"] as const)("offers validated catalog presentation in %s mode", async (mode) => {
     const spec = { root: "status", elements: { status: { type: "dashboardStatus", props: { label: "Example only", tone: "info" } } } };
     const calls = mockDoor({
+      ...catalog([
+        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
+      ]),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "demo", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "demo", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
       Chat: () => envelope("Chat", { content: `Status\n\`\`\`json-render\n${JSON.stringify(spec)}\n\`\`\``, provider: "local", model: "demo" }),
     });
@@ -226,6 +297,9 @@ describe("UI reference and rendering transport", () => {
   it("supplies the implemented catalog in UI render mode and validates the returned canvas", async () => {
     const spec = { root: "status", elements: { status: { type: "dashboardStatus", props: { label: "Example only", tone: "info" } } } };
     const calls = mockDoor({
+      ...catalog([
+        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
+      ]),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "demo", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "demo", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
       Chat: () => envelope("Chat", { content: `Preview\n\`\`\`json-render\n${JSON.stringify(spec)}\n\`\`\``, provider: "local", model: "demo" }),
     });

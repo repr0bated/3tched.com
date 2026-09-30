@@ -3,10 +3,11 @@ import { catalogPresentationMessage, referenceChatResponse } from "../json-rende
 /**
  * ChatAdapter backed by the :8090 door.
  *
- * Every call is one `PluginService/CallMethod` onto the sealed `tched_router`
- * plugin. Method names, argument shapes and capability ids below are copied from
- * the live sealed schema (`zcall help tched_router <Method>`); if a reseal
- * changes them the bridge refuses the call and the refusal is surfaced verbatim.
+ * Every call is one `PluginService/CallMethod`. The provider menu reads the
+ * sealed `model_registry`; chat and selection stay on `tched_router`.
+ * Method names, argument shapes and capability ids are copied from the live
+ * sealed schema (`zcall help`); if a reseal changes them the bridge refuses
+ * the call and the refusal is surfaced verbatim.
  */
 import { startKnowledgeFeed, type KnowledgeFeed, type KnowledgePush } from "./knowledge-feed";
 import type { DoorbellStatus } from "./doorbell";
@@ -29,11 +30,11 @@ import type {
   ChatMessage,
   ChatRequest,
   ChatResponse,
-  ModelOption,
   ProviderOption,
   RouteSelection,
 } from "./chat-adapter";
 import { DoorClient, DoorError, type DoorConfig } from "../grpc/door";
+import { listCatalog, type CatalogModel, type CatalogProvider } from "./model-catalog";
 import { uiGallery, type UiGallery } from "./ui-gallery";
 import {
   authorizeTask,
@@ -53,31 +54,6 @@ export const TCHED_ROUTER_METHODS = {
   Chat: "cap.software.3tched-router.chat@v1",
 } as const;
 
-interface Provider {
-  id: string;
-  kind: string;
-  description: string;
-  aliases: string[];
-}
-
-interface ModelRoute {
-  provider: string;
-  model: string;
-  hint: string;
-  kind: string;
-  available: boolean;
-  status: string;
-  status_reason: string;
-}
-
-interface TchedRouterState {
-  status: string;
-  selected_provider: string;
-  selected_model: string;
-  providers: Provider[];
-  model_routes: ModelRoute[];
-}
-
 interface ChatOutput {
   content: string;
   provider: string;
@@ -95,49 +71,25 @@ function roleForWire(role: ChatMessage["role"]): string {
   return role === "agent" ? "assistant" : role;
 }
 
-function modelDetail(route: ModelRoute): string {
-  const parts = [route.kind, route.hint].filter(Boolean);
-  if (!route.available) {
-    parts.push(route.status_reason || route.status || "unavailable");
-  }
-  return parts.join(" · ");
-}
-
-/**
- * Group routes under their provider. Available routes sort first within a
- * provider and providers with an available route sort first overall, so the
- * picker's initial selection (first provider, first model) is one the router
- * says it can actually serve. Unavailable routes stay listed with their reason.
- */
-function toProviderOptions(providers: Provider[], routes: ModelRoute[]): ProviderOption[] {
-  const byProvider = new Map<string, { available: boolean; models: ModelOption[] }[]>();
-  for (const route of routes) {
-    if (!route.provider || !route.model) continue;
-    const entries = byProvider.get(route.provider) ?? [];
-    if (entries.some((entry) => entry.models[0].id === route.model)) continue;
-    entries.push({
-      available: route.available,
-      models: [{ id: route.model, label: route.model, detail: modelDetail(route) }],
-    });
-    byProvider.set(route.provider, entries);
-  }
-  const options = providers
-    .filter((provider) => provider.id && byProvider.has(provider.id))
-    .map((provider) => {
-      const entries = byProvider.get(provider.id) ?? [];
-      const ordered = [...entries.filter((e) => e.available), ...entries.filter((e) => !e.available)];
-      return {
-        available: entries.some((entry) => entry.available),
-        option: {
-          id: provider.id,
-          label: provider.description ? `${provider.id} — ${provider.description}` : provider.id,
-          models: ordered.flatMap((entry) => entry.models),
-        },
-      };
-    });
-  return [...options.filter((p) => p.available), ...options.filter((p) => !p.available)].map(
-    (p) => p.option,
-  );
+function catalogOptions(providers: CatalogProvider[], models: CatalogModel[]): ProviderOption[] {
+  const configured = providers.filter((provider) => provider.configured && provider.enabled && provider.provider_id);
+  return configured.map((provider) => {
+    const own = models.filter((model) => model.provider_id === provider.provider_id && model.model_id);
+    const available = own.filter((model) => model.available);
+    const ordered = available.length > 0 ? [...available, ...own.filter((model) => !model.available)] : own;
+    return {
+      id: provider.provider_id,
+      label: provider.name?.trim() || provider.provider_id,
+      models: ordered.map((model) => ({
+        id: model.model_id,
+        label: model.name?.trim() || model.model_id,
+        detail: [
+          model.context_length ? `${model.context_length} ctx` : "",
+          model.available ? "" : "unavailable",
+        ].filter(Boolean).join(" · "),
+      })),
+    };
+  });
 }
 
 /**
@@ -187,27 +139,18 @@ export interface DoorChatAdapter extends ChatAdapter {
 }
 
 /**
- * Connect to the door, load the routable provider/model catalog from one
- * committed state read, and return an adapter.
+ * Connect to the door, load providers and the models stored for each
+ * provider, and return an adapter.
  */
 export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorChatAdapter> {
   const client = new DoorClient(config);
   let identity: DoorIdentity = config.identity;
 
-  const { result } = await client.call<{ state: TchedRouterState }>(
-    TCHED_ROUTER,
-    "GetState",
-    {},
-    TCHED_ROUTER_METHODS.GetState,
-  );
-
-  const providers = toProviderOptions(
-    result?.state?.providers ?? [],
-    result?.state?.model_routes ?? [],
-  );
+  const catalog = await listCatalog(client);
+  const providers = catalogOptions(catalog.providers, catalog.models);
 
   if (providers.length === 0) {
-    throw new DoorError("NOT_FOUND", "The router published no routable provider/model.");
+    throw new DoorError("NOT_FOUND", "No provider is configured.");
   }
 
   return {
@@ -299,6 +242,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
         const rendered = readCanvasResponse(result.content);
         return {
           ...(rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
+          ...(rendered.scratch ? { scratch: true } : {}),
           message: {
             id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`,
             role: "agent",
