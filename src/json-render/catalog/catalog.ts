@@ -22,7 +22,7 @@ import { chatCatalog } from "./chat-catalog";
  *   catalog.validate(spec)→ spec validation before render
  */
 import { defineCatalog } from "@json-render/core";
-import { schema } from "@json-render/react/schema";
+import { schema } from "@json-render/svelte/schema";
 import { z } from "zod";
 import { STREAM_PLUGIN_IDS, toCatalogName } from "./stream-plugins";
 
@@ -540,7 +540,7 @@ export const appCatalog = defineCatalog(schema, {
       props: z.object({
         className: z.string().nullable(),
       }),
-      description: "Provider and model selectors bound to tched_router.",
+      description: "Mode-aware provider and model drafts from one shared catalog with explicit apply, confirmed state and contextual errors; Control Plane model changes require root password authorization for each task through the adapter.",
     },
     chatModeSelector: {
       props: z.object({}),

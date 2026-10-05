@@ -1,6 +1,6 @@
 import { dashboardElementSchemas } from "./dashboard-elements";
 import { defineCatalog } from "@json-render/core";
-import { schema } from "@json-render/react/schema";
+import { schema } from "@json-render/svelte/schema";
 import { z } from "zod";
 
 /**
@@ -32,7 +32,7 @@ export const chatCatalog = defineCatalog(schema, {
     tchedRouterPicker: {
       props: z.object({ className: z.string().nullable() }),
       slots: [],
-      description: "Local provider and model selectors behind the routing adapter.",
+      description: "Mode-aware provider and model drafts from one shared catalog with explicit apply, confirmed state and contextual errors; Control Plane model changes require root password authorization for each task through the adapter.",
     },
     chatModeSelector: {
       props: z.object({}),

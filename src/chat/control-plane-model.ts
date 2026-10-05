@@ -1,61 +1,79 @@
 import type { DoorClient } from "../grpc/door";
-import { listCatalog } from "./model-catalog";
-import type { Elevate } from "./SudoPrompt";
+import type { RouteSelection } from "./chat-adapter";
+import type { CatalogModel } from "./model-catalog";
+import type { Elevate } from "./elevation";
+import { inferenceEndpointMatches, nativeProfilePath, readDedicatedRoute, readRouterValue, verifiedNativeUri } from "./native-routing";
 
-/**
- * The Control Plane model, read and set through the door: the router's
- * `agents.control_plane.model_provider` names one configured provider
- * profile, which owns the model and its wire format. The choices are the
- * profiles on the shared provider list. Setting is tched_router `config_set`,
- * an admitted mutation under the caller's verified session and the router
- * write grant, recorded on the chain. It is a protected task: the caller
- * first obtains a one-time sudo ticket for the exact call (`elevate`).
- */
 const TCHED_ROUTER = "tched_router";
-const READ = "cap.software.tched-router.router.read@v1";
 const WRITE = "cap.software.tched-router.router.write@v1";
 export const CONTROL_PLANE_PROVIDER_PATH = "agents.control_plane.model_provider";
-/** `family.alias` for a router family the provider list may name. */
-const PROFILE_REF =
-  /^(anthropic|custom|deepseek|gemini|groq|ollama|openai|opencode|openrouter|xai)\.[a-z][a-z0-9_]{0,63}$/;
 
-export interface ControlPlaneModelOption {
-  /** `family.alias`, the value written to the agent's model_provider. */
-  reference: string;
-  model: string;
-}
-
-export async function listControlPlaneModels(client: DoorClient): Promise<ControlPlaneModelOption[]> {
-  const { providers } = await listCatalog(client, { models: false });
-  const options: ControlPlaneModelOption[] = [];
-  for (const provider of providers) {
-    if (!provider.configured || !provider.enabled) continue;
-    const label = provider.name?.trim() || provider.provider_id;
-    for (const reference of provider.control_plane_profiles ?? []) {
-      if (!PROFILE_REF.test(reference)) continue;
-      options.push({ reference, model: label });
-    }
+export class ControlPlaneMutationUnconfirmedError extends Error {
+  constructor(cause: unknown) {
+    super(`The model change could not be confirmed: ${cause instanceof Error ? cause.message : "door response unavailable"}. Refresh before retrying.`);
+    this.name = "ControlPlaneMutationUnconfirmedError";
   }
-  return options.sort((a, b) => a.model.localeCompare(b.model) || a.reference.localeCompare(b.reference));
 }
 
-export async function currentControlPlaneModel(client: DoorClient): Promise<string> {
-  const { result } = await client.call<{ value?: string | null }>(
-    TCHED_ROUTER,
-    "config_get",
-    { path: CONTROL_PLANE_PROVIDER_PATH },
-    READ,
-  );
-  return result.value ?? "";
+/** Read the actual dedicated agent route, then resolve it to a provider key. */
+export async function currentControlPlaneModel(client: DoorClient, models: CatalogModel[]): Promise<RouteSelection> {
+  const { reference, modelId, uri } = await readDedicatedRoute(client, "control_plane");
+  const matches = models.filter((model) => model.available && model.model_id === modelId && model.control_plane_profile === reference && inferenceEndpointMatches(uri, model.inference_url_prefix));
+  // Unmapped native selections remain visible as observed, never guessed.
+  return { providerId: matches.length === 1 ? matches[0].provider_id : reference, modelId };
 }
 
-export async function setControlPlaneModel(client: DoorClient, reference: string, elevate?: Elevate): Promise<void> {
-  if (!PROFILE_REF.test(reference)) {
-    throw new Error("Not a control plane provider profile.");
+/** A singleton turn cannot silently use an unmapped or differently billed route. */
+export async function verifiedControlPlaneModel(client: DoorClient, models: CatalogModel[]): Promise<RouteSelection> {
+  const { reference, modelId, uri } = await readDedicatedRoute(client, "control_plane");
+  const matches = models.filter(model => model.available && model.model_id === modelId && model.control_plane_profile === reference && inferenceEndpointMatches(uri, model.inference_url_prefix));
+  if (matches.length !== 1) throw new Error("Apply a catalog model with a verified Control Plane profile and inference endpoint before sending a message.");
+  return { providerId: matches[0].provider_id, modelId };
+}
+
+/**
+ * Every mode uses the same provider-keyed Cozo catalog. Per-model profiles
+ * are routing metadata, never eligibility filters. Change the dedicated
+ * agent reference and actual model in one optimistic patch with an exact
+ * sudo ticket. Contracts verified against sealed methods on 2026-09-30.
+ */
+export async function setControlPlaneModel(
+  client: DoorClient,
+  selection: RouteSelection,
+  models: CatalogModel[],
+  elevate: Elevate,
+): Promise<void> {
+  const model = models.find((row) => row.provider_id === selection.providerId && row.model_id === selection.modelId);
+  if (!model) throw new Error("That provider/model is no longer in the catalog. Refresh models.");
+  if (!model.available) throw new Error("That catalog model is unavailable. Refresh models and choose an available model.");
+  const reference = model.control_plane_profile;
+  if (!reference) {
+    throw new Error(`The catalog has no native routing binding for ${selection.providerId} / ${selection.modelId}.`);
   }
-  const args = { path: CONTROL_PLANE_PROVIDER_PATH, value: reference };
-  if (elevate) await elevate(TCHED_ROUTER, "config_set", args);
-  await client.call(TCHED_ROUTER, "config_set", args, WRITE);
+  const path = nativeProfilePath(reference, "model");
+  const [currentReference, currentModel, uri] = await Promise.all([
+    readRouterValue(client, CONTROL_PLANE_PROVIDER_PATH),
+    readRouterValue(client, path),
+    verifiedNativeUri(client, reference, model.inference_url_prefix),
+  ]);
+  if (currentReference === reference && currentModel === selection.modelId) return;
+  const providerPointer = "/agents/control_plane/model_provider";
+  const modelPointer = `/${path.replaceAll(".", "/")}`;
+  const args = { operations: [
+    { op: "test", path: providerPointer, value: currentReference },
+    { op: "test", path: modelPointer, value: currentModel },
+    { op: "test", path: `/${nativeProfilePath(reference, "uri").replaceAll(".", "/")}`, value: uri },
+    { op: "replace", path: modelPointer, value: selection.modelId },
+    { op: "replace", path: providerPointer, value: reference },
+  ] };
+  await elevate(TCHED_ROUTER, "config_patch", args);
+  try {
+    await client.call(TCHED_ROUTER, "config_patch", args, WRITE);
+  } catch (cause) {
+    // A lost response may follow an accepted write. Reconcile before retry;
+    // preflight and elevation failures never reach this branch.
+    throw new ControlPlaneMutationUnconfirmedError(cause);
+  }
 }
 
 /** One-time sudo ticket for an exact protected call (elevation plugin). */

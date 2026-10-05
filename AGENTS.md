@@ -1,6 +1,6 @@
 # Repository guidance
 
-This is the 3tched chat interface: a Vite + React + TypeScript Json Render app
+This is the 3tched chat interface: a SvelteKit + Vite + TypeScript Json Render app
 wired to the OP-DBUS :8090 door. Backend work belongs in
 repr0bated/operation-dbus-proto, not here.
 
@@ -29,3 +29,6 @@ repr0bated/operation-dbus-proto, not here.
   hand-edit proto/ or src/grpc/gen/.
 - Run npm run type-check, npm run lint, npm test, and npm run build before
   committing.
+- SvelteKit 3 does not use `svelte.config.js`. vite-plugin-svelte options and
+  kit settings live in `svelte-vite-options.ts` and are passed to `sveltekit()`
+  from `vite.config.ts` (Vitest uses `svelte({ configFile: false, ... })`).

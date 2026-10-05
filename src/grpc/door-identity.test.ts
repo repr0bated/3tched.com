@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "@protobuf-ts/runtime-rpc";
 import { PluginServiceClient } from "./gen/operation.client";
 import { Value } from "./gen/google/protobuf/struct";
-import { DoorClient, DoorError, OIA1_HEADER, SID1_HEADER, readSessionIdentity } from "./door";
+import { DoorClient, DoorError, OIA1_HEADER, SID1_HEADER, IDENTITY_MODE_HEADER, IDENTITY_SESSION_HEADER, readSessionIdentity, readSessionConfig } from "./door";
 
 const config = { url: "https://10.0.0.2:8090", identity: { kind: "oia1" as const, assertion: "T0xE" } };
 const fresh = () => Promise.resolve({ kind: "oia1" as const, assertion: "TkVX" });
-function reply(result: unknown) {
-  return Promise.resolve({ response: { result: Value.fromJson({ result } as never) } }) as never;
+function reply(result: unknown, headers?: Record<string, string>) {
+  return Promise.resolve({ headers, response: { result: Value.fromJson({ result } as never) } }) as never;
 }
 function oia(seed: number, publicKey = btoa(String.fromCharCode(...new Uint8Array(32).fill(seed)))) {
   const chunks: number[] = [0x4f, 0x49, 0x41, 0x31];
@@ -16,7 +16,11 @@ function oia(seed: number, publicKey = btoa(String.fromCharCode(...new Uint8Arra
     chunks.push(encoded.length, 0, 0, 0, ...encoded);
   };
   pushString(publicKey);
-  chunks.push(...new Uint8Array(8), ...new Uint8Array(8), ...new Uint8Array(16).fill(seed));
+  const lifetime = new Uint8Array(16);
+  const view = new DataView(lifetime.buffer);
+  view.setBigUint64(0, BigInt(Math.floor(Date.now() / 1000)), true);
+  view.setBigUint64(8, BigInt(Math.floor(Date.now() / 1000) + 300), true);
+  chunks.push(...lifetime, ...new Uint8Array(16).fill(seed));
   chunks.push(4, 127, 0, 0, 1);
   pushString("decoy");
   chunks.push(...new Uint8Array(64));
@@ -160,6 +164,81 @@ describe("server-owned session credential pickup", () => {
     const mismatch = vi.fn().mockResolvedValue(oia(8));
     await expect(readSessionIdentity({ ...config, identity: initial }, mismatch))
       .rejects.toThrow("different WireGuard key");
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("receiver-confirmed bound Oracle requests", () => {
+  const headers = { [IDENTITY_MODE_HEADER]: "bound-oracle", [IDENTITY_SESSION_HEADER]: "assigned-session" };
+
+  it("skips SID pickup only after receiver confirmation and renews parallel calls independently", async () => {
+    const initial = oia(1);
+    const one = oia(2, initial.publicKey);
+    const two = oia(3, initial.publicKey);
+    const next = vi.fn().mockResolvedValueOnce(one).mockResolvedValueOnce(two);
+    const call = vi.spyOn(PluginServiceClient.prototype, "callMethod")
+      .mockReturnValueOnce(reply({ session_id: "assigned-session" }, headers))
+      .mockReturnValue(reply({ ok: "receipt" }, headers));
+    const bound = await readSessionConfig({ ...config, identity: initial }, next);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(bound.boundOracle?.sessionId).toBe("assigned-session");
+    const client = new DoorClient(bound);
+    await Promise.all([client.call("demo", "one", {}, "demo.read"), client.call("demo", "two", {}, "demo.read")]);
+    expect(call.mock.calls.map(([, options]) => options?.meta?.[OIA1_HEADER])).toEqual([initial.assertion, one.assertion, two.assertion]);
+    expect(call.mock.calls.every(([request, options]) => request.methodName !== "get_identity" && !options?.meta?.[SID1_HEADER])).toBe(true);
+    expect(call.mock.calls.every(([, options]) => !options?.meta?.[IDENTITY_MODE_HEADER] && !options?.meta?.[IDENTITY_SESSION_HEADER])).toBe(true);
+  });
+
+  it.each(["missing", "changed-session", "changed-mode"])("fails closed after %s response binding, without SID fallback", async (change) => {
+    const initial = oia(4);
+    const next = vi.fn().mockResolvedValue(oia(5, initial.publicKey));
+    const wrong = change === "missing" ? undefined : {
+      ...headers,
+      ...(change === "changed-session" ? { [IDENTITY_SESSION_HEADER]: "other" } : { [IDENTITY_MODE_HEADER]: "unbound" }),
+    };
+    const call = vi.spyOn(PluginServiceClient.prototype, "callMethod")
+      .mockReturnValueOnce(reply({ session_id: "assigned-session" }, headers))
+      .mockReturnValueOnce(reply({}, wrong));
+    const client = new DoorClient(await readSessionConfig({ ...config, identity: initial }, next));
+    await expect(client.call("demo", "read", {}, "demo.read")).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    await expect(client.call("demo", "read", {}, "demo.read")).rejects.toThrow("Reconnect");
+    expect(call).toHaveBeenCalledTimes(2);
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["reused", "different-key", "sid"])("rejects %s provider output before dispatch", async (failure) => {
+    const initial = oia(6);
+    const invalid = failure === "reused" ? initial : failure === "different-key" ? oia(7) : { kind: "sid1", sealedId: "U0lEMQ==" };
+    const call = vi.spyOn(PluginServiceClient.prototype, "callMethod").mockReturnValue(reply({ session_id: "assigned-session" }, headers));
+    const client = new DoorClient(await readSessionConfig({ ...config, identity: initial }, async () => invalid as never));
+    await expect(client.call("demo", "read", {}, "demo.read")).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects concurrent nonce reuse and cancellation during pickup before a second RPC", async () => {
+    const initial = oia(8);
+    const renewed = oia(9, initial.publicKey);
+    const call = vi.spyOn(PluginServiceClient.prototype, "callMethod")
+      .mockReturnValueOnce(reply({ session_id: "assigned-session" }, headers))
+      .mockReturnValue(reply({}, headers));
+    const client = new DoorClient(await readSessionConfig({ ...config, identity: initial }, async () => renewed));
+    const results = await Promise.allSettled([client.call("demo", "one", {}, "demo.read"), client.call("demo", "two", {}, "demo.read")]);
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(call).toHaveBeenCalledTimes(2);
+
+    const controller = new AbortController();
+    call.mockReset().mockReturnValue(reply({ session_id: "assigned-session" }, headers));
+    const cancelled = new DoorClient(await readSessionConfig({ ...config, identity: initial, signal: controller.signal }, async () => {
+      controller.abort();
+      return renewed;
+    }));
+    await expect(cancelled.call("demo", "read", {}, "demo.read")).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a receiver session that differs from context", async () => {
+    const call = vi.spyOn(PluginServiceClient.prototype, "callMethod").mockReturnValue(reply({ session_id: "other" }, headers));
+    await expect(readSessionConfig({ ...config, identity: oia(10) }, fresh)).rejects.toThrow("different bound session");
     expect(call).toHaveBeenCalledTimes(1);
   });
 });

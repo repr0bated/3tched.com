@@ -97,6 +97,7 @@ function asText(type: string, props: unknown): { type: "text"; props: { text: st
 }
 
 function prepareProps(type: string, props: unknown): Record<string, unknown> | null {
+  if (!Object.hasOwn(canvasCatalog.data.components, type)) return null;
   const declaration = canvasCatalog.data.components[type as keyof typeof canvasCatalog.data.components];
   if (!declaration || !isRecord(props)) return null;
   const schema = declaration.props;
@@ -124,9 +125,34 @@ function parsePayload(source: string): Record<string, unknown> {
   } catch {
     /* A chat fence may be the JSONL patch stream the catalog prompt asks for. */
   }
+  const lines = trimmed.split(/\r?\n/).filter((line) => line.trim());
+  if (!lines.length || lines.some((line) => {
+    try {
+      return !isChatCanvasPatch(JSON.parse(line));
+    } catch {
+      return true;
+    }
+  })) throw new Error("Chat canvas contains an invalid patch.");
   const compiled = compileSpecStream(trimmed);
   if (!isRecord(compiled)) throw new Error("Chat canvas could not be compiled.");
   return compiled;
+}
+
+/** Accept only the static canvas patch protocol, before the SDK mutates any objects. */
+export function isChatCanvasPatch(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.op !== "string" || !["add", "remove", "replace"].includes(value.op) || typeof value.path !== "string") return false;
+  if (Object.keys(value).some((key) => !["op", "path", "value"].includes(key))) return false;
+  if (value.op !== "remove" && !Object.hasOwn(value, "value")) return false;
+  if (!value.path.startsWith("/")) return false;
+  const encoded = value.path.slice(1).split("/");
+  if (encoded.some((part) => /~(?:[^01]|$)/.test(part))) return false;
+  const parts = encoded.map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
+  if (!["root", "elements", "state"].includes(parts[0])) return false;
+  if (parts[0] === "root" && parts.length !== 1) return false;
+  // The SDK assigns numeric array indices directly. Bound sparse-array lengths,
+  // while retaining numeric element IDs in the flat elements map.
+  if (parts.some((part, index) => /^\d+$/.test(part) && Number(part) > 200_000 && !(parts[0] === "elements" && index === 1))) return false;
+  return parts.every((part) => !["__proto__", "prototype", "constructor"].includes(part));
 }
 
 /**
@@ -135,11 +161,13 @@ function parsePayload(source: string): Record<string, unknown> {
  * ephemeral text item instead of a new component.
  */
 export function compileChatCanvas(source: string): Spec {
+  if (source.length > 200_000) throw new Error("Chat canvas exceeds its size limit.");
   const raw = parsePayload(source);
   const state = isRecord(raw.state) ? raw.state : {};
   const sourceElements = isRecord(raw.elements) ? raw.elements : {};
   if (Object.keys(sourceElements).length === 0) throw new Error("Chat canvas has no elements.");
-  const elements: Record<string, LooseElement> = {};
+  if (Object.keys(sourceElements).length > 256) throw new Error("Chat canvas exceeds its element limit.");
+  const elements: Record<string, LooseElement> = Object.create(null);
   for (const [id, value] of Object.entries(sourceElements)) {
     if (isRecord(value)) elements[id] = value as LooseElement;
   }
@@ -156,11 +184,15 @@ export function compileChatCanvas(source: string): Spec {
     elements[root] = { type: "container", props: { className: null }, children: tops };
   }
 
-  const built: Record<string, { type: string; props: Record<string, unknown>; children?: string[] }> = {};
+  const built: Record<string, { type: string; props: Record<string, unknown>; children?: string[] }> = Object.create(null);
+  const ancestors = new Set<string>();
 
-  function stamp(id: string, suffix: string, item: unknown, index: number | null): string {
+  function stamp(id: string, suffix: string, item: unknown, index: number | null, depth: number): string {
+    if (depth > 20 || ancestors.has(id)) throw new Error("Chat canvas graph is cyclic or too deep.");
     const sourceElement = elements[id];
     if (!sourceElement) return "";
+    if (Object.keys(built).length >= 256) throw new Error("Chat canvas exceeds its element limit.");
+    ancestors.add(id);
     const base = `${id}${suffix}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 70) || "n";
     let nextId = base;
     let childSuffix = suffix;
@@ -184,12 +216,12 @@ export function compileChatCanvas(source: string): Spec {
       const list = Array.isArray(items) ? items.slice(0, 24) : [];
       list.forEach((entry, entryIndex) => {
         for (const child of childIds) {
-          const stamped = stamp(child, `${childSuffix}-${entryIndex}`, entry, entryIndex);
+          const stamped = stamp(child, `${childSuffix}-${entryIndex}`, entry, entryIndex, depth + 1);
           if (stamped) children.push(stamped);
         }
       });
     } else {
-      children = childIds.map((child) => stamp(child, childSuffix, item, index)).filter(Boolean);
+      children = childIds.map((child) => stamp(child, childSuffix, item, index, depth + 1)).filter(Boolean);
     }
     const type = typeof sourceElement.type === "string" ? sourceElement.type : "unknown";
     const prepared = prepareProps(type, resolved);
@@ -197,10 +229,11 @@ export function compileChatCanvas(source: string): Spec {
       ? { type, props: prepared, ...(children.length ? { children } : {}) }
       : { ...asText(type, resolved), ...(children.length ? { children } : {}) };
     built[nextId] = element;
+    ancestors.delete(id);
     return nextId;
   }
 
-  const rootId = stamp(root, "", null, null);
+  const rootId = stamp(root, "", null, null, 0);
   for (const element of Object.values(built)) {
     if (!element.children) continue;
     element.children = element.children.filter((child) => Object.hasOwn(built, child));
@@ -211,6 +244,8 @@ export function compileChatCanvas(source: string): Spec {
 
 /** Register one more scratch canvas as a catalog object. A chat keeps every one. */
 export function registerScratchCatalogObject(scopeKey: string, spec: Spec): ScratchCatalogObject {
+  // TEMP-DEBUG: remove once the premature-delete cause is confirmed.
+  console.trace(`[scratch-debug] REGISTER scopeKey=${scopeKey} seq=${sequence + 1}`);
   sequence += 1;
   const object: ScratchCatalogObject = {
     objectId: `scratch-${sequence}`,
@@ -227,6 +262,8 @@ export function registerScratchCatalogObject(scopeKey: string, spec: Spec): Scra
 /** Remove every scratch catalog object for this chat. The permanent catalog is untouched. */
 export function removeScratchCatalogObject(scopeKey: string): ScratchCatalogObject[] {
   const ids = byScope.get(scopeKey) ?? [];
+  // TEMP-DEBUG: remove once the premature-delete cause is confirmed.
+  console.trace(`[scratch-debug] REMOVE scopeKey=${scopeKey} removing=${ids.length}`);
   const removed = ids.flatMap((objectId) => {
     const object = objects.get(objectId);
     objects.delete(objectId);

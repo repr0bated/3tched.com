@@ -1,8 +1,27 @@
 # 3tched.com
 
-The 3tched chat interface. A Vite + React + TypeScript app that renders a
-Json Render chat surface and talks to the OP-DBUS control plane through its
+The 3tched chat interface. A SvelteKit + Svelte 5 + TypeScript chat that renders
+inline Json Render results and talks to the OP-DBUS control plane through its
 one TLS door on port 8090.
+
+The SvelteKit route is `src/routes/+page.svelte`; `src/svelte/App.svelte` and
+`Chat.svelte` own the shell, transcript, suggestions, multiline composer, and
+scrolling. The design follows [Vercel's Svelte Chat example](https://github.com/vercel-labs/json-render/tree/main/examples/svelte-chat),
+adapted to the existing `ChatAdapter`. SvelteKit runs as a browser-only app
+using `adapter-static`, with `dist/index.html` and `dist/assets/` ready for the
+existing op-web host. There is no new `/api/generate` server or chat transport.
+For a subpath build, set `SVELTEKIT_BASE_PATH=/live` (no trailing slash); the
+publish script translates its existing `LANDING`/`URL_PREFIX` options for you.
+`chat-session.ts` keeps drafts, pending requests, errors, and inline results
+separate for each door-confirmed conversation scope. Clear view only clears
+the local transcript; it does not reset a remote server session.
+
+Settings, mode and model controls, task authorization, the gallery, workspace
+panels, and the typed `chatRegistry` are native Svelte components. Json Render
+uses `@json-render/svelte`; there is no React runtime or compatibility bridge.
+`runtime.svelte.ts` owns the reactive routing and scoped canvas state. Canvas
+boards support pointer and keyboard reordering. The complete reference catalog
+remains separate from the smaller runtime catalog.
 
 This repository is the production frontend baseline. It replaces the retired
 display stack (crates/op-web/ui, zeroclaw-gui, operation-dashboard-ui-07) and
@@ -39,7 +58,7 @@ browser ──gRPC-Web/TLS──▶ op-grpc-bridge :8090 ──D-Bus──▶ tc
   sealed schema (zcall help tched_router Chat and friends). A reseal that
   changes them makes the bridge refuse the call; the refusal is shown to the
   operator as-is.
-- src/pages/ChatOnlyPage.tsx resolves identity, in order: injected by the
+- src/svelte/connect.ts resolves identity, in order: injected by the
   host page through window.__3TCHED_CONFIG__; the page's own origin at
   GET /api/identity/self (op-web maps the WireGuard arrival's TCP source
   address to its identity-sled session and returns that session's SID1, so a
@@ -171,9 +190,12 @@ src/
   chat/door-chat-adapter.ts   tched_router-backed adapter
   chat/local-chat-adapter.ts  deterministic in-browser adapter
   chat/door-config.ts         door URL / injected identity resolution
-  pages/DoorConnectPanel.tsx  identity connection retry panel
-  pages/ChatOnlyPage.tsx      gate → JsonRenderProvider(adapter)
-  json-render/                catalog, registry, page spec, runtime provider
+  routes/+page.svelte         SvelteKit chat entry
+  routes/reference.html/      offline reference library route
+  svelte/App.svelte           identity gate and native chat shell
+  svelte/runtime.svelte.ts    routing, workspace, and scoped canvas state
+  svelte/catalog/             native Svelte catalog components
+  json-render/               reference contracts, typed registry, page specs
 ```
 
 ## Provenance and license

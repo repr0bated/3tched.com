@@ -1,10 +1,8 @@
 /**
  * Where the door address and identity come from.
  *
- * Door URL, first hit wins:
- *   1. window.__3TCHED_CONFIG__.door   (runtime, injected by the host page)
- *   2. localStorage "3tched.door"      (last address the operator used)
- *   3. import.meta.env.VITE_OPDBUS_DOOR (build-time default)
+ * Canonical op-web HTTP pages use their own existing gRPC-Web connector.
+ * Elsewhere, door URL is runtime config, then localStorage, then build default.
  *
  * Identity is never read from storage or build config. It arrives one of
  * three ways, in this order, and lives in memory for the life of the page:
@@ -19,7 +17,7 @@
  *      reads that session's existing SID1; chat then uses the returned SID1.
  *      Issuer URL: window.__3TCHED_CONFIG__.issuer, then VITE_OPDBUS_ISSUER.
  */
-import type { DoorIdentity } from "../grpc/door";
+import { sameOriginDoorUrl, type DoorIdentity } from "../grpc/door";
 
 /** Same-origin endpoint served by op-web; 404 means "no projected identity". */
 export const IDENTITY_SELF_PATH = "/api/identity/self";
@@ -30,6 +28,9 @@ export interface ProjectedIdentity {
   sessionId?: string;
   /** Unix seconds; present for issued OIA1 assertions, absent for SID1. */
   expiresAt?: number;
+  /** Original issuer and its advertised TLS door, before page connector selection. */
+  sourceIssuer?: string;
+  issuerDoor?: string;
 }
 
 export interface RuntimeConfig {
@@ -70,6 +71,8 @@ function runtimeConfig(): RuntimeConfig {
 }
 
 export function defaultDoorUrl(): string {
+  const connector = sameOriginDoorUrl();
+  if (connector) return connector;
   const fromRuntime = runtimeConfig().door?.trim();
   if (fromRuntime) return fromRuntime;
   try {
@@ -144,18 +147,20 @@ export async function fetchProjectedIdentity(
 export async function fetchIssuedIdentity(
   fetchImpl: typeof fetch = fetch,
   issuer: string | undefined = issuerUrl(),
+  signal?: AbortSignal,
 ): Promise<ProjectedIdentity | null> {
   const origin = issuer?.trim().replace(/\/+$/, "");
   if (!origin) {
     pickupAttempts.push({ source: "decoy issuer", outcome: "not configured" });
     return null;
   }
-  return fetchIdentityDocument(
+  const projected = await fetchIdentityDocument(
     fetchImpl,
     `${origin}${ISSUER_IDENTITY_PATH}`,
-    { mode: "cors", credentials: "omit" },
+    { mode: "cors", credentials: "omit", redirect: "error", signal },
     `decoy issuer (${origin})`,
   );
+  return projected ? { ...projected, sourceIssuer: origin } : null;
 }
 
 /**
@@ -184,6 +189,9 @@ async function fetchIdentityDocument(
 ): Promise<ProjectedIdentity | null> {
   const record = (outcome: string) => pickupAttempts.push({ source, outcome });
   const controller = new AbortController();
+  if (init.signal?.aborted) return null;
+  const abort = () => controller.abort();
+  init.signal?.addEventListener("abort", abort, { once: true });
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -210,10 +218,10 @@ async function fetchIdentityDocument(
           record("answered without an identity");
           return null;
         }
-        const door =
+        const door = sameOriginDoorUrl() ?? (
           typeof identityDocument.door === "string" && identityDocument.door.trim()
             ? identityDocument.door.trim()
-            : defaultDoorUrl();
+            : defaultDoorUrl());
         if (!door) {
           record("answered without a door address");
           return null;
@@ -227,6 +235,8 @@ async function fetchIdentityDocument(
           identity: identityDocument.identity,
           sessionId: typeof identityDocument.session_id === "string" ? identityDocument.session_id : undefined,
           expiresAt,
+          ...(source.startsWith("decoy issuer") && typeof identityDocument.door === "string"
+            ? { issuerDoor: identityDocument.door.trim() } : {}),
         };
       })(),
       new Promise<null>((resolve) => {
@@ -242,6 +252,7 @@ async function fetchIdentityDocument(
     record("no answer (unreachable, or it does not allow this page's origin)");
     return null;
   } finally {
+    init.signal?.removeEventListener("abort", abort);
     if (timeout) clearTimeout(timeout);
   }
 }

@@ -51,7 +51,7 @@ else
 fi
 
 cd "$project_root"
-npm run build -- --base "$url_prefix"
+SVELTEKIT_BASE_PATH="${url_prefix%/}" npm run build
 
 # A new index replaces any host-injected runtime configuration. Verify the
 # build contains its own public endpoints before replacing the served files.
@@ -60,7 +60,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { loadEnv } from "vite";
 
 const config = loadEnv("production", process.cwd(), "VITE_OPDBUS_");
-const assets = readdirSync("dist/assets")
+const assets = readdirSync("dist/assets", { recursive: true })
   .filter((file) => file.endsWith(".js"))
   .map((file) => readFileSync(`dist/assets/${file}`, "utf8"));
 
@@ -77,13 +77,46 @@ if [[ ! -d "$static_root" || ! -w "$static_root" ]]; then
   privileged=(sudo)
 fi
 
-"${privileged[@]}" install -d -m 0755 "$target_dir"
+publish_dir="$target_dir"
 if [[ -z "$relative_path" ]]; then
-  "${privileged[@]}" rsync -a --delete "$project_root/dist/assets/" "$target_dir/assets/"
-else
-  "${privileged[@]}" rsync -a --delete --exclude=index.html "$project_root/dist/" "$target_dir/"
+  overlay="${OP_WEB_DASHBOARD_OVERLAY:-}"
+  if [[ -z "$overlay" ]]; then
+    for candidate in "$target_dir/index.html" "$target_dir/assets"; do
+      if [[ -L "$candidate" ]]; then
+        resolved="$(readlink -f "$candidate" 2>/dev/null || true)"
+        if [[ -n "$resolved" && ! -w "$(dirname "$resolved")" ]]; then
+          overlay="/var/lib/op-dbus/dashboard-overlay-$(date -u +%Y%m%dT%H%MZ)"
+          break
+        fi
+      elif [[ -e "$candidate" && ! -w "$candidate" ]]; then
+        overlay="/var/lib/op-dbus/dashboard-overlay-$(date -u +%Y%m%dT%H%MZ)"
+        break
+      fi
+    done
+  fi
+  if [[ -n "$overlay" ]]; then
+    publish_dir="$overlay"
+    echo "Dashboard root is read-only or symlinked into the release; publishing to $publish_dir"
+  fi
 fi
-"${privileged[@]}" install -m 0644 "$project_root/dist/index.html" "$target_dir/index.html"
+
+"${privileged[@]}" install -d -m 0755 "$publish_dir"
+if [[ -z "$relative_path" ]]; then
+  "${privileged[@]}" rsync -a --delete "$project_root/dist/assets/" "$publish_dir/assets/"
+else
+  "${privileged[@]}" rsync -a --delete --exclude=index.html "$project_root/dist/" "$publish_dir/"
+fi
+"${privileged[@]}" install -m 0644 "$project_root/dist/index.html" "$publish_dir/index.html"
+
+if [[ "$publish_dir" != "$target_dir" ]]; then
+  for name in index.html assets; do
+    link="$target_dir/$name"
+    if [[ -e "$link" || -L "$link" ]]; then
+      "${privileged[@]}" rm -f "$link"
+    fi
+    "${privileged[@]}" ln -sfn "$publish_dir/$name" "$link"
+  done
+fi
 
 echo "Published 3tched UI to $target_dir"
 echo "Open http://<op-web host>:8080${url_prefix}"

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   IDENTITY_SELF_PATH,
   ISSUER_IDENTITY_PATH,
@@ -9,11 +9,65 @@ import {
   renewalDelayMs,
   resolveIdentity,
   IDENTITY_PICKUP_TIMEOUT_MS,
+  defaultDoorUrl,
 } from "./door-config";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
+
+describe("canonical page connector selection", () => {
+  afterEach(() => {
+    localStorage.removeItem("3tched.door");
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it.each(["http://10.0.0.4:8080", "http://10.0.0.2:8080"])(
+    "overrides stale door sources consistently on %s", async (origin) => {
+      localStorage.setItem("3tched.door", "https://10.0.0.4");
+      vi.stubEnv("VITE_OPDBUS_DOOR", "https://10.0.0.2:8090");
+      vi.stubGlobal("window", {
+        location: { origin },
+        __3TCHED_CONFIG__: { door: "https://10.0.0.2" },
+      });
+      expect(defaultDoorUrl()).toBe(origin);
+      const firstIdentity = { kind: "oia1", assertion: "T0lBMQ==" };
+      const refreshedIdentity = { kind: "oia1", assertion: "TkVXMQ==" };
+      const fetchImpl = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(404, {}))
+        .mockResolvedValueOnce(jsonResponse(200, { door: "https://10.0.0.4", identity: firstIdentity }))
+        .mockResolvedValueOnce(jsonResponse(200, { door: "https://10.0.0.2:8090", identity: refreshedIdentity }));
+      window.__3TCHED_CONFIG__!.issuer = "http://10.0.0.1:51888";
+      const initial = await resolveIdentity(fetchImpl as unknown as typeof fetch);
+      const refreshed = await fetchIssuedIdentity(fetchImpl as unknown as typeof fetch);
+      expect(initial).toMatchObject({ door: origin, identity: firstIdentity });
+      expect(refreshed).toMatchObject({ door: origin, identity: refreshedIdentity });
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    },
+  );
+
+  it("keeps injected credentials unchanged when selecting the page connector", async () => {
+    const identity = { kind: "sid1" as const, sealedId: "U0lEMQ==" };
+    vi.stubGlobal("window", {
+      location: { origin: "http://10.0.0.4:8080" },
+      __3TCHED_CONFIG__: { door: "https://10.0.0.4", identity },
+    });
+    const fetchImpl = vi.fn();
+    expect(await resolveIdentity(fetchImpl)).toEqual({ door: "http://10.0.0.4:8080", identity });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("retains the direct HTTPS door from identity documents on other pages", async () => {
+    vi.stubGlobal("window", { location: { origin: "https://page.example" } });
+    const fetchImpl = vi.fn(async () => jsonResponse(200, {
+      door: "https://10.0.0.2:8090", identity: { kind: "sid1", sealedId: "U0lEMQ==" },
+    }));
+    await expect(fetchProjectedIdentity(fetchImpl as unknown as typeof fetch)).resolves.toMatchObject({
+      door: "https://10.0.0.2:8090",
+    });
+  });
+});
 
 describe("fetchProjectedIdentity", () => {
   it("returns the door and SID1 the origin projected for this arrival", async () => {
@@ -67,6 +121,8 @@ describe("fetchIssuedIdentity (OIA1 pickup from the decoy issuer)", () => {
       identity: { kind: "oia1", assertion: "QUJDRA==" },
       sessionId: undefined,
       expiresAt: 1_700_000_300,
+      sourceIssuer: "http://10.10.0.1:51888",
+      issuerDoor: "https://10.0.0.3:8090",
     });
     expect(fetchImpl).toHaveBeenCalledWith(
       `http://10.10.0.1:51888${ISSUER_IDENTITY_PATH}`,

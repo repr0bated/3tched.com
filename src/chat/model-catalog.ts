@@ -6,21 +6,44 @@ export const MODEL_REGISTRY_READ = "model_registry.read";
 
 export interface CatalogProvider {
   provider_id: string;
+  /** Exact ordinary native routing reference; provider_id remains the Cozo key. */
+  native_provider_id?: string | null;
+  /** Explicit native inference endpoint prefix, independent of models_url. */
+  inference_url_prefix?: string | null;
   name?: string | null;
   configured: boolean;
   enabled: boolean;
   status: string;
   error?: string | null;
-  /** Router profiles (`family.alias`) this provider can serve on the Control Plane. */
+  /** Native routing metadata; never a filter on the shared model list. */
   control_plane_profiles: string[];
+  /** Authentication method expected by this provider (api_key, oauth2, none, etc.) */
+  auth?: string | null;
+  /** Service endpoint URL, when the provider is remote */
+  endpoint?: string | null;
+  /** SDK or package name that implements this provider */
+  sdk?: string | null;
 }
 
 export interface CatalogModel {
   provider_id: string;
   model_id: string;
+  /** Model-owned ordinary family.alias binding; no inference from provider metadata. */
+  native_provider_id?: string | null;
+  /** Model-owned endpoint authority; absent metadata never permits inference. */
+  inference_url_prefix?: string | null;
   name?: string | null;
   available: boolean;
   context_length?: number | null;
+  /** Observed routing binding, not model eligibility or a grant. */
+  control_plane_profile?: string | null;
+  recorded_profile?: string | null;
+  /** Authentication method expected by this provider (api_key, oauth2, none, etc.) */
+  auth?: string | null;
+  /** Service endpoint URL, when the provider is remote */
+  endpoint?: string | null;
+  /** SDK or package name that implements this provider */
+  sdk?: string | null;
 }
 
 interface ListProvidersOutput {

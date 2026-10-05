@@ -1,26 +1,27 @@
 import js from "@eslint/js";
 import globals from "globals";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
+import svelte from "eslint-plugin-svelte";
 
 export default tseslint.config(
   // Historical offline capture harness is archived as source, not app code.
-  { ignores: ["dist", "coverage", "src/grpc/gen", "references/operation-dashboard-ui-07/capture/**"] },
+  { ignores: ["dist", ".svelte-kit", "coverage", "src/grpc/gen", "references/operation-dashboard-ui-07/capture/**"] },
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.ts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser, ...globals.node },
     },
-    plugins: {
-      "react-hooks": reactHooks,
-      "react-refresh": reactRefresh,
-    },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": "off",
+
+  },
+  ...svelte.configs["flat/recommended"],
+  { files: ["**/*.svelte.ts"], languageOptions: { parser: tseslint.parser } },
+  {
+    files: ["**/*.svelte"],
+    languageOptions: {
+      parserOptions: { parser: tseslint.parser },
+      globals: { ...globals.browser },
     },
   },
 );

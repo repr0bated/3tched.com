@@ -1,0 +1,120 @@
+<script lang="ts">
+  import { onDestroy, untrack } from "svelte";
+  import { getRuntime } from "./runtime.svelte";
+  import { selectionLabel, sameSelection } from "./model-selection";
+  import RouteFields from "./RouteFields.svelte";
+  import ControlPlanePicker from "./ControlPlanePicker.svelte";
+  import { CHAT_MODES } from "../chat/chat-mode";
+  const runtime = getRuntime();
+  let draft = $state.raw(untrack(() => runtime.route));
+  let valid = $derived(
+    runtime.providers
+      .find((p) => p.id === draft.providerId)
+      ?.models.some((m) => m.id === draft.modelId) ?? false,
+  );
+  let changed = $derived(!sameSelection(draft, runtime.route));
+  let recovery = $state({ pending: false, error: "", recovered: false });
+  let alive = true;
+  onDestroy(() => {
+    alive = false;
+  });
+  async function recover() {
+    if (recovery.pending || !runtime.adapter.recoverConversation) return;
+    recovery = { pending: true, error: "", recovered: false };
+    try {
+      await runtime.adapter.recoverConversation();
+      if (alive) recovery = { pending: false, error: "", recovered: true };
+    } catch (e) {
+      if (alive)
+        recovery = {
+          pending: false,
+          error:
+            e instanceof Error ? e.message : "Conversation recovery failed.",
+          recovered: false,
+        };
+    }
+  }
+</script>
+
+{#if runtime.adapter.kind === "local" || runtime.chatContext}
+  <section
+    class="routing-strip model-picker"
+    aria-label={runtime.adapter.kind === "local"
+      ? "Local model routing"
+      : "Router model selection"}
+  >
+    <div class="routing-strip__label">
+      <span
+        >{CHAT_MODES.find((m) => m.id === runtime.chatContext?.mode)?.label ??
+          "Local"} model</span
+      ><small
+        >{runtime.chatContext?.mode === "control_plane"
+          ? "protected change · root password per task"
+          : runtime.adapter.kind === "local"
+            ? "offline workspace"
+            : "router selection"}</small
+      >
+    </div>
+    {#if runtime.adapter.kind === "remote" && runtime.chatContext?.mode === "control_plane"}<ControlPlanePicker
+      />{:else}
+      <RouteFields
+        providers={runtime.providers}
+        {draft}
+        setDraft={(value) => (draft = value)}
+        disabled={runtime.routePending}
+        refresh={runtime.refreshProviders}
+      />
+      <div class="route-catalog model-picker__actions">
+        <button
+          disabled={runtime.routePending ||
+            !valid ||
+            (runtime.routeConfirmed && !changed)}
+          onclick={() => void runtime.applyRoute(draft)}
+          >{runtime.routePending ? "Applying…" : "Apply model"}</button
+        >{#if runtime.adapter.refreshProviders}<button
+            disabled={runtime.catalogPending}
+            onclick={() => void runtime.refreshProviders()}
+            >{runtime.catalogPending ? "Refreshing…" : "Refresh models"}</button
+          >{/if}
+      </div>
+      <div class="model-picker__state">
+        <p class="model-picker__current">
+          <span>{runtime.routeConfirmed ? "Last applied" : "Not applied"}</span
+          >{runtime.routeConfirmed
+            ? selectionLabel(runtime.route, runtime.providers)
+            : "Choose a model and apply to confirm the route."}
+        </p>
+        <p class="route-status" role="status" aria-live="polite">
+          {runtime.routePending
+            ? `Applying ${selectionLabel(runtime.routeAttempt ?? draft, runtime.providers)}`
+            : changed
+              ? `Pending: ${selectionLabel(draft, runtime.providers)}`
+              : runtime.adapter.kind === "local"
+                ? "Local selection · no network calls"
+                : "Apply confirms the router selection"}
+        </p>
+        {#if runtime.routeError}<p role="alert">
+            Could not apply {selectionLabel(
+              runtime.routeAttempt ?? draft,
+              runtime.providers,
+            )}: {runtime.routeError}
+          </p>{/if}
+        {#if runtime.catalogError}<p role="alert">
+            Model catalog: {runtime.catalogError}
+          </p>{/if}
+        {#if !runtime.providers.length}<p>No provider is configured.</p>{/if}
+      </div>
+    {/if}
+    {#if runtime.adapter.recoverConversation}<div class="model-picker__state">
+        <button disabled={recovery.pending} onclick={() => void recover()}
+          >{recovery.pending
+            ? "Recovering conversation…"
+            : "Recover conversation"}</button
+        >{#if recovery.recovered}<p role="status">
+            Conversation recovered. Send your message again.
+          </p>{/if}{#if recovery.error}<p role="alert">
+            Conversation recovery: {recovery.error}
+          </p>{/if}
+      </div>{/if}
+  </section>
+{/if}

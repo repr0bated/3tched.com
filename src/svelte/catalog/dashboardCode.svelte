@@ -1,0 +1,16 @@
+<script lang="ts">
+  import type { BaseComponentProps } from "@json-render/svelte";
+  import type { InferComponentProps } from "@json-render/core";
+  import type { ChatCatalog } from "../../json-render/catalog/chat-catalog";
+  let {
+    props,
+  }: BaseComponentProps<InferComponentProps<ChatCatalog, "dashboardCode">> =
+    $props();
+</script>
+
+<figure class="db-ref db-ref-code">
+  <figcaption>
+    {props.title}{props.language ? ` · ${props.language}` : ""}
+  </figcaption>
+  <pre><code>{props.code}</code></pre>
+</figure>

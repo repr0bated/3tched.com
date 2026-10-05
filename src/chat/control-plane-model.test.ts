@@ -1,108 +1,140 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DoorClient } from "../grpc/door";
+import type { CatalogModel } from "./model-catalog";
 import {
   CONTROL_PLANE_PROVIDER_PATH,
+  ControlPlaneMutationUnconfirmedError,
   authorizeTask,
   currentControlPlaneModel,
-  listControlPlaneModels,
   setControlPlaneModel,
 } from "./control-plane-model";
 
-function fake(results: Record<string, unknown>) {
-  const calls: Array<{ method: string; args: Record<string, unknown>; capability: string }> = [];
-  const client = {
-    async call(_plugin: string, method: string, args: Record<string, unknown>, capability: string) {
-      calls.push({ method, args, capability });
-      return { result: results[method] ?? {} };
-    },
-  } as unknown as DoorClient;
-  return { client, calls };
+const selection = { providerId: "catalog_provider", modelId: "new-model/from-provider" };
+const models: CatalogModel[] = [{
+  provider_id: selection.providerId, model_id: selection.modelId, available: true,
+  control_plane_profile: "custom.dynamic_route",
+  inference_url_prefix: "https://inference.example/subscription",
+}];
+const nativePath = "providers.models.custom.dynamic_route.model";
+const nativeUriPath = "providers.models.custom.dynamic_route.uri";
+const nativeUri = "https://inference.example/subscription/v1";
+
+function fake(values: Record<string, string | null> = {}) {
+  const calls: Array<{ plugin: string; method: string; args: Record<string, unknown>; capability: string }> = [];
+  const call = vi.fn(async (plugin: string, method: string, args: Record<string, unknown>, capability: string) => {
+    calls.push({ plugin, method, args, capability });
+    return { result: method === "config_get" ? { value: values[args.path as string] } : {} };
+  });
+  const client = { call } as unknown as DoorClient;
+  return { client, calls, call };
 }
 
-describe("control plane model", () => {
-  it("offers every configured provider profile, not only OpenCode and custom", async () => {
-    const { client, calls } = fake({
-      list_providers: {
-        providers: [
-          { provider_id: "opencode_go", name: "OpenCode Go", configured: true, enabled: true, status: "never", control_plane_profiles: ["opencode.go_control_plane", "anthropic.go_control_plane_messages"] },
-          { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "never", control_plane_profiles: ["openrouter.control_plane"] },
-          { provider_id: "cheaper_inference", name: "Cheaper Inference", configured: true, enabled: true, status: "never", control_plane_profiles: ["custom.cheaper_inference_control_plane"] },
-          { provider_id: "openai", name: "OpenAI", configured: true, enabled: true, status: "never", control_plane_profiles: ["openai.control_plane"] },
-          { provider_id: "retired", name: "Retired", configured: false, enabled: false, status: "removed", control_plane_profiles: ["xai.control_plane"] },
-          { provider_id: "broken", name: "Broken", configured: true, enabled: true, status: "ok", control_plane_profiles: ["not a profile"] },
-        ],
-      },
-    });
-    const options = await listControlPlaneModels(client);
-    expect(options).toEqual([
-      { reference: "custom.cheaper_inference_control_plane", model: "Cheaper Inference" },
-      { reference: "openai.control_plane", model: "OpenAI" },
-      { reference: "anthropic.go_control_plane_messages", model: "OpenCode Go" },
-      { reference: "opencode.go_control_plane", model: "OpenCode Go" },
-      { reference: "openrouter.control_plane", model: "OpenRouter" },
-    ]);
-    expect(calls[0]).toEqual({
-      method: "list_providers",
-      args: {},
-      capability: "model_registry.read",
-    });
+function beforeChange() {
+  return fake({ [CONTROL_PLANE_PROVIDER_PATH]: "openai.previous_route", [nativePath]: "previous-model", [nativeUriPath]: nativeUri });
+}
+
+describe("Control Plane uses the shared catalog model", () => {
+  it("reads the actual model and resolves its exact provider key", async () => {
+    const { client, calls } = fake({ [CONTROL_PLANE_PROVIDER_PATH]: "custom.dynamic_route", [nativePath]: selection.modelId, [nativeUriPath]: nativeUri });
+    expect(await currentControlPlaneModel(client, models)).toEqual(selection);
+    expect(calls.map((call) => call.args.path)).toEqual([CONTROL_PLANE_PROVIDER_PATH, nativePath, nativeUriPath, nativePath, nativeUriPath, CONTROL_PLANE_PROVIDER_PATH]);
+    expect(calls.every((call) => call.capability === "cap.software.tched-router.router.read@v1")).toBe(true);
   });
 
-  it("reads and sets the agent's provider through the admitted config methods", async () => {
-    const { client, calls } = fake({ config_get: { value: "opencode.go_control_plane" } });
-    expect(await currentControlPlaneModel(client)).toBe("opencode.go_control_plane");
-    await setControlPlaneModel(client, "opencode.go_cp_route_grok_47");
-    expect(calls[1]).toEqual({
-      method: "config_set",
-      args: { path: CONTROL_PLANE_PROVIDER_PATH, value: "opencode.go_cp_route_grok_47" },
-      capability: "cap.software.tched-router.router.write@v1",
+  it("keeps an unmapped native selection visible without guessing a catalog provider", async () => {
+    const { client } = fake({ [CONTROL_PLANE_PROVIDER_PATH]: "custom.dynamic_route", [nativePath]: "unknown-model", [nativeUriPath]: nativeUri });
+    expect(await currentControlPlaneModel(client, models)).toEqual({ providerId: "custom.dynamic_route", modelId: "unknown-model" });
+  });
+
+  it("rejects a changing current reference rather than confirming a mixed read", async () => {
+    const { client, call } = fake();
+    call.mockResolvedValueOnce({ result: { value: "custom.dynamic_route" } });
+    call.mockResolvedValueOnce({ result: { value: selection.modelId } });
+    call.mockResolvedValueOnce({ result: { value: nativeUri } });
+    call.mockResolvedValueOnce({ result: { value: selection.modelId } });
+    call.mockResolvedValueOnce({ result: { value: nativeUri } });
+    call.mockResolvedValueOnce({ result: { value: "openai.changed_route" } });
+    await expect(currentControlPlaneModel(client, models)).rejects.toThrow("changed while reading");
+  });
+
+  it("elevates and atomically patches both model and agent with exactly the same guarded arguments", async () => {
+    const { client, calls } = beforeChange();
+    const elevate = vi.fn(async (plugin, method, args) => {
+      expect(calls.every((call) => call.method === "config_get")).toBe(true);
+      expect(plugin).toBe("tched_router");
+      expect(method).toBe("config_patch");
+      expect(args.operations).toEqual([
+        { op: "test", path: "/agents/control_plane/model_provider", value: "openai.previous_route" },
+        { op: "test", path: "/providers/models/custom/dynamic_route/model", value: "previous-model" },
+        { op: "test", path: "/providers/models/custom/dynamic_route/uri", value: nativeUri },
+        { op: "replace", path: "/providers/models/custom/dynamic_route/model", value: selection.modelId },
+        { op: "replace", path: "/agents/control_plane/model_provider", value: "custom.dynamic_route" },
+      ]);
     });
-    await expect(setControlPlaneModel(client, "not-a-profile")).rejects.toThrow();
-    await setControlPlaneModel(client, "openrouter.control_plane");
-    expect(calls[2]).toEqual({
-      method: "config_set",
-      args: { path: CONTROL_PLANE_PROVIDER_PATH, value: "openrouter.control_plane" },
-      capability: "cap.software.tched-router.router.write@v1",
+    await setControlPlaneModel(client, selection, models, elevate);
+    expect(elevate).toHaveBeenCalledOnce();
+    const patch = calls.find((call) => call.method === "config_patch")!;
+    expect(patch.args).toEqual(elevate.mock.calls[0][2]);
+    expect(patch.capability).toBe("cap.software.tched-router.router.write@v1");
+    expect(calls.some((call) => call.method === "SetSelection" || call.method === "config_set")).toBe(false);
+  });
+
+  it("uses the selected record's routing binding, including a newly discovered model", async () => {
+    const { client, calls } = fake({
+      [CONTROL_PLANE_PROVIDER_PATH]: "custom.dynamic_route",
+      "providers.models.anthropic.messages_route.model": "old",
+      "providers.models.anthropic.messages_route.uri": nativeUri,
     });
-    expect(calls).toHaveLength(3);
+    const record = { ...models[0], control_plane_profile: "anthropic.messages_route" };
+    await setControlPlaneModel(client, selection, [record], async () => {});
+    expect(calls.at(-1)?.args.operations).toContainEqual({ op: "replace", path: "/providers/models/anthropic/messages_route/model", value: selection.modelId });
+  });
+
+  it("reports a missing binding without hiding or inventing the catalog model", async () => {
+    const { client, calls } = beforeChange();
+    const elevate = vi.fn();
+    await expect(setControlPlaneModel(client, selection, [{ ...models[0], control_plane_profile: null }], elevate)).rejects.toThrow("no native routing binding");
+    expect(calls).toEqual([]);
+    expect(elevate).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing records and unsafe binding paths before any native call", async () => {
+    const { client, calls } = beforeChange();
+    await expect(setControlPlaneModel(client, selection, [], vi.fn())).rejects.toThrow("no longer in the catalog");
+    await expect(setControlPlaneModel(client, selection, [{ ...models[0], control_plane_profile: "../other" }], vi.fn())).rejects.toThrow("invalid native routing binding");
+    expect(calls).toEqual([]);
+  });
+
+  it("does not mutate when elevation is refused", async () => {
+    const { client, calls } = beforeChange();
+    await expect(setControlPlaneModel(client, selection, models, async () => { throw new Error("cancelled"); })).rejects.toThrow("cancelled");
+    expect(calls.every((call) => call.method === "config_get")).toBe(true);
+  });
+
+  it("requires reconciliation if the mutation response is lost", async () => {
+    const { client, call } = beforeChange();
+    call.mockResolvedValueOnce({ result: { value: "openai.previous_route" } });
+    call.mockResolvedValueOnce({ result: { value: "previous-model" } });
+    call.mockResolvedValueOnce({ result: { value: nativeUri } });
+    call.mockRejectedValueOnce(new Error("connection lost"));
+    await expect(setControlPlaneModel(client, selection, models, async () => {})).rejects.toBeInstanceOf(ControlPlaneMutationUnconfirmedError);
+  });
+
+  it("does not request another ticket for an already selected exact pair", async () => {
+    const { client, calls } = fake({ [CONTROL_PLANE_PROVIDER_PATH]: "custom.dynamic_route", [nativePath]: selection.modelId, [nativeUriPath]: nativeUri });
+    const elevate = vi.fn();
+    await setControlPlaneModel(client, selection, models, elevate);
+    expect(elevate).not.toHaveBeenCalled();
+    expect(calls.every((call) => call.method === "config_get")).toBe(true);
   });
 });
 
-describe("control plane model elevation", () => {
-  it("elevates with the exact config_set arguments before sending them", async () => {
-    const { client, calls } = fake({});
-    const elevated: unknown[] = [];
-    await setControlPlaneModel(client, "opencode.go_cp_route_grok_47", async (plugin, method, args) => {
-      elevated.push({ plugin, method, args, before: calls.length });
-    });
-    expect(elevated).toEqual([
-      {
-        plugin: "tched_router",
-        method: "config_set",
-        args: { path: CONTROL_PLANE_PROVIDER_PATH, value: "opencode.go_cp_route_grok_47" },
-        before: 0,
-      },
-    ]);
-    expect(calls[0].args).toEqual((elevated[0] as { args: unknown }).args);
-  });
-
-  it("does not send the change when elevation is refused", async () => {
-    const { client, calls } = fake({});
-    await expect(
-      setControlPlaneModel(client, "opencode.go_control_plane", async () => {
-        throw new Error("Sudo elevation cancelled.");
-      }),
-    ).rejects.toThrow("cancelled");
-    expect(calls).toHaveLength(0);
-  });
-
-  it("authorizes a task through the elevation plugin", async () => {
-    const { client, calls } = fake({});
-    await authorizeTask(client, "json_render", "retire_catalog_entry", { entry_id: "e", reason: "" }, "pw");
-    expect(calls[0]).toEqual({
-      method: "authorize_task",
-      args: { plugin: "json_render", method: "retire_catalog_entry", args: { entry_id: "e", reason: "" }, password: "pw" },
-      capability: "elevation.authorize",
-    });
+it("authorizes an exact task through the elevation plugin", async () => {
+  const { client, calls } = fake();
+  await authorizeTask(client, "json_render", "retire_catalog_entry", { entry_id: "e", reason: "" }, "fixture-password");
+  expect(calls[0]).toEqual({
+    plugin: "elevation", method: "authorize_task",
+    args: { plugin: "json_render", method: "retire_catalog_entry", args: { entry_id: "e", reason: "" }, password: "fixture-password" },
+    capability: "elevation.authorize",
   });
 });

@@ -1,7 +1,7 @@
 import { defineCatalog, type Spec } from "@json-render/core";
 import { compileChatCanvas } from "./chat-scratch";
 import { z } from "zod";
-import { schema } from "@json-render/react/schema";
+import { schema } from "@json-render/svelte/schema";
 import type { NotebookDetail } from "../../chat/chat-mode";
 import { chatCatalog } from "../catalog/chat-catalog";
 import { dashboardElementSchemas } from "../catalog/dashboard-elements";
@@ -27,7 +27,7 @@ const MAX_DEPTH = 20;
 const keysAre = (value: object, allowed: string[]) => Object.keys(value).every(key => allowed.includes(key));
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 
-/** Validate both the catalog's prop contracts and the flat graph before React sees it. */
+/** Validate both the catalog's prop contracts and the flat graph before the renderer sees it. */
 export function validateCanvasSpec(value: unknown): Spec {
   if (!object(value) || !keysAre(value, ["root", "elements"]) || typeof value.root !== "string" || !object(value.elements)) {
     throw new Error("Canvas must contain only root and elements.");
@@ -41,6 +41,7 @@ export function validateCanvasSpec(value: unknown): Spec {
     if (!object(element) || !keysAre(element, ["type", "props", "children"]) || typeof element.type !== "string" || !object(element.props)) {
       throw new Error("Canvas elements must be static presentation elements.");
     }
+    if (!Object.hasOwn(canvasCatalog.data.components, element.type)) throw new Error(`Invalid Canvas component: ${element.type}`);
     const declaration = canvasCatalog.data.components[element.type as keyof typeof canvasCatalog.data.components];
     if (!declaration || !declaration.props.safeParse(element.props).success) throw new Error(`Invalid Canvas component: ${element.type}`);
     if (element.children !== undefined && (!Array.isArray(element.children) || element.children.some(child => typeof child !== "string"))) {
@@ -107,18 +108,48 @@ export function notebookCanvasSpec(notebook: NotebookDetail): Spec {
   });
 }
 
-export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec; scratch?: boolean } {
-  const block = /```json-render\s*\n([\s\S]*?)\n```/.exec(content);
-  if (!block) return { content };
+/** Recognize UI data without treating ordinary JSON answers as a canvas. */
+function isCanvasPayload(source: string): boolean {
   try {
-    if (block[1].length > MAX_BYTES) throw new Error("Canvas exceeds its size limit.");
-    const prose = content.replace(block[0], "").trim() || "Rendered the requested interface.";
+    const value: unknown = JSON.parse(source);
+    if (object(value) && Object.hasOwn(value, "elements") && object(value.elements)) return true;
+  } catch {
+    // The SDK also emits one JSON Patch operation per line.
+  }
+  const lines = source.trim().split(/\r?\n/).filter(line => line.trim());
+  let elements = false;
+  for (const line of lines) {
     try {
-      return { content: prose, canvasSpec: validateCanvasSpec(JSON.parse(block[1])) };
+      const patch: unknown = JSON.parse(line);
+      if (!object(patch) || typeof patch.op !== "string" || typeof patch.path !== "string") return false;
+      if (patch.path === "/elements" || patch.path.startsWith("/elements/")) elements = true;
     } catch {
-      // A chat fence may be the JSONL stream the catalog prompt asks for.
+      return false;
+    }
+  }
+  return elements;
+}
+
+export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec; scratch?: boolean } {
+  // `spec` is the SDK's inline format; keep the application's older fence too.
+  // Generic JSON fences and bare payloads must first identify themselves as UI.
+  const fences = [...content.matchAll(/^[ \t]*```([^\r\n`]*)\r?\n([\s\S]*?)\r?\n[ \t]*```[ \t]*(?=\r?\n|$)/gm)];
+  const block = fences.find(match => {
+    const format = match[1].trim().toLowerCase();
+    return format === "json-render" || format === "spec" ||
+      (["", "json", "jsonl"].includes(format) && isCanvasPayload(match[2]));
+  });
+  const source = block?.[2] ?? content.trim();
+  if (!block && (fences.length > 0 || !isCanvasPayload(source))) return { content };
+  try {
+    if (source.length > MAX_BYTES) throw new Error("Canvas exceeds its size limit.");
+    const prose = (block ? content.slice(0, block.index) + content.slice(block.index! + block[0].length) : "").trim() || "Rendered the requested interface.";
+    try {
+      return { content: prose, canvasSpec: validateCanvasSpec(JSON.parse(source)) };
+    } catch {
+      // A chat payload may be the JSONL stream the catalog prompt asks for.
       // That canvas is a scratch catalog object, not a promoted composition.
-      return { content: prose, canvasSpec: compileChatCanvas(block[1]), scratch: true };
+      return { content: prose, canvasSpec: compileChatCanvas(source), scratch: true };
     }
   } catch {
     return { content: `${content}\n\nThe generated interface did not pass catalog validation and was not rendered.` };

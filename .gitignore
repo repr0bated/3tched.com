@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .vite/
+.svelte-kit/
 *.local
 *.log
 .DS_Store

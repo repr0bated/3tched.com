@@ -1,7 +1,7 @@
 import type { Spec } from "@json-render/core";
 import type { ChatMode } from "./chat-mode";
 import type { DoorClient } from "../grpc/door";
-import type { Elevate } from "./SudoPrompt";
+import type { Elevate } from "./elevation";
 
 /**
  * The json_render UI gallery and active catalog, through the door.

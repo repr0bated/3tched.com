@@ -1,12 +1,12 @@
-import { createElement } from "react";
+import { render, cleanup } from "../../test/native";
+import SpecRenderer from "../../svelte/SpecRenderer.svelte";
+import { afterEach } from "vitest";
+afterEach(cleanup);
 import { describe, expect, it } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
-import { Renderer } from "@json-render/react";
-import { chatRegistry } from "../catalog/chat-registry";
-import { JsonRenderProvider } from "../runtime/JsonRenderProvider";
 import { readCanvasResponse } from "./canvas-contract";
 import {
   compileChatCanvas,
+  isChatCanvasPatch,
   listScratchCatalogObjects,
   registerScratchCatalogObject,
   removeScratchCatalogObject,
@@ -22,15 +22,75 @@ const stream = [
 ].join("\n");
 
 describe("chat scratch catalog", () => {
+  it("rejects cycles and excessive graph depth before stamping", () => {
+    expect(() => compileChatCanvas(JSON.stringify({
+      root: "root",
+      elements: { root: { type: "container", props: {}, children: ["root"] } },
+    }))).toThrow("cyclic or too deep");
+    const elements = Object.fromEntries(Array.from({ length: 22 }, (_, index) => [
+      `node-${index}`,
+      { type: "container", props: {}, children: index < 21 ? [`node-${index + 1}`] : [] },
+    ]));
+    expect(() => compileChatCanvas(JSON.stringify({ root: "node-0", elements }))).toThrow("cyclic or too deep");
+  });
+
+  it("bounds expanded shared graphs and direct compiler source size", () => {
+    const elements = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [
+      `node-${index}`,
+      { type: "container", props: {}, children: index < 9 ? [`node-${index + 1}`, `node-${index + 1}`] : [] },
+    ]));
+    expect(() => compileChatCanvas(JSON.stringify({ root: "node-0", elements }))).toThrow("element limit");
+    expect(() => compileChatCanvas(" ".repeat(200_001))).toThrow("size limit");
+  });
+
+  it("bounds repeat expansion while preserving the repeat protocol", () => {
+    const spec = {
+      root: "root",
+      state: { rows: Array.from({ length: 24 }, () => ({})) },
+      elements: {
+        root: { type: "container", props: {}, repeat: { statePath: "/rows" }, children: ["group"] },
+        group: { type: "container", props: {}, repeat: { statePath: "/rows" }, children: ["leaf"] },
+        leaf: { type: "text", props: { text: "bounded" } },
+      },
+    };
+    expect(() => compileChatCanvas(JSON.stringify(spec))).toThrow("element limit");
+  });
+
+  it("rejects malformed and unsafe patches before the SDK can apply them", () => {
+    for (const path of ["/elements/__proto__/canvasPolluted", "/state/constructor/prototype/canvasPolluted", "/state/prototype/x", "/root/child", "/outside", "/state/bad~2pointer"]) {
+      const patch = { op: "add", path, value: true };
+      expect(isChatCanvasPatch(patch)).toBe(false);
+      expect(() => compileChatCanvas(`${stream}\n${JSON.stringify(patch)}`)).toThrow("invalid patch");
+    }
+    expect(Object.hasOwn(Object.prototype, "canvasPolluted")).toBe(false);
+    expect(() => compileChatCanvas(`${stream}\n{broken}`)).toThrow("invalid patch");
+    expect(() => compileChatCanvas(`${stream}\nordinary prose`)).toThrow("invalid patch");
+    expect(() => compileChatCanvas(`${stream}\n${JSON.stringify({ op: "copy", path: "/elements/copy", from: "/elements/header" })}`)).toThrow("invalid patch");
+    expect(isChatCanvasPatch({ op: "add", path: "/elements" })).toBe(false);
+    expect(isChatCanvasPatch({ op: "replace", path: "/state/a~1b~0c", value: null })).toBe(true);
+    expect(isChatCanvasPatch({ op: "remove", path: "/state/old" })).toBe(true);
+  });
+
+  it("rejects huge sparse array indices while retaining numeric element IDs", () => {
+    const seededArray = JSON.stringify({ op: "add", path: "/state/items", value: [] });
+    const hugeIndex = JSON.stringify({ op: "add", path: "/state/items/4294967294", value: "oversized" });
+    expect(() => compileChatCanvas(`${stream}\n${seededArray}\n${hugeIndex}`)).toThrow("invalid patch");
+    expect(isChatCanvasPatch({ op: "add", path: "/elements/20261005", value: { type: "text", props: { text: "numeric ID" } } })).toBe(true);
+    const numericId = compileChatCanvas([
+      JSON.stringify({ op: "add", path: "/root", value: "20261005" }),
+      JSON.stringify({ op: "add", path: "/elements", value: {} }),
+      JSON.stringify({ op: "add", path: "/elements/20261005", value: { type: "text", props: { text: "numeric ID" } } }),
+    ].join("\n"));
+    expect(numericId.elements["20261005"].props.text).toBe("numeric ID");
+  });
+
   it("compiles a patch stream into a static canvas and keeps unknown types ephemeral", () => {
     const spec = compileChatCanvas(stream);
     expect(spec.root).toBe("chat-canvas");
     expect(spec.elements.header.props).toMatchObject({ title: "System identity" });
     expect(spec.elements["made-up"].type).toBe("text");
     expect(String(spec.elements["made-up"].props.text)).toContain("soulFile");
-    const markup = renderToStaticMarkup(
-      createElement(JsonRenderProvider, null, createElement(Renderer, { spec, registry: chatRegistry })),
-    );
+    const markup = render(SpecRenderer, { spec }).container.innerHTML;
     expect(markup).toContain("System identity");
     expect(markup).toContain("No written persona.");
     expect(markup).toContain("No model card");

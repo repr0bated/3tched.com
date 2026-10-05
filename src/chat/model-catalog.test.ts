@@ -9,6 +9,16 @@ function clientWith(call: ReturnType<typeof vi.fn>) {
 }
 
 describe("model catalog", () => {
+  it("preserves native metadata separately from the Cozo provider/model keys", async () => {
+    const nativeProvider = { ...provider, native_provider_id: "native-family.provider_default" };
+    const nativeModel = { ...model("vendor/model"), native_provider_id: "native-family.model_override" };
+    const call = vi.fn()
+      .mockResolvedValueOnce({ result: { providers: [nativeProvider], revision: 1 } })
+      .mockResolvedValueOnce({ result: { models: [nativeModel], more: false, revision: 1 } });
+    expect(await listCatalog(clientWith(call))).toEqual({ providers: [nativeProvider], models: [nativeModel] });
+    expect(call.mock.calls[1][2]).toEqual({ provider_id: "vendor", limit: 500 });
+  });
+
   it("reads every page with the provider and actual model cursor", async () => {
     const first = Array.from({ length: 500 }, (_, i) => model(`model-${String(i).padStart(4, "0")}`));
     const call = vi.fn().mockResolvedValueOnce({ result: { models: first, more: true, revision: 7 } })
