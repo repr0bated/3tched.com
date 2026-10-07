@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
+import { RpcError, type RpcOptions } from "@protobuf-ts/runtime-rpc";
 import { Value } from "../grpc/gen/google/protobuf/struct";
 import { ErrorCode, type CallMethodRequest, type CallMethodResponse } from "../grpc/gen/operation";
 import { PluginServiceClient } from "../grpc/gen/operation.client";
@@ -92,40 +92,6 @@ it("retains fresh per-RPC bound identity through catalog construction and skips 
   expect(methods).toEqual(["list_providers", "list_models", "GetState"]);
 });
 
-describe("explicit conversation recovery", () => {
-  const provider = { provider_id: "vendor", configured: true, enabled: true, status: "ok", control_plane_profiles: [] };
-  it("uses the same credential and sealed recovery read once without generation or retaining private content", async () => {
-    const calls = mockDoor({ ...catalog([provider]), list_episodes: () => envelope("list_episodes", { episodes: [{ private_text: "do not retain this" }] }) });
-    const adapter = await connectDoorChatAdapter(config);
-    expect(await adapter.recoverConversation!()).toBeUndefined();
-    const recovery = calls.find(call => call.request.methodName === "list_episodes")!;
-    expect(recovery.request).toMatchObject({ pluginId: "ctl_plane_chatbot", capabilityId: "chatbot.read" });
-    expect(Value.toJson(recovery.request.arguments[0])).toEqual({ limit: 1 });
-    expect(recovery.meta[OIA1_HEADER]).toBe(config.identity.assertion);
-    expect(calls.filter(call => call.request.methodName === "list_episodes")).toHaveLength(1);
-    expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
-  });
-  it("surfaces a real recovery diagnostic without retrying", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const calls = mockDoor({ ...catalog([provider]), list_episodes: () => ({ success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.INTERNAL, message: "private projection recovery failed" } }) });
-    const adapter = await connectDoorChatAdapter(config);
-    await expect(adapter.recoverConversation!()).rejects.toThrow("private projection recovery failed");
-    expect(calls.filter(call => call.request.methodName === "list_episodes")).toHaveLength(1);
-    expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
-  });
-  it("rejects recovery completion after identity changes", async () => {
-    let finish!: (response: CallMethodResponse) => void;
-    const calls = mockDoor({ ...catalog([provider]), list_episodes: () => new Promise(resolve => { finish = resolve; }) });
-    const adapter = await connectDoorChatAdapter(config);
-    const recovery = adapter.recoverConversation!();
-    adapter.setIdentity({ kind: "oia1", assertion: "RUZHSA==" });
-    finish(envelope("list_episodes", {}));
-    await expect(recovery).rejects.toThrow("context changed");
-    expect(calls.at(-1)!.meta[OIA1_HEADER]).toBe(config.identity.assertion);
-    expect(calls.filter(call => call.request.methodName === "list_episodes")).toHaveLength(1);
-  });
-});
-
 const inferencePrefix = "https://inference.example/subscription";
 const inferenceUri = `${inferencePrefix}/v1`;
 function nativeReads(values: Record<string, string>): Record<string, (args: unknown) => CallMethodResponse> {
@@ -169,6 +135,34 @@ describe("ordinary catalog/native routing", () => {
   const applyResult = (reference = "dynamic-family.exact_alias", model = selection.modelId) => ({ provider_id: selection.providerId, model_id: selection.modelId, reference, model, uri: inferenceUri, catalog_revision: 17 });
   const wire = (calls: Recorded[]) => Value.toJson(calls.filter(call => call.request.methodName === "Chat").at(-1)!.request.arguments[0]);
 
+  it("applies a receiver-verified OpenAI subscription binding without an API endpoint", async () => {
+    const subscription = { ...applyResult("openai.personal"), uri: "", oauth: true };
+    const calls = mockDoor({ ...catalog([provider], [record]),
+      resolve_catalog_model_binding: () => envelope("resolve_catalog_model_binding", subscription),
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", subscription), Chat: reply,
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await expect(adapter.selectRoute(selection)).resolves.toEqual(selection);
+    await adapter.submit({ message: "subscription", history: [], route: selection, mode: "personal" });
+    expect(wire(calls)).toMatchObject({ provider: "openai.personal", model: selection.modelId });
+    expect(calls.some(call => call.request.methodName === "config_set")).toBe(false);
+  });
+
+  it.each([
+    { uri: "", oauth: false },
+    { uri: "", oauth: "true" },
+    { uri: "", oauth: true, reference: "anthropic.personal" },
+    { uri: "https://untrusted.example/v1", oauth: true },
+  ])("leaves malformed subscription receipts unapplied without retry or Chat %#", async (invalid) => {
+    const calls = mockDoor({ ...catalog([provider], [record]),
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", { ...applyResult("openai.personal"), ...invalid }),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await expect(adapter.selectRoute(selection)).rejects.toThrow();
+    expect(calls.filter(call => call.request.methodName === "apply_catalog_model_binding")).toHaveLength(1);
+    await expectNoGeneration(adapter.submit({ message: "unconfirmed", history: [], route: selection, mode: "personal" }), calls);
+  });
+
   it("applies the exact model binding and retains Cozo IDs from canonical readback", async () => {
     const selected_provider = "dynamic-family.exact_alias";
     const calls = mockDoor({
@@ -201,7 +195,7 @@ describe("ordinary catalog/native routing", () => {
     expect(adapter.providers[0].models[0].id).toBe(selection.modelId);
     await expect(adapter.selectRoute(selection)).resolves.toEqual(selection);
     const resolves = calls.filter(call => call.request.methodName === "resolve_catalog_model_binding");
-    expect(resolves).toHaveLength(2);
+    expect(resolves).toHaveLength(1);
     expect(resolves[0].request).toMatchObject({ pluginId: "tched_router", capabilityId: TCHED_ROUTER_METHODS.ResolveCatalogModelBinding });
     expect(Value.toJson(resolves[0].request.arguments[0])).toEqual({ provider_id: selection.providerId, model_id: selection.modelId });
     const apply = calls.find(call => call.request.methodName === "apply_catalog_model_binding")!;
@@ -216,19 +210,18 @@ describe("ordinary catalog/native routing", () => {
     { result: { provider_id: selection.providerId, model_id: selection.modelId, reference: "dynamic-family.alias.extra", model: selection.modelId, uri: inferenceUri, catalog_revision: 17 }, error: "invalid native routing binding" },
     { result: { provider_id: selection.providerId, model_id: selection.modelId, reference: "dynamic-family.exact_alias", model: selection.modelId, uri: "https://u:p@inference.example/subscription/v1", catalog_revision: 17 }, error: "credential-free HTTPS" },
   ])("rejects unsafe or mismatched reflected binding", async ({ result, error }) => {
-    const calls = mockDoor({ ...catalog([provider], [record]), resolve_catalog_model_binding: () => envelope("resolve_catalog_model_binding", result) });
+    const calls = mockDoor({ ...catalog([provider], [record]), apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), resolve_catalog_model_binding: () => envelope("resolve_catalog_model_binding", result) });
     const adapter = await connectDoorChatAdapter(config);
     await expect(adapter.selectRoute(selection)).rejects.toThrow(error);
-    expect(calls.some(call => call.request.methodName === "apply_catalog_model_binding" || call.request.methodName === "SetSelection" || call.request.methodName === "config_set")).toBe(false);
+    expect(calls.filter(call => call.request.methodName === "apply_catalog_model_binding")).toHaveLength(1);
+    expect(calls.some(call => call.request.methodName === "SetSelection" || call.request.methodName === "config_set")).toBe(false);
     expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
   });
 
   it("does not confirm Apply if the reflected binding changes during readback", async () => {
-    let count = 0;
     const calls = mockDoor({ ...catalog([provider], [record]), ...reads, resolve_catalog_model_binding: args => {
       const request = args as { provider_id: string; model_id: string };
-      count += 1;
-      return envelope("resolve_catalog_model_binding", { provider_id: request.provider_id, model_id: request.model_id, reference: count === 1 ? "dynamic-family.exact_alias" : "dynamic-family.changed_alias", model: request.model_id, uri: inferenceUri, catalog_revision: 17 });
+      return envelope("resolve_catalog_model_binding", { provider_id: request.provider_id, model_id: request.model_id, reference: "dynamic-family.changed_alias", model: request.model_id, uri: inferenceUri, catalog_revision: 17 });
     }, apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()) });
     const adapter = await connectDoorChatAdapter(config);
     await expect(adapter.selectRoute(selection)).rejects.toThrow("binding changed during Apply");
@@ -241,7 +234,7 @@ describe("ordinary catalog/native routing", () => {
     const calls = mockDoor({ ...catalog([provider], [record]), ...reads, resolve_catalog_model_binding: args => {
       const request = args as { provider_id: string; model_id: string };
       count += 1;
-      return envelope("resolve_catalog_model_binding", { provider_id: request.provider_id, model_id: request.model_id, reference: count < 3 ? "dynamic-family.exact_alias" : "dynamic-family.changed_alias", model: request.model_id, uri: inferenceUri, catalog_revision: 17 });
+      return envelope("resolve_catalog_model_binding", { provider_id: request.provider_id, model_id: request.model_id, reference: count < 2 ? "dynamic-family.exact_alias" : "dynamic-family.changed_alias", model: request.model_id, uri: inferenceUri, catalog_revision: 17 });
     }, apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply });
     const adapter = await connectDoorChatAdapter(config);
     await adapter.selectRoute(selection);
@@ -268,8 +261,8 @@ describe("ordinary catalog/native routing", () => {
   });
 
   it.each([
-    { result: applyResult("dynamic-family.other_alias"), message: "differs from its preflight" },
-    { result: applyResult("different-family.exact_alias"), message: "differs from its preflight" },
+    { result: applyResult("dynamic-family.other_alias"), message: "binding changed during Apply" },
+    { result: applyResult("different-family.exact_alias"), message: "binding changed during Apply" },
     { result: applyResult("dynamic-family.exact_alias", "wrong-model"), message: "differs from the selected catalog model" },
     { result: { ...applyResult(), uri: "https://u:p@inference.example/subscription/v1" }, message: "credential-free HTTPS" },
   ])("rejects differing or unsafe apply readback", async ({ result, message }) => {
@@ -313,9 +306,9 @@ describe("ordinary catalog/native routing", () => {
     await expectNoGeneration(adapter.submit({ message: "no stale assertion", history: [], route: selection, mode: "personal" }), calls);
   });
 
-  it("does not mutate after a reflected binding read returns to a stale identity", async () => {
+  it("does not confirm or repeat Apply after readback returns to a stale identity", async () => {
     let finish!: (response: CallMethodResponse) => void;
-    const calls = mockDoor({ ...catalog([provider], [record]), resolve_catalog_model_binding: args => new Promise(resolve => {
+    const calls = mockDoor({ ...catalog([provider], [record]), apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), resolve_catalog_model_binding: args => new Promise(resolve => {
       const request = args as { provider_id: string; model_id: string };
       finish = resolve;
       void request;
@@ -326,7 +319,8 @@ describe("ordinary catalog/native routing", () => {
     adapter.setIdentity({ kind: "oia1", assertion: "RUZHSA==" });
     finish(envelope("resolve_catalog_model_binding", { provider_id: selection.providerId, model_id: selection.modelId, reference: "dynamic-family.exact_alias", model: selection.modelId, uri: inferenceUri, catalog_revision: 17 }));
     await expect(applying).rejects.toThrow("context changed");
-    expect(calls.some(call => call.request.methodName === "apply_catalog_model_binding" || call.request.methodName === "SetSelection" || call.request.methodName === "config_set")).toBe(false);
+    expect(calls.filter(call => call.request.methodName === "apply_catalog_model_binding")).toHaveLength(1);
+    expect(calls.some(call => call.request.methodName === "SetSelection" || call.request.methodName === "config_set")).toBe(false);
   });
 
   it("clears ordinary assertions when a protected selection is attempted", async () => {
@@ -599,6 +593,41 @@ describe("connectDoorChatAdapter", () => {
       code: "PERMISSION_DENIED",
     });
   });
+
+  it("keeps admitted catalog choices when global router state is denied without claiming an applied route", async () => {
+    const calls = mockDoor({
+      ...catalog(
+        [{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+        [{ provider_id: "vendor", model_id: "model", available: true }],
+      ),
+      GetState: () => ({
+        success: false,
+        result: undefined,
+        eventId: "0",
+        eventHash: "",
+        error: { code: ErrorCode.PERMISSION_DENIED, message: "global router state capability not held" },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const adapter = await connectDoorChatAdapter(config);
+    expect(adapter.providers[0].id).toBe("vendor");
+    expect(adapter.providers[0].models[0].id).toBe("model");
+    expect(adapter.committedRoute).toBeNull();
+    expect(adapter.routeInitiallyApplied).toBe(false);
+    expect(calls.map(call => call.request.methodName)).toEqual(["list_providers", "list_models", "GetState"]);
+  });
+
+  it.each(["UNAUTHENTICATED", "UNAVAILABLE", "CANCELLED"])(
+    "keeps router-state authentication/transport/cancellation failures fatal (%s)",
+    async code => {
+      mockDoor({
+        ...catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }]),
+        GetState: () => { throw new RpcError("router state unavailable", code); },
+      });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      await expect(connectDoorChatAdapter(config)).rejects.toMatchObject({ code });
+    },
+  );
 
   it("refuses a malformed credential before contacting the door", async () => {
     const calls = mockDoor({});

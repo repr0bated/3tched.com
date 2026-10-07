@@ -48,32 +48,6 @@ async function startProtectedChange() {
 afterEach(cleanup);
 
 describe("the scaffold's catalog model picker", () => {
-  it("recovers the conversation explicitly without routing or submitting inference", async () => {
-    let finish!: () => void;
-    const adapter = remote({ recoverConversation: vi.fn(() => new Promise<void>(resolve => { finish = resolve; })), submit: vi.fn() });
-    mount(adapter);
-    fireEvent.click(screen.getByRole("button", { name: "Recover conversation" }));
-    expect(screen.getByRole("button", { name: "Recovering conversation…" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Recovering conversation…" }));
-    expect(adapter.recoverConversation).toHaveBeenCalledOnce();
-    await act(async () => finish());
-    expect(screen.getByText("Conversation recovered. Send your message again.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Recover conversation" })).toBeEnabled();
-    expect(adapter.selectRoute).not.toHaveBeenCalled();
-    expect(adapter.submit).not.toHaveBeenCalled();
-  });
-  it("reports recovery failure and ignores its late result after a mode change", async () => {
-    let fail!: (cause: Error) => void;
-    const adapter = remote({ recoverConversation: vi.fn().mockRejectedValueOnce(new Error("private projection unavailable")).mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject; })) });
-    mount(adapter);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Recover conversation" })));
-    expect(screen.getByRole("alert")).toHaveTextContent("Conversation recovery: private projection unavailable");
-    fireEvent.click(screen.getByRole("button", { name: "Recover conversation" }));
-    fireEvent.click(screen.getByText("Project context"));
-    await act(async () => fail(new Error("old context error")));
-    expect(screen.queryByText(/old context error/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Recover conversation" })).toBeEnabled();
-  });
   it("browses draft models without mutation and applies exactly one provider/model", async () => {
     const adapter = remote(); mount(adapter);
     pickTwo();

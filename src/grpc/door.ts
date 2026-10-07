@@ -199,9 +199,14 @@ export class DoorClient {
       onFrame: (frame: StateChange) => void;
     },
   ): Promise<void> {
+    // Assigned browser identities are admitted only on canonical method RPCs
+    // (bridge interceptor::ghostbridge_interceptor_with_validator). StateSync
+    // cannot return a verified binding for this mode. Do not consume a fresh
+    // assertion or invalidate the shared method client for an unavailable feed.
+    if (this.boundOracle) {
+      throw new DoorError("UNIMPLEMENTED", "State updates are unavailable for this identity binding.");
+    }
     const controller = new AbortController();
-    let renewal = false;
-    let renewalTimer: ReturnType<typeof setTimeout> | undefined;
     const abort = () => controller.abort();
     const signals = [this.signal, options.signal].filter((signal): signal is AbortSignal => !!signal);
     signals.forEach(signal => signal.addEventListener("abort", abort, { once: true }));
@@ -210,21 +215,14 @@ export class DoorClient {
       if (signals.some(signal => signal.aborted) || this.boundInvalid) {
         throw new DoorError(this.boundInvalid ? "UNAUTHENTICATED" : "CANCELLED", "Reconnect to renew this connection.");
       }
-      const identity = this.boundOracle ? await this.boundOracle.nextIdentity() : undefined;
-      if (identity && identity.kind !== "oia1") throw new DoorError("UNAUTHENTICATED", "Bound identity requires an Oracle assertion.");
-      const expiresAt = identity?.kind === "oia1" ? readOiaFrame(identity.assertion).expiresAt : undefined;
       if (controller.signal.aborted) throw new DoorError("CANCELLED", "Subscription cancelled.");
-      const meta = identity ? identityMetadata(identity) : { ...this.meta };
+      const meta = { ...this.meta };
       if (options.capability) meta[DECLARED_CAPABILITY_HEADER] = options.capability;
       const call = this.stateClient.subscribe(request, { meta, abort: controller.signal });
       const completion = Promise.all([call.status, call.trailers]);
       void completion.catch(() => {});
       this.validateBinding(await call.headers);
       if (controller.signal.aborted) throw new DoorError("CANCELLED", "Subscription cancelled.");
-      if (expiresAt !== undefined) renewalTimer = setTimeout(() => {
-        renewal = true;
-        controller.abort();
-      }, Math.max(0, Math.min(expiresAt * 1000 - Date.now() - 1000, 2_147_483_647)));
       options.onReady?.();
       for await (const frame of call.responses) {
         if (controller.signal.aborted) throw new DoorError("CANCELLED", "Subscription cancelled.");
@@ -232,7 +230,6 @@ export class DoorClient {
       }
       await completion;
     } catch (error) {
-      if (renewal && !signals.some(signal => signal.aborted)) throw new DoorError("UNAUTHENTICATED", "Renewing the state feed identity.", "Expired");
       if (controller.signal.aborted) throw new DoorError("CANCELLED", "Subscription cancelled.");
       if (error instanceof DoorError) throw error;
       if (error instanceof RpcError) {
@@ -241,7 +238,6 @@ export class DoorClient {
       }
       throw new DoorError("INTERNAL", "The state feed failed.", error instanceof Error ? error.message : undefined);
     } finally {
-      clearTimeout(renewalTimer);
       controller.abort();
       this.subscriptions.delete(controller);
       signals.forEach(signal => signal.removeEventListener("abort", abort));

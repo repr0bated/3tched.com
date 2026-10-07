@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from "svelte";
+  import { untrack } from "svelte";
   import { getRuntime } from "./runtime.svelte";
   import { selectionLabel, sameSelection } from "./model-selection";
   import RouteFields from "./RouteFields.svelte";
@@ -13,27 +13,6 @@
       ?.models.some((m) => m.id === draft.modelId) ?? false,
   );
   let changed = $derived(!sameSelection(draft, runtime.route));
-  let recovery = $state({ pending: false, error: "", recovered: false });
-  let alive = true;
-  onDestroy(() => {
-    alive = false;
-  });
-  async function recover() {
-    if (recovery.pending || !runtime.adapter.recoverConversation) return;
-    recovery = { pending: true, error: "", recovered: false };
-    try {
-      await runtime.adapter.recoverConversation();
-      if (alive) recovery = { pending: false, error: "", recovered: true };
-    } catch (e) {
-      if (alive)
-        recovery = {
-          pending: false,
-          error:
-            e instanceof Error ? e.message : "Conversation recovery failed.",
-          recovered: false,
-        };
-    }
-  }
 </script>
 
 {#if runtime.adapter.kind === "local" || runtime.chatContext}
@@ -105,16 +84,5 @@
         {#if !runtime.providers.length}<p>No provider is configured.</p>{/if}
       </div>
     {/if}
-    {#if runtime.adapter.recoverConversation}<div class="model-picker__state">
-        <button disabled={recovery.pending} onclick={() => void recover()}
-          >{recovery.pending
-            ? "Recovering conversation…"
-            : "Recover conversation"}</button
-        >{#if recovery.recovered}<p role="status">
-            Conversation recovered. Send your message again.
-          </p>{/if}{#if recovery.error}<p role="alert">
-            Conversation recovery: {recovery.error}
-          </p>{/if}
-      </div>{/if}
   </section>
 {/if}

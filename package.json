@@ -13,7 +13,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "proto:gen": "bash scripts/proto-gen.sh",
-    "references:export": "vite build --config vite.references.config.ts && node scripts/export-dashboard-references.mjs"
+    "references:export": "vite build --config vite.references.config.ts && node scripts/export-dashboard-references.mjs",
+    "3tched": "node bin/3tched.mjs"
   },
   "dependencies": {
     "@json-render/core": "^0.20.0",
@@ -47,5 +48,8 @@
   "engines": {
     "node": ">=22.22.2"
   },
-  "description": "3tched SvelteKit chat: inline Json Render UI wired to the OP-DBUS :8090 door"
+  "description": "3tched SvelteKit chat: inline Json Render UI wired to the OP-DBUS :8090 door",
+  "bin": {
+    "3tched": "./bin/3tched.mjs"
+  }
 }

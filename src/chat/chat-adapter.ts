@@ -74,8 +74,6 @@ export interface ChatAdapter {
   readonly routeInitiallyApplied?: boolean;
   /** Re-read the shared model lookup; absent on the offline adapter. */
   refreshProviders?(): Promise<ProviderOption[]>;
-  /** Recover the caller's private conversation projection without an inference retry. */
-  recoverConversation?(): Promise<void>;
   selectRoute(selection: RouteSelection): Promise<RouteSelection>;
   submit(request: ChatRequest): Promise<ChatResponse>;
 }

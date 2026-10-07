@@ -156,7 +156,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
   let catalog = await listCatalog(client);
   let providers = catalogOptions(catalog.providers, catalog.models);
   let refreshing: Promise<ProviderOption[]> | undefined;
-  let appliedRoute: { selection: RouteSelection; nativeProviderId: string; inferenceUrlPrefix: string; resolvedModel: string; uri: string } | null = null;
+  let appliedRoute: { selection: RouteSelection; nativeProviderId: string; inferenceUrlPrefix: string; resolvedModel: string; uri: string; oauth: boolean } | null = null;
   let selectionGeneration = 0;
   let contextGeneration = 0;
   const invalidateAppliedRoute = () => {
@@ -187,6 +187,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
           inferenceUrlPrefix: model.inference_url_prefix,
           resolvedModel: binding.model,
           uri: binding.uri,
+          oauth: binding.oauth,
         };
       } catch {
         appliedRoute = null;
@@ -237,14 +238,6 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
       },
     },
     authorizeTask: (plugin, method, args, password) => authorizeTask(client, plugin, method, args, password),
-    async recoverConversation() {
-      const context = contextGeneration;
-      // The sealed read recovers only this credential's private projection.
-      // Its episode content is deliberately neither retained nor presented.
-      await client.call("ctl_plane_chatbot", "list_episodes", { limit: 1 }, "chatbot.read");
-      if (context !== contextGeneration) throw new Error("Conversation context changed during recovery. Recover the current conversation again.");
-    },
-
     followKnowledge(onKnowledge, onStatus) {
       // Assigned Oracle binding is admitted only by canonical CallMethod.
       // Never reuse its spent bootstrap assertion on the optional broker.
@@ -279,17 +272,16 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
       if (!provider || !model || !model.available) {
         throw new Error(`The catalog model ${selection.providerId} / ${selection.modelId} is not available. Refresh models and choose an available model.`);
       }
-      const binding = await resolveCatalogModelBinding(client, selection.providerId, selection.modelId, model.inference_url_prefix);
       if (generation !== selectionGeneration || context !== contextGeneration) throw new Error("Model selection context changed before Apply.");
       const selected = { ...selection };
-      const result = await applyCatalogModelBinding(client, selection.providerId, selection.modelId, model.inference_url_prefix, binding);
+      const result = await applyCatalogModelBinding(client, selection.providerId, selection.modelId, model.inference_url_prefix);
       if (generation !== selectionGeneration || context !== contextGeneration) throw new Error("Model selection context changed before confirmation.");
       const readback = await resolveCatalogModelBinding(client, selection.providerId, selection.modelId, model.inference_url_prefix);
       if (generation !== selectionGeneration || context !== contextGeneration) throw new Error("Model selection context changed before confirmation.");
-      if (!sameCatalogModelBinding(binding, readback)) {
+      if (!sameCatalogModelBinding(result, readback) || result.catalogRevision !== readback.catalogRevision) {
         throw new Error("Change sent; native route unconfirmed because its catalog binding changed during Apply. Refresh before retrying.");
       }
-      appliedRoute = { selection: selected, nativeProviderId: result.reference, inferenceUrlPrefix: model.inference_url_prefix!, resolvedModel: result.model, uri: result.uri };
+      appliedRoute = { selection: selected, nativeProviderId: result.reference, inferenceUrlPrefix: model.inference_url_prefix!, resolvedModel: result.model, uri: result.uri, oauth: result.oauth };
       return { ...selected };
     },
 
@@ -336,6 +328,7 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
             reference: confirmedRoute.nativeProviderId,
             model: confirmedRoute.resolvedModel,
             uri: confirmedRoute.uri,
+            oauth: confirmedRoute.oauth,
             catalogRevision: observed.catalogRevision,
           }, observed)) {
             throw new Error("The native catalog binding changed after Apply. Apply the model again before sending a message.");

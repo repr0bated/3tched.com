@@ -1,4 +1,4 @@
-import type { DoorClient } from "../grpc/door";
+import { DoorError, type DoorClient } from "../grpc/door";
 import type { RouteSelection } from "./chat-adapter";
 import type { CatalogModel, CatalogProvider } from "./model-catalog";
 import { resolveCatalogModelBinding } from "./native-routing";
@@ -71,12 +71,20 @@ export async function loadCommittedCatalogRoute(
   providers: CatalogProvider[],
   models: CatalogModel[],
 ): Promise<{ selection: RouteSelection; bindingConfirmed: boolean } | null> {
-  const { result } = await client.call<{ state?: ObservedRouterState }>(
-    "tched_router",
-    "GetState",
-    {},
-    ROUTER_STATE_READ,
-  );
+  let result: { state?: ObservedRouterState };
+  try {
+    ({ result } = await client.call<{ state?: ObservedRouterState }>(
+      "tched_router",
+      "GetState",
+      {},
+      ROUTER_STATE_READ,
+    ));
+  } catch (error) {
+    // Catalog access does not grant global router-state access. Keep the
+    // selection unknown and unapplied; selection/chat still require admission.
+    if (error instanceof DoorError && error.code === "PERMISSION_DENIED") return null;
+    throw error;
+  }
   const selection = mapObservedRouterToCatalog(result.state ?? {}, providers, models);
   if (!selection) return null;
 

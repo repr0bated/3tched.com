@@ -12,6 +12,7 @@ export interface ResolvedCatalogBinding {
   reference: string;
   model: string;
   uri: string;
+  oauth: boolean;
   catalogRevision: number;
 }
 
@@ -71,6 +72,7 @@ export async function resolveCatalogModelBinding(
     reference?: unknown;
     model?: unknown;
     uri?: unknown;
+    oauth?: unknown;
     catalog_revision?: unknown;
   }>(
     "tched_router",
@@ -87,10 +89,10 @@ export async function applyCatalogModelBinding(
   providerId: string,
   modelId: string,
   inferenceUrlPrefix: unknown,
-  expected: ResolvedCatalogBinding,
+  expected?: ResolvedCatalogBinding,
 ): Promise<ResolvedCatalogBinding> {
   const { result } = await client.call<{
-    provider_id?: unknown; model_id?: unknown; reference?: unknown; model?: unknown; uri?: unknown; catalog_revision?: unknown;
+    provider_id?: unknown; model_id?: unknown; reference?: unknown; model?: unknown; uri?: unknown; oauth?: unknown; catalog_revision?: unknown;
   }>(
     "tched_router",
     "apply_catalog_model_binding",
@@ -98,14 +100,14 @@ export async function applyCatalogModelBinding(
     "cap.software.tched-router.catalog.selection.set@v1",
   );
   const applied = validateCatalogBinding(result, providerId, modelId, inferenceUrlPrefix);
-  if (!sameCatalogModelBinding(expected, applied) || expected.catalogRevision !== applied.catalogRevision) {
+  if (expected && (!sameCatalogModelBinding(expected, applied) || expected.catalogRevision !== applied.catalogRevision)) {
     throw new Error("Change outcome unknown; applied native route differs from its preflight catalog binding. Refresh before retrying.");
   }
   return applied;
 }
 
 function validateCatalogBinding(
-  result: { provider_id?: unknown; model_id?: unknown; reference?: unknown; model?: unknown; uri?: unknown; catalog_revision?: unknown },
+  result: { provider_id?: unknown; model_id?: unknown; reference?: unknown; model?: unknown; uri?: unknown; oauth?: unknown; catalog_revision?: unknown },
   providerId: string,
   modelId: string,
   inferenceUrlPrefix: unknown,
@@ -114,9 +116,13 @@ function validateCatalogBinding(
   if (typeof result.reference !== "string") throw new Error("The router has no exact native profile binding for this catalog model.");
   nativeProfilePath(result.reference, "model");
   if (result.model !== modelId) throw new Error("The resolved native profile model differs from the selected catalog model.");
-  assertInferenceEndpoint(result.uri, inferenceUrlPrefix);
+  if (result.oauth !== undefined && typeof result.oauth !== "boolean") throw new Error("The router returned invalid native authentication metadata.");
+  const oauth = result.oauth === true;
+  if (oauth) {
+    if (!result.reference.startsWith("openai.") || result.uri !== "") throw new Error("The router returned an invalid subscription-native binding.");
+  } else assertInferenceEndpoint(result.uri, inferenceUrlPrefix);
   if (!Number.isSafeInteger(result.catalog_revision) || (result.catalog_revision as number) < 0) throw new Error("The router returned an invalid catalog revision for the native binding.");
-  return { providerId, modelId, reference: result.reference, model: result.model, uri: result.uri as string, catalogRevision: result.catalog_revision as number };
+  return { providerId, modelId, reference: result.reference, model: result.model, uri: result.uri as string, oauth, catalogRevision: result.catalog_revision as number };
 }
 
 /** Compare binding identity and endpoint while allowing unrelated catalog rows to refresh. */
@@ -125,7 +131,7 @@ export function sameCatalogModelBinding(left: ResolvedCatalogBinding, right: Res
     left.modelId === right.modelId &&
     left.reference === right.reference &&
     left.model === right.model &&
-    left.uri === right.uri;
+    left.uri === right.uri && left.oauth === right.oauth;
 }
 
 export async function readDedicatedRoute(client: DoorClient, role: "control_plane" | "accountability") {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "@protobuf-ts/runtime-rpc";
-import { PluginServiceClient } from "./gen/operation.client";
+import { PluginServiceClient, StateSyncClient } from "./gen/operation.client";
 import { Value } from "./gen/google/protobuf/struct";
 import { DoorClient, DoorError, OIA1_HEADER, SID1_HEADER, IDENTITY_MODE_HEADER, IDENTITY_SESSION_HEADER, readSessionIdentity, readSessionConfig } from "./door";
 
@@ -27,6 +27,23 @@ function oia(seed: number, publicKey = btoa(String.fromCharCode(...new Uint8Arra
   return { kind: "oia1" as const, assertion: btoa(String.fromCharCode(...chunks)), publicKey };
 }
 afterEach(() => vi.restoreAllMocks());
+
+it("keeps bound canonical calls usable when the optional state feed is unsupported", async () => {
+  const headers = { [IDENTITY_MODE_HEADER]: "bound-oracle", [IDENTITY_SESSION_HEADER]: "assigned-session" };
+  const nextIdentity = vi.fn(fresh);
+  const stream = vi.spyOn(StateSyncClient.prototype, "subscribe");
+  const method = vi.spyOn(PluginServiceClient.prototype, "callMethod").mockReturnValue(reply({ providers: [] }, headers));
+  const client = new DoorClient({ ...config, boundOracle: { sessionId: "assigned-session", nextIdentity } });
+  await expect(client.subscribeState({ pluginIds: [], pathPatterns: [], tags: [], includeInitialState: true, includeSchema: true }, {
+    signal: new AbortController().signal, onFrame: vi.fn(),
+  })).rejects.toMatchObject({ code: "UNIMPLEMENTED" });
+  expect(stream).not.toHaveBeenCalled();
+  expect(nextIdentity).not.toHaveBeenCalled();
+  await expect(client.call("model_registry", "list_providers", {}, "model_registry.read")).resolves.toMatchObject({ result: { providers: [] } });
+  expect(method).toHaveBeenCalledTimes(1);
+  expect(nextIdentity).toHaveBeenCalledTimes(1);
+  expect(method.mock.calls[0][1]?.meta).toEqual({ [OIA1_HEADER]: "TkVX", "x-opdbus-capability": "model_registry.read" });
+});
 
 describe("server-owned session credential pickup", () => {
   it("uses different assertions and reads only the server-resolved session", async () => {

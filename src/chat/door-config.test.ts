@@ -35,7 +35,6 @@ describe("canonical page connector selection", () => {
       const firstIdentity = { kind: "oia1", assertion: "T0lBMQ==" };
       const refreshedIdentity = { kind: "oia1", assertion: "TkVXMQ==" };
       const fetchImpl = vi.fn()
-        .mockResolvedValueOnce(jsonResponse(404, {}))
         .mockResolvedValueOnce(jsonResponse(200, { door: "https://10.0.0.4", identity: firstIdentity }))
         .mockResolvedValueOnce(jsonResponse(200, { door: "https://10.0.0.2:8090", identity: refreshedIdentity }));
       window.__3TCHED_CONFIG__!.issuer = "http://10.0.0.1:51888";
@@ -43,7 +42,8 @@ describe("canonical page connector selection", () => {
       const refreshed = await fetchIssuedIdentity(fetchImpl as unknown as typeof fetch);
       expect(initial).toMatchObject({ door: origin, identity: firstIdentity });
       expect(refreshed).toMatchObject({ door: origin, identity: refreshedIdentity });
-      expect(fetchImpl).toHaveBeenCalledTimes(3);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(fetchImpl.mock.calls.every(([url]) => url === `http://10.0.0.1:51888${ISSUER_IDENTITY_PATH}`)).toBe(true);
     },
   );
 

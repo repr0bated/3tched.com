@@ -7,14 +7,14 @@
  * Identity is never read from storage or build config. It arrives one of
  * three ways, in this order, and lives in memory for the life of the page:
  *   1. window.__3TCHED_CONFIG__.identity injected by an authenticated host page
- *   2. GET <same origin>/api/identity/self — op-web resolves a local human
- *      from the TCP source address and returns their own SID1 from the
- *      identity sled (the SID1-aware client injection)
+ *   2. GET <same origin>/api/identity/self on pages that support authenticated
+ *      pickup. op-web never derives a browser identity from the TCP address;
+ *      the configured IP pages use the decoy issuer directly.
  *   3. GET <issuer>/identity/self — the decoy that terminated this human's
  *      WireGuard tunnel mints a short-lived OIA1 for the kernel-verified peer
  *      (the OIA1 pickup). The page fetches it over the tunnel and carries it
- *      unchanged to the door to resolve its session. A second fresh assertion
- *      reads that session's existing SID1; chat then uses the returned SID1.
+ *      unchanged to the door. Receiver-confirmed bound mode keeps fresh
+ *      assertions for each call; otherwise bootstrap retrieves its owned SID1.
  *      Issuer URL: window.__3TCHED_CONFIG__.issuer, then VITE_OPDBUS_ISSUER.
  */
 import { sameOriginDoorUrl, type DoorIdentity } from "../grpc/door";
@@ -128,7 +128,7 @@ export function identityPickupReport(): string | undefined {
 }
 
 /**
- * Ask the page's own origin who this WireGuard arrival is. Resolves to null
+ * Ask a host page with authenticated pickup for its projected identity. Resolves to null
  * (never throws) when the endpoint is absent, refuses, or answers nonsense, so
  * the retry panel is shown when identity resolution fails.
  */
@@ -164,7 +164,7 @@ export async function fetchIssuedIdentity(
 }
 
 /**
- * The full resolution chain (injected → same origin → issuer). Never throws;
+ * Resolve injected identity, then supported page pickup or the decoy issuer. Never throws;
  * null means "show the identity retry panel".
  */
 export async function resolveIdentity(fetchImpl: typeof fetch = fetch): Promise<ProjectedIdentity | null> {
@@ -172,6 +172,9 @@ export async function resolveIdentity(fetchImpl: typeof fetch = fetch): Promise<
   const door = defaultDoorUrl();
   if (injected && door) return { door, identity: injected };
   pickupAttempts = [];
+  // These IP pages explicitly refuse local identity pickup. The connector
+  // forwards the issuer's unchanged credential; it never mints an identity.
+  if (sameOriginDoorUrl()) return fetchIssuedIdentity(fetchImpl);
   return (await fetchProjectedIdentity(fetchImpl)) ?? (await fetchIssuedIdentity(fetchImpl));
 }
 
