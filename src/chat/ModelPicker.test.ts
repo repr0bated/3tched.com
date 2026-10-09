@@ -178,6 +178,9 @@ describe("the scaffold's catalog model picker", () => {
   });
   it("routes the shared catalog provider/model through Control Plane task elevation", async () => {
     const { adapter, mutate } = protectedAdapter(); mount(adapter, true);
+    await screen.findByText("One / Old");
+    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("already the current Control Plane model");
     const dialog = await startProtectedChange();
     expect(mutate).not.toHaveBeenCalled();
     expect(adapter.selectRoute).not.toHaveBeenCalled();

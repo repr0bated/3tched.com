@@ -6,6 +6,7 @@
     ["accountability", "Accountability"],
     ["compliance", "Compliance"],
     ["routing", "Schema routing"],
+    ["zeroclaw", "ZeroClaw"],
   ] as const;
 </script>
 

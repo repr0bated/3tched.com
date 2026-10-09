@@ -19,6 +19,13 @@ the local transcript; it does not reset a remote server session.
 Settings, mode and model controls, task authorization, the gallery, workspace
 panels, and the typed `chatRegistry` are native Svelte components. Json Render
 uses `@json-render/svelte`; there is no React runtime or compatibility bridge.
+The workspace's ZeroClaw view discovers the binary method catalog through an
+identity-bound threetchedfs mount. It lists every currently projected method,
+its argument schema and effect. Each explicit call uses that same
+caller-bound mount; results and refusals appear beside the method. The `models`
+binary method with `subcommand: "list"` provides the ZeroClaw model list on request.
+The ordinary 3tched model catalog
+remains a separate source.
 `runtime.svelte.ts` owns the reactive routing and scoped canvas state. Canvas
 boards support pointer and keyboard reordering. The complete reference catalog
 remains separate from the smaller runtime catalog.
@@ -26,8 +33,9 @@ remains separate from the smaller runtime catalog.
 This repository is the production frontend baseline. It replaces the retired
 display stack (crates/op-web/ui, zeroclaw-gui, operation-dashboard-ui-07) and
 was cut from the standalone vercel-json-render-ui workbench. Backend code lives
-in repr0bated/operation-dbus-proto; nothing here talks to D-Bus, a broker, or a
-model provider directly.
+outside this repository; the caller-bound threetchedfs op-web route is in the
+live `/srv/git/odbus-verified` source. Nothing here talks to D-Bus, a broker,
+or a model provider directly.
 
 ## How the wiring works
 
@@ -39,9 +47,15 @@ browser ──gRPC-Web/TLS──▶ op-grpc-bridge :8090 ──D-Bus──▶ tc
                 + exactly one identity credential in metadata (OIA1 or SID1)
 ```
 
-- src/grpc/door.ts is the only module that touches the network. It wraps
-  PluginService.CallMethod, attaches the identity metadata, declares the
-  capability being exercised, and unwraps the bridge's audited envelope.
+The ZeroClaw workspace also uses same-origin op-web routes for threetchedfs.
+Each route verifies the browser's OIA1/SID1 through the door, opens a private
+FUSE mount bound to that verified session, and reads the mounted method
+declaration or call receipt. This path is separate from 3tched's model catalog.
+
+- src/grpc/door.ts is the only module that touches the network. For 3tched it
+  wraps PluginService.CallMethod, attaches the identity metadata, declares the
+  capability being exercised, and unwraps the bridge's audited envelope. The
+  ZeroClaw explorer uses its caller-bound threetchedfs route methods there.
   Refusals come back from the gRPC status channel or the envelope's
   MutationError and are thrown as DoorError; nothing branches on a payload
   flag.

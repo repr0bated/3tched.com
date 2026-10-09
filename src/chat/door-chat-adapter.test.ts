@@ -64,7 +64,43 @@ function catalog(providers: unknown[] = [], models: unknown[] = [], more = false
   };
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+it("discovers and calls ZeroClaw methods through the caller's mounted route", async () => {
+  const listModels = { plugin_id: "zeroclaw", method: "models",
+    path: "plugins/zeroclaw/operations/models/call",
+    declaration: { args: { type: "object" }, returns: { type: "object" }, side_effect: "unknown",
+      idempotent: false, required_capability: "", subid: "binary" } };
+  const fetch = vi.fn(async (url: URL) => new Response(JSON.stringify(
+    url.pathname.endsWith("/describe") ? { methods: [listModels] } :
+      { plugin_id: "zeroclaw", method: "models", result: { stdout: "model-a", stderr: "", exit: 0 } },
+  ), { status: 200, headers: { "content-type": "application/json" } }));
+  vi.stubGlobal("fetch", fetch);
+  mockDoor({
+    ...catalog([{ provider_id: "catalog", configured: true, enabled: true, status: "ok", control_plane_profiles: [] }]),
+  });
+  const adapter = await connectDoorChatAdapter(config);
+  const methods = await adapter.binarySurface.describe();
+  expect(methods).toEqual([listModels]);
+  expect(await adapter.binarySurface.invoke(methods[0], { subcommand: "list" }, true)).toEqual({ stdout: "model-a", stderr: "", exit: 0 });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  const [url, options] = fetch.mock.calls[1] as unknown as [URL, RequestInit];
+  expect(url.pathname).toBe("/api/threetchedfs/invoke");
+  expect(JSON.parse(String(options.body))).toEqual({
+    path: listModels.path, arguments: { subcommand: "list" }, confirm_side_effects: true,
+  });
+  expect((options.headers as Headers).get(OIA1_HEADER)).toBe("QUJDRA");
+  expect(options.credentials).toBe("omit");
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify({
+    error: "method_outcome_unknown; operation_id=unconfirmed; do not retry automatically",
+  }), { status: 502, headers: { "content-type": "application/json" } }));
+  await expect(adapter.binarySurface.invoke(methods[0], { subcommand: "list" }, true)).rejects.toThrow("method_outcome_unknown");
+  expect(fetch).toHaveBeenCalledTimes(3);
+  fetch.mockRejectedValueOnce(new Error("connection closed"));
+  await expect(adapter.binarySurface.invoke(methods[0], { subcommand: "list" }, true))
+    .rejects.toThrow("outcome unknown; do not retry automatically");
+  expect(fetch).toHaveBeenCalledTimes(4);
+});
 
 it("retains fresh per-RPC bound identity through catalog construction and skips the unsupported broker", async () => {
   const methods: string[] = [];
@@ -337,6 +373,16 @@ describe("ordinary catalog/native routing", () => {
     await adapter.selectRoute(selection);
     const response = await adapter.submit({ message: "hi", history: [], route: selection, mode: "personal" });
     expect(response.message.content).toBe("⚠️ Chat unavailable: native route unavailable");
+  });
+
+  it("labels an admitted Chat call with an unknown outcome without retrying it", async () => {
+    const detail = "method_outcome_unknown; operation_id=12b52490-a40c-480a-9769-5bee2b4af58c; do not retry automatically";
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads, apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: () => ({ success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.VALIDATION_FAILED, message: detail } }) });
+    const adapter = await connectDoorChatAdapter(config);
+    await adapter.selectRoute(selection);
+    const response = await adapter.submit({ message: "hi", history: [], route: selection, mode: "personal" });
+    expect(response.message.content).toBe(`⚠️ Chat outcome unknown: ${detail}`);
+    expect(calls.filter((call) => call.request.methodName === "Chat")).toHaveLength(1);
   });
 });
 

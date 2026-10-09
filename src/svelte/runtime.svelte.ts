@@ -37,7 +37,7 @@ export class Runtime {
   catalogError = $state<string | null>(null);
   readonly canvases = new SvelteMap<string, Spec>();
   layout = $state<"balanced" | "conversation" | "canvas">("balanced");
-  view = $state<"canvas" | "accountability" | "compliance" | "routing">(
+  view = $state<"canvas" | "accountability" | "compliance" | "routing" | "zeroclaw">(
     "canvas",
   );
   inspecting = $state(false);

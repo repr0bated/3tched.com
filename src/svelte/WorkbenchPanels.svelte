@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getRuntime } from "./runtime.svelte";
   import CompliancePanel from "./CompliancePanel.svelte";
+  import ZeroClawPanel from "./ZeroClawPanel.svelte";
   const runtime = getRuntime();
   let schemaTag = $state(""),
     target = $state(""),
@@ -26,6 +27,7 @@
 >
   <CompliancePanel />
 </section>
+{#if runtime.view === "zeroclaw"}<ZeroClawPanel />{/if}
 <section
   class="workbench-feature-panel"
   aria-label="Schema routing draft"

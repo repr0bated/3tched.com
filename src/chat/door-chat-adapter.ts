@@ -46,12 +46,12 @@ import {
 import { applyCatalogModelBinding, resolveCatalogModelBinding, sameCatalogModelBinding, verifiedAccountabilityModel } from "./native-routing";
 import { loadCommittedCatalogRoute } from "./router-committed-route";
 import type { AuthorizeTask, Elevate } from "./elevation";
+import { binaryMethods, type BinaryMethod } from "./threetchedfs-surface";
 
 export const TCHED_ROUTER = "tched_router";
 
 /** Method → declared capability, from the sealed tched_router schema. */
 export const TCHED_ROUTER_METHODS = {
-  GetState: "cap.software.3tched-router.state.read@v1",
   SetSelection: "cap.software.tched-router.selection.set@v1",
   ResolveCatalogModelBinding: "cap.software.tched-router.model.binding.read@v1",
   ApplyCatalogModelBinding: "cap.software.tched-router.catalog.selection.set@v1",
@@ -111,6 +111,11 @@ export interface DoorChatAdapter extends ChatAdapter {
   readonly door: string;
   readonly committedRoute: RouteSelection | null;
   readonly routeInitiallyApplied: boolean;
+  /** The verified caller's mounted ZeroClaw filesystem. */
+  readonly binarySurface: {
+    describe(): Promise<BinaryMethod[]>;
+    invoke(method: BinaryMethod, args: Record<string, unknown>, confirmSideEffects: boolean): Promise<unknown>;
+  };
   /** Swap the carried credential (OIA1 renewal) without reconnecting. */
   setIdentity(identity: DoorIdentity): void;
   /**
@@ -201,6 +206,18 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
     pluginFeeds,
     committedRoute: committed?.selection ?? null,
     routeInitiallyApplied: Boolean(committed?.bindingConfirmed && appliedRoute),
+    binarySurface: {
+      async describe() {
+        return binaryMethods(await client.describeMountedZeroClaw());
+      },
+      async invoke(method, args, confirmSideEffects) {
+        const receipt = await client.invokeMountedZeroClaw(method.path, args, confirmSideEffects);
+        if (!receipt || typeof receipt !== "object" || !("result" in receipt)) {
+          throw new Error("The mounted ZeroClaw call returned no result receipt.");
+        }
+        return receipt.result;
+      },
+    },
     get providers() { return providers; },
     refreshProviders: () => {
       if (!refreshing) {
@@ -364,11 +381,12 @@ export async function connectDoorChatAdapter(config: DoorConfig): Promise<DoorCh
       } catch (error) {
         responseSequence += 1;
         const errorMsg = error instanceof Error ? error.message : "Chat service unavailable";
+        const outcomeUnknown = errorMsg.startsWith("method_outcome_unknown;");
         return {
           message: {
             id: `door-error-${responseSequence}`,
             role: "agent",
-            content: `⚠️ Chat unavailable: ${errorMsg}`,
+            content: `⚠️ Chat ${outcomeUnknown ? "outcome unknown" : "unavailable"}: ${errorMsg}`,
           },
         };
       }

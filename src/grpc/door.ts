@@ -4,7 +4,7 @@
  * Tonic serves gRPC + gRPC-Web on one TLS listener at https://10.0.0.2:8090.
  * The browser speaks gRPC-Web directly over TLS, or through the existing
  * same-origin connector on the canonical op-web page.
- * Every plugin operation goes through the one generic RPC
+ * 3tched plugin operations go through the one generic RPC
  * `operation.v1.PluginService/CallMethod`, carrying the plugin id, the method
  * name, the JSON arguments as a `google.protobuf.Value`, and the capability the
  * caller declares it is exercising. The bridge verifies that declaration against
@@ -16,6 +16,8 @@
  *   - OIA1 — signed Oracle identity assertion, remote human
  *   - SID1 — server-authored sealed session id, locally registered human
  * Both are binary metadata (`-bin` suffix), so they travel base64-encoded.
+ * The separate ZeroClaw explorer uses same-origin op-web routes that verify
+ * this credential through the door, then use a private caller-bound FUSE mount.
  */
 import { GrpcWebFetchTransport } from "@protobuf-ts/grpcweb-transport";
 import type { JsonValue } from "@protobuf-ts/runtime";
@@ -183,6 +185,72 @@ export class DoorClient {
     if (this.boundOracle) throw new DoorError("UNAUTHENTICATED", "Reconnect to change a bound identity.");
     this.meta = identityMetadata(identity);
     for (const controller of this.subscriptions) controller.abort();
+  }
+
+  /** The same-origin op-web route opens a FUSE mount bound to this verified caller. */
+  private async mountedRequest(path: string, body?: Record<string, unknown>): Promise<unknown> {
+    if (typeof window === "undefined") throw new DoorError("UNAVAILABLE", "Mounted ZeroClaw requires the browser host.");
+    if (this.signal?.aborted) throw new DoorError("CANCELLED", "Connection cancelled.");
+    if (this.boundInvalid) throw new DoorError("UNAUTHENTICATED", "Reconnect to renew this identity binding.");
+    let source: Record<string, string>;
+    try {
+      if (this.boundOracle) {
+        const identity = await this.boundOracle.nextIdentity();
+        if (identity.kind !== "oia1") throw new DoorError("UNAUTHENTICATED", "Bound identity requires an Oracle assertion.");
+        source = identityMetadata(identity);
+      } else source = { ...this.meta };
+    } catch (error) {
+      if (this.boundOracle) this.boundInvalid = true;
+      throw error;
+    }
+    const entries = Object.entries(source);
+    if (entries.length !== 1 || !entries[0][0] || !entries[0][1]) {
+      throw new DoorError("UNAUTHENTICATED", "Exactly one identity credential is required.");
+    }
+    const [name, value] = entries[0];
+    const headers = new Headers({
+      [name]: value.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+      ...(body ? { "content-type": "application/json" } : {}),
+    });
+    let response: Response;
+    try {
+      response = await fetch(new URL(path, window.location.origin), {
+        method: body ? "POST" : "GET",
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: "omit",
+        cache: "no-store",
+        redirect: "error",
+        signal: this.signal,
+      });
+    } catch (error) {
+      if (this.signal?.aborted) throw new DoorError("CANCELLED", "Connection cancelled.");
+      throw new DoorError("UNAVAILABLE", body
+        ? "Mounted ZeroClaw outcome unknown; do not retry automatically."
+        : "The mounted ZeroClaw route is unavailable.", error instanceof Error ? error.message : undefined);
+    }
+    const payload: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = payload && typeof payload === "object" && "error" in payload &&
+        typeof payload.error === "string" ? payload.error : `Mounted ZeroClaw refused the request (${response.status}).`;
+      const code = response.status === 401 ? "UNAUTHENTICATED" : response.status === 403 ? "PERMISSION_DENIED" :
+        response.status === 400 ? "INVALID_ARGUMENT" : "UNAVAILABLE";
+      throw new DoorError(code, message);
+    }
+    if (payload === null && body) {
+      throw new DoorError("UNAVAILABLE", "Mounted ZeroClaw outcome unknown: no receipt was returned. Do not retry automatically.");
+    }
+    return payload;
+  }
+
+  describeMountedZeroClaw(): Promise<unknown> {
+    return this.mountedRequest("/api/threetchedfs/describe");
+  }
+
+  invokeMountedZeroClaw(path: string, argumentsObject: Record<string, unknown>, confirmSideEffects: boolean): Promise<unknown> {
+    return this.mountedRequest("/api/threetchedfs/invoke", {
+      path, arguments: argumentsObject, confirm_side_effects: confirmSideEffects,
+    });
   }
 
   /** Local transport behavior established by receiver-confirmed bootstrap. */

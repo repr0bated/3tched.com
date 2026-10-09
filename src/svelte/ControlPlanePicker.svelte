@@ -169,7 +169,13 @@
         ? `Applying ${label(attempt ?? draft)}`
         : unconfirmed && attempt
           ? `${accepted ? "Change sent" : "Change outcome unknown"} for ${label(attempt)}; current model unconfirmed. Refresh before applying another model.`
-          : "Changing the Control Plane model requires a root password for this task."}
+          : loading
+            ? "Reading the current Control Plane model."
+            : !valid
+              ? "Choose a model from the catalog to enable elevation."
+              : sameSelection(current, draft)
+                ? "This is already the current Control Plane model. Choose a different model to enable elevation."
+                : "Changing the Control Plane model requires a root password for this task."}
   </p>
   {#if error}<p class="route-status route-status--error" role="alert">
       {attempt

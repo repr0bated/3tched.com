@@ -1,9 +1,10 @@
 import Harness from "../test/fixtures/Harness.svelte";
-import { act, cleanup, fireEvent, render, screen, within } from "../test/native";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "../test/native";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLocalChatAdapter } from "../chat/local-chat-adapter";
 import type { ChatAdapter } from "../chat/chat-adapter";
 import type { DoorChatAdapter } from "../chat/door-chat-adapter";
+import type { BinaryMethod } from "../chat/threetchedfs-surface";
 import type { ResolvedChatContext } from "../chat/chat-mode";
 import EventEvidenceCitation from "../svelte/EventEvidenceCitation.svelte";
 import CompliancePanel from "../svelte/CompliancePanel.svelte";
@@ -14,14 +15,60 @@ function mount(adapter: ChatAdapter = createLocalChatAdapter()) {
 function navigate(label: string) {
   fireEvent.click(within(screen.getByRole("navigation", { name: "Identity workspace" })).getByRole("button", { name: label }));
 }
+function binaryMethod(name: string, sideEffect = "unknown"): BinaryMethod {
+  return { plugin_id: "zeroclaw", method: name,
+    path: `plugins/zeroclaw/operations/${name}/call`,
+    declaration: { args: { type: "object" }, returns: { type: "object" }, side_effect: sideEffect,
+      idempotent: sideEffect === "read", required_capability: `cap.${name}`, subid: name } };
+}
 
 afterEach(cleanup);
 
 describe("identity workbench", () => {
+  it("lists binary methods, calls models on request, and shows denials without retrying", async () => {
+    const invoke = vi.fn(async (method: BinaryMethod) => {
+      if (method.method === "models") return { stdout: "native-model", stderr: "", exit: 0 };
+      throw new Error("Config grant required");
+    });
+    const adapter = { ...createLocalChatAdapter(), kind: "remote", binarySurface: {
+      describe: vi.fn().mockResolvedValue([binaryMethod("models"), binaryMethod("config")]), invoke,
+    } } as unknown as DoorChatAdapter;
+    mount(adapter);
+    navigate("ZeroClaw");
+    const panel = screen.getByRole("region", { name: "ZeroClaw binary surface" });
+    await within(panel).findByRole("button", { name: "Call models" });
+    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm unknown for models/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Call models" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+    expect(within(panel).getByText("native-model")).toBeVisible();
+    fireEvent.click(within(panel).getByRole("button", { name: "config" }));
+    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm unknown for config/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Call config" }));
+    await waitFor(() => expect(within(panel).getByRole("alert")).toHaveTextContent("Config grant required"));
+    expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires an explicit confirmation for a binary mutation", async () => {
+    const invoke = vi.fn().mockResolvedValue({});
+    const adapter = { ...createLocalChatAdapter(), kind: "remote", binarySurface: {
+      describe: vi.fn().mockResolvedValue([binaryMethod("update", "mutation")]), invoke,
+    } } as unknown as DoorChatAdapter;
+    mount(adapter);
+    navigate("ZeroClaw");
+    const panel = screen.getByRole("region", { name: "ZeroClaw binary surface" });
+    await within(panel).findByRole("button", { name: "Call update" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Call update" }));
+    expect(within(panel).getByRole("alert")).toHaveTextContent("Confirm this binary command");
+    expect(invoke).not.toHaveBeenCalled();
+    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm mutation for update/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Call update" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+  });
+
   it("provides horizontal destinations and keeps chat draft and selected model while switching views", () => {
     mount();
     const nav = screen.getByRole("navigation", { name: "Identity workspace" });
-    expect(within(nav).getAllByRole("button").map(button => button.textContent)).toEqual(["Canvas", "Accountability", "Compliance", "Schema routing"]);
+    expect(within(nav).getAllByRole("button").map(button => button.textContent)).toEqual(["Canvas", "Accountability", "Compliance", "Schema routing", "ZeroClaw"]);
     const message = screen.getByLabelText("Message");
     fireEvent.change(message, { target: { value: "Keep my conversation" } });
     const model = screen.getByRole("combobox", { name: "Model" });
@@ -31,6 +78,8 @@ describe("identity workbench", () => {
     expect(screen.queryByRole("heading", { name: "Interface canvas" })).not.toBeInTheDocument();
     navigate("Schema routing");
     expect(screen.getByRole("region", { name: "Schema routing draft" })).toBeVisible();
+    navigate("ZeroClaw");
+    expect(screen.getByRole("region", { name: "ZeroClaw binary surface" })).toHaveTextContent("Connect to the door to call ZeroClaw methods.");
     navigate("Canvas");
     expect(screen.getByRole("heading", { name: "Interface canvas" })).toBeVisible();
     expect(message).toHaveValue("Keep my conversation");
