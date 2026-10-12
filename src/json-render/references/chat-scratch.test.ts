@@ -102,15 +102,15 @@ describe("chat scratch catalog", () => {
       root: "root",
       elements: {
         root: { type: "container", props: { className: null }, children: ["panel", "panel"] },
-        panel: { type: "dashboardStatus", props: { label: "Gap", detail: "n".repeat(500), tone: "warning" } },
+        panel: { type: "heading", props: { text: "Gap " + "n".repeat(500), level: 2 } },
       },
     }));
     const children = spec.elements.root.children ?? [];
     expect(children).toHaveLength(2);
     expect(children[0]).not.toBe(children[1]);
     for (const id of children) {
-      expect(spec.elements[id].type).toBe("dashboardStatus");
-      expect(String(spec.elements[id].props.detail).length).toBeLessThanOrEqual(400);
+      expect(spec.elements[id].type).toBe("heading");
+      expect(String(spec.elements[id].props.text).length).toBeGreaterThan(400);
     }
   });
 
@@ -120,12 +120,12 @@ describe("chat scratch catalog", () => {
       state: { planes: [{ name: "SOUL.md" }, { name: "IDENTITY.md" }] },
       elements: {
         stack: { type: "container", props: { className: "stack" }, repeat: { statePath: "/planes" }, children: ["card"] },
-        card: { type: "dashboardStatus", props: { label: { $item: "name" }, detail: "plane", tone: "info" } },
+        card: { type: "heading", props: { text: { $item: "name" }, level: 2 } },
       },
     }));
     const labels = Object.values(spec.elements)
-      .filter((element) => element.type === "dashboardStatus")
-      .map((element) => element.props.label);
+      .filter((element) => element.type === "heading")
+      .map((element) => element.props.text);
     expect(labels).toEqual(["SOUL.md", "IDENTITY.md"]);
   });
 

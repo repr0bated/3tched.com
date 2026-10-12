@@ -3,18 +3,19 @@ import SpecRenderer from "../../svelte/SpecRenderer.svelte";
 import { afterEach } from "vitest";
 afterEach(cleanup);
 import { describe, expect, it } from "vitest";
+import { CHAT_MODES } from "../../chat/chat-mode";
 import { dashboardReferences } from "./dashboard-examples";
 import { notebookCanvasSpec, readCanvasResponse, validateCanvasSpec } from "./canvas-contract";
 import { catalogPresentationMessage, referenceChatResponse } from "./reference-chat";
 
-const sample = { root: "notice", elements: { notice: { type: "dashboardStatus", props: { label: "Example", tone: "info" } } } };
+const sample = { root: "notice", elements: { notice: { type: "heading", props: { text: "Example", level: 2 } } } };
 
 describe("dashboard references", () => {
   it("covers all menu entries, renders every example, and records source placeholders", () => {
     expect(dashboardReferences).toHaveLength(46);
     expect(dashboardReferences.filter(item => item.placeholder)).toHaveLength(4);
     for (const item of dashboardReferences) {
-      expect(() => validateCanvasSpec(item.spec), item.id).not.toThrow();
+      expect(() => validateCanvasSpec(item.spec), item.id).toThrow();
       const markup = render(SpecRenderer, { spec: item.spec }).container.innerHTML;
       expect(markup, item.id).toContain("Static reference");
       expect(markup, item.id).not.toContain("Unknown component");
@@ -24,7 +25,14 @@ describe("dashboard references", () => {
     expect(referenceChatResponse("/ui-reference btrfs")?.canvasSpec).toBeDefined();
     expect(referenceChatResponse("/ui-reference")?.message.content).toContain("live-trace");
     expect(referenceChatResponse("what is btrfs")).toBeUndefined();
-    expect(catalogPresentationMessage("show btrfs", "personal")).toContain("Relevant static reference (btrfs)");
+    for (const mode of [undefined, ...CHAT_MODES.map(item => item.id)]) {
+      const prompt = catalogPresentationMessage("show btrfs", mode);
+      expect(prompt, mode ?? "default").not.toContain("dashboardStatus");
+      expect(prompt, mode ?? "default").toContain("User request:\nshow btrfs");
+      expect(prompt, mode ?? "default").toContain("never claim it is live telemetry");
+    }
+    expect(catalogPresentationMessage("hi", "personal")).toContain("A plain-text answer is fine when a visual would not help.");
+    expect(catalogPresentationMessage("hi")).toContain("A plain-text answer is fine when a visual would not help.");
     expect(catalogPresentationMessage("show btrfs", "ui_render")).toContain("gallery for proposing possible interfaces");
     const notebookPrompt = catalogPresentationMessage("what is in this notebook", "notebook_lm", {
       notebook_id: "nb-1", title: "Field notes", source_count: 1, url: "https://notebooklm.google.com/nb-1", sources: [{ id: "src-1", title: "Site survey" }],
@@ -57,7 +65,7 @@ describe("dashboard references", () => {
     expect(wishlistMarkup).toContain("Ghostbridge Live wishlist");
   });
   it("renders only catalog-valid fenced output", () => {
-    expect(readCanvasResponse(`Example\n\`\`\`json-render\n${JSON.stringify(sample)}\n\`\`\``)).toEqual({ content: "Example", canvasSpec: sample });
+    expect(readCanvasResponse(`Example\n\`\`\`json-render\n${JSON.stringify(sample)}\n\`\`\``)).toEqual({ content: "Example", canvasSpec: sample, scratch: true });
     expect(readCanvasResponse("plain reply")).toEqual({ content: "plain reply" });
     expect(readCanvasResponse("```json-render\n{bad}\n```").canvasSpec).toBeUndefined();
   });

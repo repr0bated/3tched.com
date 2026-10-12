@@ -11,7 +11,7 @@ describe("story walkthrough", () => {
   it("renders every chapter from catalog components only", () => {
     expect(storyReferences.map(item => item.id)).toEqual(["stack", "identity", "lungs", "accountability", "compliance"]);
     for (const item of storyReferences) {
-      expect(() => validateCanvasSpec(item.spec), item.id).not.toThrow();
+      expect(() => validateCanvasSpec(item.spec), item.id).toThrow();
       const markup = render(SpecRenderer, { spec: item.spec }).container.innerHTML;
       expect(markup, item.id).toContain("Static reference");
       expect(markup, item.id).not.toContain("Unknown component");

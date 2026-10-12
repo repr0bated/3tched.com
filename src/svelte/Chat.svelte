@@ -97,7 +97,7 @@
 
 <section class="sc-conversation" aria-label="Conversation">
   <div class="sc-thread-toolbar">
-    <span>{runtime.modelLabel || "Select a model in Settings"}</span>
+    <span>{runtime.modelLabel || "Select a model above"}</span>
     {#if thread.messages.length}
       <button
         class="sc-button"
@@ -165,28 +165,30 @@
                   : "System"}
               </div>{/if}
             <p class="sc-message-text">{message.content}</p>
-            {#if message.canvasSpec}
-              <div class="sc-result">
-                <SpecRenderer spec={message.canvasSpec} />
-              </div>
-            {/if}
+            {#each (message.canvasSpecs ?? (message.canvasSpec ? [message.canvasSpec] : [])) as spec, index (index)}
+              <section class="sc-result" aria-label={`Response block ${index + 1}`}>
+                <SpecRenderer {spec} />
+                {#if runtime.adapter.kind === "remote"}
+                  <button
+                    disabled={message.savedCanvases?.includes(index) || (index === 0 && message.saved) || message.saving}
+                    onclick={() => void session.save(message.id, undefined, index)}
+                    >{message.savedCanvases?.includes(index) || (index === 0 && message.saved)
+                      ? "Saved to gallery"
+                      : message.saving
+                        ? "Saving…"
+                        : (message.canvasSpecs?.length ?? 0) > 1
+                          ? `Save block ${index + 1} to gallery`
+                          : "Save to gallery"}</button
+                  >
+                {/if}
+              </section>
+            {/each}
             {#if message.role === "agent"}
               <div class="sc-message-actions">
                 <button
                   onclick={() => void copyMessage(message.id, message.content)}
                   >{copied === message.id ? "Copied" : "Copy response"}</button
                 >
-                {#if message.canvasSpec && runtime.adapter.kind === "remote"}
-                  <button
-                    disabled={message.saved || message.saving}
-                    onclick={() => void session.save(message.id)}
-                    >{message.saved
-                      ? "Saved to gallery"
-                      : message.saving
-                        ? "Saving…"
-                        : "Save to gallery"}</button
-                  >
-                {/if}
               </div>
             {/if}
           </article>

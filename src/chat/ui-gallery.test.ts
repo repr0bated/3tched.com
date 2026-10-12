@@ -95,9 +95,11 @@ describe("ui gallery client", () => {
 });
 
 describe("catalog in prompts", () => {
-  it("offers promoted compositions to normal modes but not to UI render", () => {
+  it("offers promoted compositions to ordinary chat while keeping UI render proposals independent", () => {
     const catalog = [entry("e", "Promoted status page")];
+    expect(catalogPresentationMessage("status", "project", null, catalog)).toContain("Promoted status page");
     expect(catalogPresentationMessage("status", "personal", null, catalog)).toContain("Promoted status page");
+    expect(catalogPresentationMessage("status", undefined, null, catalog)).toContain("Promoted status page");
     expect(catalogPresentationMessage("status", "ui_render", null, catalog)).not.toContain("Promoted status page");
     expect(catalogPresentationMessage("status", "personal")).not.toContain("Promoted catalog compositions");
   });

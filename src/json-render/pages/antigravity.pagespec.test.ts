@@ -165,7 +165,7 @@ describe("ChatOnly page spec", () => {
   });
 });
 
-it("refreshes the picker from the shared lookup on focus and button without selecting a replacement", async () => {
+it("refreshes the picker only on the explicit button without selecting a replacement", async () => {
   const old = [{ id: "vendor", label: "Vendor", models: [{ id: "old", label: "Old", detail: "" }] }];
   const next = [{ ...old[0], models: [{ id: "new", label: "New", detail: "" }] }];
   const refreshProviders = vi.fn().mockResolvedValue(next);
@@ -183,11 +183,15 @@ it("refreshes the picker from the shared lookup on focus and button without sele
   render(Harness, { adapter: adapter, view: "spec" });
   const model = await screen.findByRole("combobox", { name: "Model" });
   await act(async () => { fireEvent.focus(model); });
+  expect(refreshProviders).not.toHaveBeenCalled();
+  expect(screen.getByRole("option", { name: "Old" })).toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: "New" })).not.toBeInTheDocument();
+  expect(model).toHaveValue("old");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Refresh models" })); });
   expect(screen.getByRole("option", { name: "New" })).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "old (no longer listed)" })).toBeDisabled();
   expect(model).toHaveValue("old");
   expect(selectRoute).not.toHaveBeenCalled();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Refresh models" })); });
-  expect(refreshProviders).toHaveBeenCalledTimes(2);
+  expect(refreshProviders).toHaveBeenCalledTimes(1);
   expect(selectRoute).not.toHaveBeenCalled();
 });

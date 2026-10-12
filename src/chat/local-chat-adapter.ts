@@ -1,4 +1,5 @@
 import { referenceChatResponse } from "../json-render/references/reference-chat";
+import { localMenuSpec } from "../json-render/navigation/manifest";
 import type { Spec } from "@json-render/core";
 import type {
   ChatAdapter,
@@ -246,6 +247,8 @@ export function createLocalChatAdapter(delayMilliseconds = 420): ChatAdapter {
       const reference = referenceChatResponse(request.message);
       if (reference) return reference;
       assertSelection(request.route);
+      const menu = localMenuSpec(request.message);
+      if (menu) return { message: { id: responseId(), role: "agent", content: "" }, canvasSpec: menu };
       await wait(delayMilliseconds);
       const subject = summarize(request.message);
 

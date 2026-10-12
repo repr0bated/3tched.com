@@ -39,6 +39,8 @@ export const antigravitySpec: Spec = {
         title: null,
         mode: "live",
         workspace: true,
+        active: null,
+        open: null,
         placeholder: "Ask a question or describe what to show",
       },
       children: ["chat-thread"],

@@ -7,7 +7,7 @@ import { catalogPresentationMessage } from "./reference-chat";
 
 const spec = {
   root: "status",
-  elements: { status: { type: "dashboardStatus", props: { label: "Rendered status", tone: "info" } } },
+  elements: { status: { type: "heading", props: { text: "Rendered status", level: 2 } } },
 };
 const patches = [
   { op: "add", path: "/root", value: spec.root },
@@ -32,25 +32,23 @@ describe("chat canvas reply formats", () => {
 
   it("preserves a full JSON spec and surrounding prose", () => {
     expect(readCanvasResponse(`A view.\n\`\`\`json\n${JSON.stringify(spec)}\n\`\`\``))
-      .toEqual({ content: "A view.", canvasSpec: spec });
+      .toEqual({ content: "A view.", canvasSpec: spec, scratch: true });
   });
 
   it.each([
     "An ordinary answer.",
     '{"status":"ok","count":3}',
-    '```json\n{"status":"ok"}\n```',
-    '```json\n{"op":"replace","path":"/name","value":"sample"}\n```',
     `The payload is ${JSON.stringify(spec)} in this code example.`,
-    `\`\`\`javascript\n${JSON.stringify(spec)}\n\`\`\``,
   ])("leaves ordinary text and non-UI code unchanged", content => {
     expect(readCanvasResponse(content)).toEqual({ content });
   });
 
-  it("finds a UI fence after an ordinary JSON example without deleting the example", () => {
+  it("registers ordinary code and a following UI fence as separate objects", () => {
     const example = '```json\n{"status":"ok"}\n```';
     const result = readCanvasResponse(`${example}\n\n\`\`\`spec\n${patches}\n\`\`\``);
-    expect(result.content).toBe(example);
-    expect(result.canvasSpec).toMatchObject(spec);
+    expect(result.content).toBe("Rendered the requested interface.");
+    expect(result.canvasSpecs?.[0].elements.code.type).toBe("text");
+    expect(result.canvasSpecs?.[1]).toMatchObject(spec);
   });
 
   it.each([
@@ -67,7 +65,7 @@ describe("chat canvas reply formats", () => {
   });
 
   it("requests the same inline format the reader accepts", () => {
-    const prompt = catalogPresentationMessage("show status", "personal");
+    const prompt = catalogPresentationMessage("show status", "ui_render");
     expect(prompt).toContain("fenced spec block");
     expect(prompt).toContain("```spec");
     expect(prompt).toContain("OUTPUT FORMAT (text + JSONL");
@@ -94,4 +92,25 @@ it("renders raw reply patches on the Antigravity canvas and keeps them out of th
   expect(within(conversation).getByText("Rendered the requested interface.")).toBeVisible();
   expect(conversation).not.toHaveTextContent('"op":');
   expect(conversation).not.toHaveTextContent('"elements"');
+});
+
+// Execution deferred to the owner's post-deployment test run.
+it("keeps multiple full-spec and JSONL blocks independent and ordered", () => {
+  const second = { ...spec, root: "second", elements: { second: spec.elements.status } };
+  const result = readCanvasResponse("First\n```spec\n" + JSON.stringify(spec) + "\n```\nSecond\n```spec\n" + JSON.stringify(second) + "\n```");
+  expect(result.canvasSpecs).toEqual([spec, second]);
+  expect(result.scratch).toBe(true);
+  expect(result.content).toContain("Second");
+});
+
+it("retains a rejected UI fence and still renders a later valid fence", () => {
+  const result = readCanvasResponse("```spec\n{bad}\n```\n```spec\n" + patches + "\n```");
+  expect(result.canvasSpec).toMatchObject(spec);
+  expect(result.content).toContain("{bad}");
+  expect(result.content).toContain("did not pass catalog validation");
+});
+
+it("represents ordinary executable-looking code as escaped catalog data", () => {
+  const result = readCanvasResponse("```html\n<script>alert(1)</script>\n```");
+  expect(result.canvasSpec?.elements.code).toEqual({ type: "text", props: { text: "<script>alert(1)</script>", className: null } });
 });

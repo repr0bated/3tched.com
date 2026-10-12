@@ -32,6 +32,7 @@ export class Runtime {
   routeConfirmed = $state(false);
   routePending = $state(false);
   routeError = $state<string | null>(null);
+  routeReadError = $state<string | null>(null);
   routeAttempt = $state.raw<RouteSelection | null>(null);
   catalogPending = $state(false);
   catalogError = $state<string | null>(null);
@@ -42,12 +43,15 @@ export class Runtime {
   );
   inspecting = $state(false);
   renderRevision = $state(0);
+  pageTarget = $state.raw<{ id: string; accept: (spec: Spec) => void } | null>(null);
   private generation = 0;
   private disposed = false;
   private catalogRead: Promise<void> | null = null;
   constructor(adapter: ChatAdapter) {
     this.adapter = adapter;
     this.providers = adapter.providers;
+    this.catalogError = adapter.catalogError ?? null;
+    this.routeReadError = adapter.initialRouteError ?? null;
     const fallback = {
       providerId: adapter.providers[0]?.id ?? "",
       modelId: adapter.providers[0]?.models[0]?.id ?? "",
@@ -85,6 +89,7 @@ export class Runtime {
   };
   snapshot(): ChatRuntime {
     const scope = this.scopeKey;
+    const pageTarget = this.pageTarget;
     return {
       adapter: this.adapter,
       scopeKey: scope,
@@ -96,7 +101,11 @@ export class Runtime {
           .find((p) => p.id === this.route.providerId)
           ?.models.find((m) => m.id === this.route.modelId)?.label ??
         this.route.modelId,
-      setCanvas: (spec) => this.setCanvas(spec, scope),
+      setCanvas: (spec) => {
+        this.setCanvas(spec, scope);
+        if (!this.disposed && this.scopeKey === scope) pageTarget?.accept(spec);
+      },
+      clearCanvas: () => { this.canvases.delete(scope); },
     };
   }
   refreshProviders = (): Promise<void> => {
@@ -108,7 +117,10 @@ export class Runtime {
     this.catalogRead = this.adapter
       .refreshProviders()
       .then((next) => {
-        if (!this.disposed) this.providers = next;
+        if (!this.disposed) {
+          this.providers = next;
+          this.catalogError = this.adapter.catalogError ?? null;
+        }
       })
       .catch((e: unknown) => {
         if (!this.disposed)
@@ -138,6 +150,7 @@ export class Runtime {
       if (!this.disposed && generation === this.generation) {
         this.route = confirmed;
         this.routeConfirmed = true;
+        this.routeReadError = null;
       }
     } catch (e) {
       if (!this.disposed && generation === this.generation)

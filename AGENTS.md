@@ -4,6 +4,34 @@ This is the 3tched chat interface: a SvelteKit + Vite + TypeScript Json Render a
 wired to the OP-DBUS :8090 door. Backend work belongs in
 repr0bated/operation-dbus-proto, not here.
 
+- Use only Svelte/SvelteKit, Vite and json-render's Svelte renderer for this
+  application's UI, for every user and chat mode. Every visible element must
+  be declared in the active catalog and implemented in its registry. Installed
+  skills for other frameworks are reference material only: do not add
+  React/JSX/Next.js components, another
+  renderer, or framework dependencies. Use compatible framework-independent
+  guidance only. Apply the UI-authoring preflight in all modes while preserving
+  each caller's existing grants; skills never grant file or operation access.
+  Exception: Remotion, AI Elements (vercel/ai-elements), and Streamdown
+  (vercel/streamdown) code and patterns may be used as-is, including their
+  native React runtime, scoped strictly to the surfaces that need them
+  (e.g. a Remotion video player, an AI Elements chat transcript, or
+  Streamdown markdown rendering). Mount each such surface behind its own
+  explicit boundary (e.g. a dedicated custom element/iframe host component)
+  rather than letting React leak into the rest of the tree; the json-render
+  Svelte renderer remains the only renderer for everything outside that
+  boundary, and the one-door/one-credential rules below still apply to any
+  network calls those surfaces make. The active catalog itself stays
+  Svelte/Vite/json-render only: when adding anything to the active catalog
+  (src/json-render/catalog/chat-catalog.ts) and its registry
+  (src/json-render/catalog/chat-registry.ts), the entry's schema and its
+  registered component must be a native Svelte component implemented with
+  only Svelte/SvelteKit, Vite, and json-render's Svelte renderer. A React
+  boundary host (Remotion/AI Elements/Streamdown) is never registered in the
+  active catalog directly — wrap it in a plain Svelte component that owns
+  mounting/unmounting the React tree internally, and register only that
+  Svelte wrapper. No raw React/JSX ever appears in chat-catalog.ts,
+  chat-registry.ts, or the schemas they expose.
 - One door. All network code lives in src/grpc/door.ts and goes through
   operation.v1.PluginService/CallMethod with a declared capability. Do not add
   a second transport, a parallel frontend backend, per-plugin generated stubs,

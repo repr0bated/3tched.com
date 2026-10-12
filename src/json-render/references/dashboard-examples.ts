@@ -1,6 +1,5 @@
 import type { Spec } from "@json-render/core";
 import manifest from "../../../references/operation-dashboard-ui-07/manifest.json";
-import { validateCanvasSpec } from "./canvas-contract";
 
 type Element = Spec["elements"][string];
 const element = (type: string, props: Record<string, unknown>): Element => ({ type, props });
@@ -71,7 +70,7 @@ export const dashboardReferences = manifest.menu_items.map(item => {
     reference: status("Static reference", "Illustrative data only. Layout adapted from operation-dashboard-ui-07; no live state or operational actions."),
   };
   parts.forEach((part, i) => { elements[`section-${i}`] = part; });
-  return { ...item, spec: validateCanvasSpec({ root: "root", elements }) };
+  return { ...item, spec: { root: "root", elements } as Spec };
 });
 
 export function findDashboardReference(query: string) {

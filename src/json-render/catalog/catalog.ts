@@ -1,3 +1,4 @@
+import { uiElementSchemas } from "./ui-elements";
 import { dashboardElementSchemas } from "./dashboard-elements";
 import { chatCatalog } from "./chat-catalog";
 /**
@@ -52,6 +53,7 @@ const status = z.enum(["ok", "warn", "error", "offline"]);
 export const appCatalog = defineCatalog(schema, {
   components: {
     ...dashboardElementSchemas,
+    ...uiElementSchemas,
     chatThread: chatCatalog.data.components.chatThread,
     // ───────────────────────────── shell ─────────────────────────────
     appShell: {

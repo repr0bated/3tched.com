@@ -10,7 +10,7 @@
   let valid = $derived(
     runtime.providers
       .find((p) => p.id === draft.providerId)
-      ?.models.some((m) => m.id === draft.modelId) ?? false,
+      ?.models.some((m) => m.id === draft.modelId && m.available !== false) ?? false,
   );
   let changed = $derived(!sameSelection(draft, runtime.route));
 </script>
@@ -41,7 +41,6 @@
         {draft}
         setDraft={(value) => (draft = value)}
         disabled={runtime.routePending}
-        refresh={runtime.refreshProviders}
       />
       <div class="route-catalog model-picker__actions">
         <button
@@ -57,6 +56,7 @@
           >{/if}
       </div>
       <div class="model-picker__state">
+        {#if runtime.routeReadError}<p role="alert">{runtime.routeReadError}</p>{/if}
         <p class="model-picker__current">
           <span>{runtime.routeConfirmed ? "Last applied" : "Not applied"}</span
           >{runtime.routeConfirmed

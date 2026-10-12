@@ -92,7 +92,50 @@ body { margin: 0; }
 .sc-workspace-heading h2 { margin: 0; font-size: 16px; }
 .sc-workspace .workbench-navigation { flex-wrap: wrap; }
 .sc-workspace pre { overflow: auto; }
+/* One application spec: navigation, session controls, selected view, and chat. */
+.sc-body > .sc-shell { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0; }
+.sc-shell > .sc-canvas { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.sc-shell > .sc-menubar-nav { flex-shrink: 0; position: relative; z-index: 20; border-bottom: 1px solid var(--sc-line); }
+.sc-session-controls { flex-shrink: 0; max-height: 30dvh; overflow: auto; padding: 12px 24px; border-bottom: 1px solid var(--sc-line); gap: 8px; }
+.sc-session-controls .page-header h1 { margin: 0; font-size: 18px; }
+.sc-session-controls .page-header p { margin: 0; color: var(--sc-muted); font-size: 12px; }
+.sc-session-controls .mode-strip, .sc-session-controls .routing-strip { margin: 0; }
+.sc-page { gap: 16px; }
+.sc-catalog-component { margin: 0; }
+.sc-page .page-header h1 { margin: 0; font-size: 22px; letter-spacing: -.4px; }
+.sc-page .page-header p { margin: 4px 0 0; color: var(--sc-muted); }
+.sc-shell > .sc-region { grid-area: menu; position: relative; z-index: 20; border-bottom: 1px solid var(--sc-line); display: flex; align-items: stretch; }
+.sc-region-toggle { flex-shrink: 0; margin: 8px; padding: 6px 8px; background: #242428; color: #e4e4e7; border: 1px solid var(--sc-line); border-radius: 6px; font-size: 12px; }
+.sc-region > div { flex: 1; min-width: 0; }
+.sc-region--collapsed { border-bottom: 0; }
+.sc-region-status { margin: 0; padding: 10px 20px; color: var(--sc-muted); font-size: 12px; }
+.sc-region-status button { margin-left: 8px; background: #242428; color: #e4e4e7; border: 1px solid var(--sc-line); border-radius: 6px; padding: 3px 8px; }
+.sc-canvas > .sc-route-view { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.sc-menubar-nav { padding: 0 20px; }
+.sc-menubar { display: flex; flex-wrap: wrap; gap: 2px; }
+.sc-menu-section { position: relative; }
+.sc-menu-section > button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--sc-muted); padding: 10px 12px; font-size: 13px; }
+.sc-menu-section > button[aria-expanded="true"], .sc-menu-section > button:hover { color: #e4e4e7; }
+.sc-menu-section--active > button { color: #e4e4e7; border-bottom-color: #a78bfa; }
+.sc-menu { position: absolute; top: 100%; left: 0; z-index: 30; min-width: 210px; display: flex; flex-direction: column; padding: 6px; background: var(--sc-panel); border: 1px solid var(--sc-line); border-radius: 8px; box-shadow: 0 10px 28px #0007; }
+.sc-menu-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 10px; border-radius: 6px; color: #e4e4e7; text-decoration: none; font-size: 13px; }
+.sc-menu-item:hover, .sc-menu-item:focus-visible { background: #26262b; }
+.sc-menu-item[aria-current="page"] { color: #c4b5fd; }
+.sc-menu-item[aria-disabled="true"] { color: var(--sc-muted); opacity: .6; cursor: default; }
+.sc-menu-wip { font-size: 10px; border: 1px solid #a16207; border-radius: 4px; padding: 0 4px; color: #fbbf24; }
+.sc-chat-layer { display: flex; flex-direction: column; min-height: 0; background: var(--sc-bg); border-top: 1px solid var(--sc-line); }
+.sc-shell > .sc-chat-layer--docked:not(.sc-chat-layer--collapsed) { flex: 0 1 34%; min-height: 180px; max-height: 42%; }
+.sc-shell > .sc-chat-layer:not(.sc-chat-layer--docked) { flex: 1 1 auto; max-height: none; border-top: 0; }
+.sc-chat-body { flex: 1; min-height: 0; display: flex; }
+.sc-chat-toggle { flex-shrink: 0; margin: 8px; padding: 6px 8px; background: #242428; color: #e4e4e7; border: 1px solid var(--sc-line); border-radius: 6px; font-size: 12px; }
+.sc-route-view { overflow: auto; padding: 18px 28px; }
+.sc-route-status { color: var(--sc-muted); font-size: 13px; }
+.sc-route-status button { margin-top: 8px; background: #242428; color: #e4e4e7; border: 1px solid var(--sc-line); border-radius: 6px; padding: 5px 10px; }
+.sc-route-note { color: var(--sc-muted); font-size: 12px; margin-top: 12px; }
 @media (max-width: 760px) {
+  .sc-menubar-nav { padding: 0 8px; }
+  .sc-route-view { padding: 12px 16px; }
+  .sc-shell > .sc-chat-layer--docked:not(.sc-chat-layer--collapsed) { max-height: 45%; }
   .sc-header { padding: 12px 16px; min-height: 60px; gap: 8px; }
   .sc-brand, .sc-header-actions { gap: 6px; }
   .sc-brand h1 { font-size: 17px; }

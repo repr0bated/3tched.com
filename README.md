@@ -219,3 +219,37 @@ catalog contract and stream plugin list originally came from
 repr0bated/operation-dashboard-ui-07 at commit
 1e72483c4227d12820419d4a901f3ef3dbf77dc9; see NOTICE. Json Render is
 distributed by Vercel under Apache-2.0; the license text is in LICENSE.
+
+## Approved UI elements
+
+The runtime catalog includes 100 additional common elements, named with the
+`ui` prefix (for example `uiButton`, `uiTextInput`, `uiCard`, and `uiTabs`).
+Run `npm run dev` and open `/ui-catalog` for a searchable offline preview with
+copyable JSON examples and prop names for every element.
+
+- Schemas: `src/json-render/catalog/ui-elements.ts`.
+- Svelte implementations: `src/svelte/catalog/ui/`.
+- Examples: `src/json-render/references/ui-element-examples.ts`.
+
+All 100 are registered in the complete reference contract, `chatCatalog`,
+`chatRegistry`, and the generated Canvas allowlist. They are also included in
+`canvasProfileExport()`. No remote catalog promotion is needed to render them.
+
+Controls maintain local browser/component state. `initialValue`,
+`initialChecked`, and other `initial*` props seed a mounted control; they are
+not backend bindings. Buttons emit `press`, editable controls emit `change`,
+forms emit `submit`, and dialogs emit `close`. These are event notifications,
+not value payloads. Generated Canvas specs still reject action bindings;
+local form submission never sends a request. Links accept in-document
+fragments only; downloads contain supplied plain text; avatars use initials.
+
+```json
+{
+  "root": "card",
+  "elements": {
+    "card": { "type": "uiCard", "props": { "label": "Preferences" }, "children": ["name", "enabled"] },
+    "name": { "type": "uiTextInput", "props": { "label": "Display name", "initialValue": "Alex" } },
+    "enabled": { "type": "uiSwitch", "props": { "label": "Enable notifications", "initialChecked": true } }
+  }
+}
+```

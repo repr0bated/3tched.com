@@ -1,5 +1,4 @@
 import type { Spec } from "@json-render/core";
-import { validateCanvasSpec } from "./canvas-contract";
 
 /**
  * The product walkthrough: one static composition per layer of the story.
@@ -200,7 +199,7 @@ export const storyReferences = chapters.map(chapter => {
   chapter.parts.forEach((part, i) => {
     elements[`section-${i}`] = part;
   });
-  return { id: chapter.id, label: chapter.label, spec: validateCanvasSpec({ root: "root", elements }) };
+  return { id: chapter.id, label: chapter.label, spec: { root: "root", elements } as Spec };
 });
 
 export const STORY_INDEX_ID = "story";

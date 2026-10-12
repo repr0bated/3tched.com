@@ -1,4 +1,7 @@
+import { defineCatalog } from "@json-render/core";
+import { schema } from "@json-render/svelte/schema";
 import { z } from "zod";
+import { CATALOG_COMPONENT_NAME } from "../references/registered-components";
 
 const tone = z.enum(["neutral", "info", "success", "warning", "danger"]);
 const text = z.string().max(20_000);
@@ -145,6 +148,20 @@ export const dashboardElementSchemas = {
     slots: [],
     description: "Read-only list of a notebook's sources. Static props only.",
   },
+  catalogComponent: {
+    props: z.object({
+      name: z.string().max(80).regex(CATALOG_COMPONENT_NAME),
+    }),
+    slots: [],
+    description: "A component registered in the catalog, either defined by the chatbot or promoted from the UI renderer. props.name is that component's catalog name. The renderer paints the registered spec.",
+  },
 };
 
 export type DashboardElementSchemas = typeof dashboardElementSchemas;
+
+/** Prop types for the retained dashboard renderers. Those renderers are not in the chatbot catalog. */
+export const dashboardCatalog = defineCatalog(schema, {
+  components: dashboardElementSchemas,
+  actions: {},
+});
+export type DashboardCatalog = typeof dashboardCatalog;

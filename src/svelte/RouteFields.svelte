@@ -5,13 +5,11 @@
     draft,
     setDraft,
     disabled,
-    refresh,
   }: {
     providers: ProviderOption[];
     draft: RouteSelection;
     setDraft: (route: RouteSelection) => void;
     disabled: boolean;
-    refresh: () => Promise<void>;
   } = $props();
   let provider = $derived(providers.find((p) => p.id === draft.providerId));
   let models = $derived(provider?.models ?? []);
@@ -21,7 +19,6 @@
   ><span>Provider</span><select
     value={draft.providerId}
     disabled={disabled || !providers.length}
-    onfocus={() => void refresh()}
     onchange={(e) => {
       const next = providers.find((p) => p.id === e.currentTarget.value);
       if (next)
@@ -41,15 +38,14 @@
   ><span>Model</span><select
     value={models.length ? draft.modelId : ""}
     disabled={disabled || !models.length}
-    onfocus={() => void refresh()}
     onchange={(e) => setDraft({ ...draft, modelId: e.currentTarget.value })}
   >
     {#if !models.length}<option value="">No models for this provider yet</option
       >{:else}{#if !models.some((m) => m.id === draft.modelId)}<option
           value={draft.modelId}
           disabled>{draft.modelId || "Select a model"} (no longer listed)</option
-        >{/if}{#each models as entry (entry.id)}<option value={entry.id}
-          >{entry.label}{entry.auth ? ` (${entry.auth})` : ''}</option
+        >{/if}{#each models as entry (entry.id)}<option value={entry.id} disabled={entry.available === false}
+          >{entry.label}{entry.available === false ? " (unavailable)" : ""}{entry.auth ? ` (${entry.auth})` : ''}</option
         >{/each}{/if}
   </select></label
 >

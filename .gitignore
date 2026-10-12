@@ -12,3 +12,14 @@ coverage/
 !.env.production
 
 .reference-build/
+
+# Upstream repos cloned in for reading only.
+/kit/
+/json-render/
+/json-render-svelte/
+/vite/
+/vite-svelte5-demo/
+/awesome-generative-ui/
+/ai/
+/operation-dashboard-ui-07/
+/pages/

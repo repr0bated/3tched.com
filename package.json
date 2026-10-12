@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "publish:op-web": "bash scripts/publish-op-web.sh",
-    "type-check": "svelte-kit sync && tsc -b --pretty false && svelte-check --tsconfig ./tsconfig.app.json",
+    "type-check": "svelte-kit sync && tsc -b --pretty false && svelte-check --tsconfig ./tsconfig.app.json --config ./vite.config.ts",
     "prepare": "svelte-kit sync",
     "lint": "eslint .",
     "test": "vitest run",

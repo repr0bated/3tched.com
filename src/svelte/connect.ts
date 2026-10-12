@@ -93,11 +93,9 @@ export async function connect(
       onLoading();
       let adapter: ChatAdapter;
       try {
-        adapter = await connectDoorChatAdapter(
-          config.boundOracle
-            ? config
-            : { url: config.url, identity: config.identity },
-        );
+        adapter = await connectDoorChatAdapter(config, {
+          refreshOnLoad: "background",
+        });
       } catch (error) {
         return connectFailure(
           error instanceof DoorError && error.code === "UNAUTHENTICATED"

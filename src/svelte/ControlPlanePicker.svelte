@@ -32,7 +32,7 @@
   let valid = $derived(
     runtime.providers
       .find((p) => p.id === draft.providerId)
-      ?.models.some((m) => m.id === draft.modelId) ?? false,
+      ?.models.some((m) => m.id === draft.modelId && m.available !== false) ?? false,
   );
   let currentInCatalog = $derived(
     current &&
@@ -132,7 +132,6 @@
     edited = true;
   }}
   disabled={loading || pending}
-  refresh={runtime.refreshProviders}
 />
 <div class="route-catalog model-picker__actions">
   <button

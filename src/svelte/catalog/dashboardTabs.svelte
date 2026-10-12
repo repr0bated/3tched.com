@@ -2,10 +2,10 @@
   import { untrack } from "svelte";
   import type { BaseComponentProps } from "@json-render/svelte";
   import type { InferComponentProps } from "@json-render/core";
-  import type { ChatCatalog } from "../../json-render/catalog/chat-catalog";
+  import type { DashboardCatalog } from "../../json-render/catalog/dashboard-elements";
   let {
     props,
-  }: BaseComponentProps<InferComponentProps<ChatCatalog, "dashboardTabs">> =
+  }: BaseComponentProps<InferComponentProps<DashboardCatalog, "dashboardTabs">> =
     $props();
   const id = $props.id();
   let selected = $state(untrack(() => props.initialTab ?? props.tabs[0]?.id));

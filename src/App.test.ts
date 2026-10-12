@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "./test/native";
+import { fireEvent, render, screen, within } from "./test/native";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup } from "./test/native";
 import App from "./svelte/App.svelte";
@@ -47,7 +47,9 @@ describe("Door connect gate", () => {
     );
     render(App, {  });
     await screen.findByRole("button", { name: "Settings" });
-    expect(connectDoorChatAdapter).toHaveBeenCalledWith({ url: "https://10.0.0.3:8090", identity });
+    expect(connectDoorChatAdapter).toHaveBeenCalledWith({
+      url: "https://10.0.0.3:8090", identity, signal: expect.any(AbortSignal),
+    }, { refreshOnLoad: "background" });
     expect(fetch).toHaveBeenCalledWith("/api/identity/self", expect.objectContaining({ cache: "no-store" }));
   });
 
@@ -72,7 +74,10 @@ describe("Door connect gate", () => {
     await screen.findByRole("button", { name: "Settings" });
     expect(fetch).toHaveBeenNthCalledWith(2, "http://10.0.0.1:51888/identity/self",
       expect.objectContaining({ mode: "cors", credentials: "omit", cache: "no-store" }));
-    expect(connectDoorChatAdapter).toHaveBeenCalledWith({ url: "https://10.0.0.3:8090", identity: { kind: "sid1", sealedId: "U0lEMQ==" } });
+    expect(connectDoorChatAdapter).toHaveBeenCalledWith({
+      url: "https://10.0.0.3:8090", identity: { kind: "sid1", sealedId: "U0lEMQ==" },
+      signal: expect.any(AbortSignal),
+    }, { refreshOnLoad: "background" });
     expect(screen.queryByLabelText(/base64/i)).not.toBeInTheDocument();
   });
 
@@ -91,7 +96,8 @@ describe("Door connect gate", () => {
     await screen.findByRole("button", { name: "Settings" });
     expect(connectDoorChatAdapter).toHaveBeenLastCalledWith({
       url: "https://10.0.0.3:8090", identity: { kind: "sid1", sealedId: "TkVX" },
-    });
+      signal: expect.any(AbortSignal),
+    }, { refreshOnLoad: "background" });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 });
@@ -106,10 +112,12 @@ describe("Local workbench fallback", () => {
     await openLocal();
 
     expect(screen.getByRole("heading", { level: 1, name: "3tched Chat" })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByLabelText("Local model routing")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
-    expect(screen.getByRole("heading", { name: "Interface canvas" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Reorder Canvas tile/i })).toHaveLength(6);
+    await fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    const menubar = await screen.findByRole("menubar", { name: "Main" });
+    expect(within(menubar).getAllByRole("menuitem")).toHaveLength(10);
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeVisible();
   });
 
   it("adds a local user message and deterministic assistant response", async () => {

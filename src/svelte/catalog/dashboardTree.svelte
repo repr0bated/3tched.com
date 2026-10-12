@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { BaseComponentProps } from "@json-render/svelte";
   import type { InferComponentProps } from "@json-render/core";
-  import type { ChatCatalog } from "../../json-render/catalog/chat-catalog";
+  import type { DashboardCatalog } from "../../json-render/catalog/dashboard-elements";
   import type { DashboardTreeNode } from "../../json-render/catalog/dashboard-elements";
   let {
     props,
-  }: BaseComponentProps<InferComponentProps<ChatCatalog, "dashboardTree">> =
+  }: BaseComponentProps<InferComponentProps<DashboardCatalog, "dashboardTree">> =
     $props();
 </script>
 

@@ -40,7 +40,7 @@ export async function main(argv: string[]): Promise<number> {
     const [{ connectDoorChatAdapter }, { dispatch }] = await Promise.all([
       import("../chat/door-chat-adapter"), import("./run"),
     ]);
-    const adapter = await connectDoorChatAdapter(await launchDoorConfig(invocation));
+    const adapter = await connectDoorChatAdapter(await launchDoorConfig(invocation), { refreshOnLoad: false });
     return await dispatch(invocation, adapter, {
       write: (text) => process.stdout.write(text),
       readTranscript: async (path) => {

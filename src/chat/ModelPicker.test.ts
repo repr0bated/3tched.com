@@ -48,6 +48,37 @@ async function startProtectedChange() {
 afterEach(cleanup);
 
 describe("the scaffold's catalog model picker", () => {
+  it("keeps an unconfirmed initial route visible and requires explicit Apply", async () => {
+    const adapter = remote({
+      initialRouteError: "Current model unconfirmed; operation_id=fixture-operation",
+      routeInitiallyApplied: false,
+      committedRoute: null,
+    });
+    mount(adapter);
+    expect(screen.getByRole("alert")).toHaveTextContent("operation_id=fixture-operation");
+    expect(screen.getByText("Not applied")).toBeInTheDocument();
+    expect(adapter.selectRoute).not.toHaveBeenCalled();
+    pickTwo();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply model" })));
+    expect(adapter.selectRoute).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
+    expect(screen.queryByText(/operation_id=fixture-operation/)).not.toBeInTheDocument();
+  });
+  it.each([false, true])("shows removed models as unavailable without refreshing on focus (control=%s)", async control => {
+    const refreshProviders = vi.fn().mockResolvedValue(providers);
+    const { adapter } = protectedAdapter({
+      refreshProviders,
+      providers: [{ ...providers[0], models: [{ ...providers[0].models[0], available: false }] }, providers[1]],
+    });
+    mount(adapter, control);
+    if (control) await screen.findByText("One / Old");
+    expect(screen.getByRole("option", { name: "Old (unavailable)" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: control ? "Elevate and apply model" : "Apply model" })).toBeDisabled();
+    await act(async () => fireEvent.focus(screen.getByRole("combobox", { name: "Provider" })));
+    await act(async () => fireEvent.focus(screen.getByRole("combobox", { name: "Model" })));
+    expect(refreshProviders).not.toHaveBeenCalled();
+    expect(adapter.selectRoute).not.toHaveBeenCalled();
+    expect(adapter.controlPlane.set).not.toHaveBeenCalled();
+  });
   it("browses draft models without mutation and applies exactly one provider/model", async () => {
     const adapter = remote(); mount(adapter);
     pickTwo();
@@ -155,11 +186,11 @@ describe("the scaffold's catalog model picker", () => {
     vi.mocked(adapter.controlPlane.current).mockResolvedValue(current);
     mount(adapter, true);
     await screen.findByText(label);
-    // Catalog discovery can finish independently of the native current-route read.
-    await act(async () => fireEvent.focus(screen.getByRole("combobox", { name: "Provider" })));
+    // Explicit refresh discovers models and rereads the protected current route.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
     expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue(provider);
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue(model);
-    expect(adapter.controlPlane.current).toHaveBeenCalledTimes(1);
+    expect(adapter.controlPlane.current).toHaveBeenCalledTimes(2);
     pickTwo();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
     expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("two");

@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../workbench/workbench.css";
-  import { onDestroy, untrack, type Snippet } from "svelte";
+  import { onDestroy, onMount, untrack, type Snippet } from "svelte";
   import type { ChatAdapter } from "../chat/chat-adapter";
   import { emptyFeedSnapshot, type FeedSnapshot } from "../grpc/plugin-feeds";
   import { Runtime, provideRuntime } from "./runtime.svelte";
@@ -20,6 +20,9 @@
   provideRuntime(runtime);
   provideSession(session);
   session.configure(untrack(() => runtime.snapshot()));
+  onMount(() => {
+    if (runtime.adapter.catalogRefreshOnMount) void runtime.refreshProviders();
+  });
   $effect(() => {
     session.configure(runtime.snapshot());
   });

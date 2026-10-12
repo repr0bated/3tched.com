@@ -80,7 +80,9 @@ describe("ChatOnlyPage connection gate", () => {
     mocks.readSessionConfig.mockResolvedValue({ url: "https://door.test", identity: { kind: "oia1", assertion: "initial" }, boundOracle });
     mocks.connectDoorChatAdapter.mockRejectedValue(new Error("test complete"));
     render(ChatOnlyPage, {  });
-    await waitFor(() => expect(mocks.connectDoorChatAdapter).toHaveBeenCalledWith(expect.objectContaining({ boundOracle })));
+    await waitFor(() => expect(mocks.connectDoorChatAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({ boundOracle }), { refreshOnLoad: "background" },
+    ));
   });
 
   it("rejects an issuer's changed advertised door despite a stable page connector", async () => {

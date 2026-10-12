@@ -124,7 +124,7 @@
   </header>
   <p class="gallery-panel__hint">
     {view === "candidates"
-      ? "Canvases you kept from chat. UI render keeps every canvas it draws. Promote one to add it to the catalog."
+      ? "Canvases you kept from chat, including components the chatbot defined. UI render keeps every canvas it draws. Promote one to add it to the catalog. The next page can use a promoted name."
       : "Promoted compositions every user sees. The chat modes compose from these."}
   </p>
   {#if !(view === "candidates" ? candidates.length : entries.length) && !loading}<p

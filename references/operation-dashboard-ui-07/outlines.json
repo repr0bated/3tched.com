@@ -1,0 +1,1111 @@
+{
+  "chat": {
+    "label": "Chat",
+    "section": "Chat",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Chat"
+    ],
+    "tabs": [],
+    "fields": [
+      "session id",
+      "Message (↩ to send, Shift+↩ for line breaks)"
+    ],
+    "columns": [],
+    "texts": [
+      "Chat",
+      "Direct gateway chat session for quick interventions.",
+      "AI",
+      "Thinking…",
+      "Event stream is idle — chat still works through the REST gateway.",
+      "New session",
+      "Inspector",
+      "Click a tool result to inspect."
+    ]
+  },
+  "accountability": {
+    "label": "Accountability",
+    "section": "Chat",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Chatbot Accountability"
+    ],
+    "tabs": [],
+    "fields": [
+      "Ask about the chatbot's reasoning…",
+      "Semantic search: 'why did the chatbot reconfigure the firewall at 3am?'"
+    ],
+    "columns": [],
+    "texts": [
+      "Accountability Chat",
+      "episode loaded",
+      "Referenced:",
+      "% match",
+      "ms",
+      "Goal",
+      "Decision",
+      "Tools Consulted",
+      "Trigger:",
+      "Exit:",
+      "Confidence: %",
+      "ID:",
+      "Reasoning Episode Search",
+      "ctl_plane_reasoning_episodes",
+      "vectors indexed",
+      "All outcomes",
+      "Success",
+      "Failure",
+      "Partial",
+      "Deferred",
+      "All plugins",
+      "firewall",
+      "dns",
+      "ovs"
+    ]
+  },
+  "catalog": {
+    "label": "Catalog",
+    "section": "UI Model",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "UI Model Catalog"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Loading catalog…",
+      "No promoted specs yet. Promote specs from the Gallery.",
+      "Remove"
+    ]
+  },
+  "gallery": {
+    "label": "Gallery",
+    "section": "UI Model",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "UI Model Gallery"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Refresh",
+      "Probing spec sources…",
+      "Promote",
+      "Delete"
+    ]
+  },
+  "generate": {
+    "label": "Generate",
+    "section": "UI Model",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Catalog + Zerolang Pattern"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Import",
+      "Export",
+      "Three-Layer Pattern",
+      "Layer 1: Graph",
+      "Zerolang-like semantic graph. AI queries/patches, not text edits.",
+      "Type-safe",
+      "Layer 2: Catalog",
+      "Zod schemas define allowed components. AI output constrained.",
+      "Validated",
+      "Layer 3: Render",
+      "Safe renderer produces React, PDF, email, video.",
+      "XSS-free",
+      "Spec validates against catalog",
+      "Live Render (same spec, 7 platforms)",
+      "Spec (Zod-validated JSON)",
+      "Why This Pattern",
+      "✅ AI can't inject arbitrary HTML",
+      "No XSS:",
+      "✅ Only catalog components exist",
+      "No hallucinations:",
+      "✅ Zod validates before render",
+      "Type-safe:",
+      "✅ Works with Claude, GPT, Gemini, Llama",
+      "Model-agnostic:"
+    ]
+  },
+  "antigravity-llm": {
+    "label": "Antigravity LLM",
+    "section": "UI Model",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Antigravity LLM Projection"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Refresh",
+      "Loading UI surfaces…"
+    ]
+  },
+  "overview": {
+    "label": "Overview",
+    "section": "Control",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Overview",
+      "System Resources",
+      "Gateway Access",
+      "Components",
+      "Event Distribution",
+      "Connected Peers",
+      "Raw System Stats",
+      "Notes"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [
+      "Client ID",
+      "Type",
+      "Protocol",
+      "Duration",
+      "Streams"
+    ],
+    "texts": [
+      "MB used",
+      "CPU %",
+      "API Endpoint",
+      "Auth Mode",
+      "WireGuard (trusted-proxy)",
+      "Refresh",
+      "Authenticated via WireGuard tunnel.",
+      "No events received yet. Connect to the control plane to see live data.",
+      "peers",
+      "No connected peers. Peer data will appear when the control plane reports active connections.",
+      "Client ID",
+      "Type",
+      "Protocol",
+      "Duration",
+      "Streams",
+      "No stats data received."
+    ]
+  },
+  "orchestration": {
+    "label": "Orchestration",
+    "section": "Control",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Orchestration",
+      "Execution Graph",
+      "Task Ledger"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [
+      "Task ID",
+      "Agent",
+      "Status",
+      "Duration",
+      "Time"
+    ],
+    "texts": [
+      "Execute",
+      "No agents detected. Waiting for live data…",
+      "nodes",
+      "Reset",
+      "results",
+      "Task ID",
+      "Agent",
+      "Status",
+      "Duration",
+      "Time",
+      "No task results yet.",
+      "Success",
+      "Failed",
+      "ms"
+    ]
+  },
+  "services": {
+    "label": "Services",
+    "section": "Control",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "s6 Services"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Refresh",
+      "services",
+      "started",
+      "errors",
+      "Service",
+      "State",
+      "Bus",
+      "Uptime",
+      "Restarts",
+      "CPU",
+      "Memory",
+      "No s6 services detected. Waiting for live data…",
+      "MB",
+      "Actions:",
+      "Service Metadata",
+      "Configuration",
+      "Service Details"
+    ]
+  },
+  "llm": {
+    "label": "LLM",
+    "section": "Control",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "LLM",
+      "Model assignments",
+      "Chat routing"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Loading zeroclaw assignments…",
+      "Provider",
+      "Model"
+    ]
+  },
+  "agents": {
+    "label": "Agents",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Agents",
+      "System Prompt"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Source:",
+      "Refresh",
+      "No agents found in schema or live state. Ensure personas.yaml is loaded.",
+      "+ more",
+      "Sessions:",
+      "Memory:",
+      "Configure",
+      "Configuration",
+      "System Prompt",
+      "Cancel",
+      "Save"
+    ]
+  },
+  "assistant": {
+    "label": "Assistant",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Assistant Gateway",
+      "schema",
+      "Soul Memories",
+      "Namespace Bindings"
+    ],
+    "tabs": [],
+    "fields": [
+      "Identity",
+      "Personality"
+    ],
+    "columns": [
+      "Agent",
+      "Identity",
+      "Personality",
+      "Version",
+      "Traits",
+      "Updated",
+      "Namespace",
+      "Entries",
+      "Created"
+    ],
+    "texts": [
+      "schema",
+      "Soul Memories",
+      "No soul memories registered.",
+      "Agent",
+      "Identity",
+      "Personality",
+      "Version",
+      "Traits",
+      "Updated",
+      "keys",
+      "Namespace Bindings",
+      "No namespace bindings.",
+      "Namespace",
+      "Entries",
+      "Created",
+      "Soul Memory:",
+      "Full soul memory details and traits",
+      "Identity:",
+      "Personality:",
+      "Version:",
+      "Traits:",
+      "Edit Soul:",
+      "Update identity and personality for this agent",
+      "Cancel"
+    ]
+  },
+  "models": {
+    "label": "Routable Models",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Routable Models",
+      "Providers"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [
+      "Model ID",
+      "Name",
+      "Params",
+      "Tags",
+      "Available"
+    ],
+    "texts": [
+      "Refresh",
+      "Default projection",
+      "zeroclaw model routes",
+      "Loading providers…",
+      "active",
+      "No providers registered.",
+      "Loading models…",
+      "Model ID",
+      "Name",
+      "Params",
+      "Tags",
+      "Available"
+    ]
+  },
+  "tools": {
+    "label": "Tools",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Tools",
+      "Execute",
+      "Result"
+    ],
+    "tabs": [],
+    "fields": [
+      "Search tools"
+    ],
+    "columns": [],
+    "texts": [
+      "Tool Catalog",
+      "Schema-driven tools exposed by the control plane.",
+      "Filter",
+      "shown",
+      "No tools detected. Waiting for live data…",
+      "Arguments (JSON)",
+      "Execute"
+    ]
+  },
+  "workflows": {
+    "label": "Workflows",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Workflows"
+    ],
+    "tabs": [],
+    "fields": [
+      "Ask about this workflow..."
+    ],
+    "columns": [],
+    "texts": [
+      "nodes",
+      "edges",
+      "Validate",
+      "Run",
+      "Workflow Assistant",
+      "Drop tools onto the canvas, configure them, then validate."
+    ]
+  },
+  "security": {
+    "label": "Security",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Security & Audit",
+      "Auth Mode",
+      "TLS Status",
+      "Audit Chain",
+      "Qdrant",
+      "Blockchain Ledger"
+    ],
+    "tabs": [],
+    "fields": [
+      "Semantic Audit Search — search the system's reasoning, mutations, and decisions..."
+    ],
+    "columns": [],
+    "texts": [
+      "vectors",
+      "Blockchain Ledger",
+      "blocks"
+    ]
+  },
+  "skills": {
+    "label": "Skills",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Cognitive Skills",
+      "Configuration"
+    ],
+    "tabs": [],
+    "fields": [
+      "Search skills…",
+      "Test this skill…"
+    ],
+    "columns": [],
+    "texts": [
+      "by",
+      "Test Skill",
+      "Test:",
+      "Chat with the LLM using this skill's current configuration.",
+      "Send a message to test the \" \" skill.",
+      "Send"
+    ]
+  },
+  "knowledge": {
+    "label": "Knowledge",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Knowledge &amp; ML",
+      "Zeroclaw retrieval",
+      "Local Grinder — Embedding Progress",
+      "Embedding Provider",
+      "Semantic Matches"
+    ],
+    "tabs": [
+      "Vector Search",
+      "Model Downloader",
+      "Store Details"
+    ],
+    "fields": [
+      "Semantic search across 3tched_knowledge…"
+    ],
+    "columns": [],
+    "texts": [
+      "Knowledge &amp; ML",
+      "Qdrant and Cozo retrieval models, plus live knowledge-store telemetry",
+      "P5000 GPU",
+      "Waiting for live data from knowledge store and ML grinder…",
+      "Local Grinder — Embedding Progress",
+      "/ Points Indexed",
+      "Embedding Provider",
+      "Local",
+      "Cloud",
+      "⚠ Cloud usage (Vertex AI) may incur costs",
+      "✅ Cost-Free Local Mode (CPU via op-ml)",
+      "Vector Search",
+      "Model Downloader",
+      "Store Details",
+      "Search",
+      "Semantic Matches",
+      "score:",
+      "Waiting for model list from op-ml…",
+      "Download",
+      "Details",
+      "Waiting for knowledge store metadata…"
+    ]
+  },
+  "embedding": {
+    "label": "Embedding Pipeline",
+    "section": "Agent",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Embedding Pipeline",
+      "Zeroclaw vectorization",
+      "Embedding Worker",
+      "mpsc Channel",
+      "Embed Queue",
+      "Qdrant Collection Roles"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Embedding Pipeline",
+      "Footprint → mpsc channel → Embedding Worker → → Qdrant",
+      "Refresh",
+      "Zeroclaw vectorization",
+      "Routing authority for this pipeline. The embedding worker's reported model may lag.",
+      "Runtime worker: /",
+      "Embedding Worker",
+      "Provider:",
+      "Model:",
+      "Dimensions:",
+      "Uptime:",
+      "Completed",
+      "Failed",
+      "ms",
+      "Avg Latency",
+      "Retry: attempts, ms base, exponential backoff",
+      "mpsc Channel",
+      "Usage",
+      "Dropped:",
+      "/min",
+      "Drop rate:",
+      "Policy:",
+      "Rationale:",
+      "Audit truth:"
+    ]
+  },
+  "containers": {
+    "label": "Containers",
+    "section": "Infrastructure",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Incus Containers",
+      "Config",
+      "Devices"
+    ],
+    "tabs": [
+      "System",
+      "User"
+    ],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "No containers detected. Waiting for live data…",
+      "cores",
+      "devices",
+      "Edit Config",
+      "System",
+      "User",
+      "Container configuration via Generative UI",
+      "Config",
+      "Devices"
+    ]
+  },
+  "privacy-network": {
+    "label": "Privacy Network",
+    "section": "Infrastructure",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Privacy Network"
+    ],
+    "tabs": [],
+    "fields": [
+      "Obfuscation Level:"
+    ],
+    "columns": [],
+    "texts": [
+      "Obf:",
+      "No privacy network nodes. Waiting for live data…",
+      "— click fields to edit",
+      "Obfuscation Level:"
+    ]
+  },
+  "netmaker": {
+    "label": "Network Control",
+    "section": "Infrastructure",
+    "source": "captured",
+    "headings": [
+      "Netmaker",
+      "Node Detail",
+      "Output"
+    ],
+    "tabs": [],
+    "fields": [
+      "Command"
+    ],
+    "columns": [
+      "Name",
+      "Address",
+      "Public Key",
+      "Last Check-in",
+      "Status",
+      "ID",
+      "Version"
+    ],
+    "texts": [
+      "Netmaker",
+      "Mesh network management via op.adapters.v1.NetmakerService",
+      "Admin UI",
+      "Refresh",
+      "— Mutation commands (join, leave, restart, execute, stream) require the adapter deployed inside the NetMaker container's network namespace. Read methods are functional.",
+      "Read-only mode",
+      "local",
+      "Nodes —",
+      "No nodes in this network.",
+      "Name",
+      "Address",
+      "Public Key",
+      "Last Check-in",
+      "Status",
+      "Node Detail",
+      "Close",
+      "ID",
+      "Connected",
+      "Host Inventory",
+      "Version",
+      "Event streaming requires the adapter deployed inside the NetMaker container.",
+      "events",
+      "Clear",
+      "Waiting for events…"
+    ]
+  },
+  "ovs": {
+    "label": "Open vSwitch",
+    "section": "Infrastructure",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Open vSwitch",
+      "Zeroclaw OVS assignments"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Create Bridge",
+      "Create Port",
+      "No OVS bridges detected. Waiting for live data…",
+      "VLAN",
+      "Create",
+      "Fill the form to create a new OVS ."
+    ]
+  },
+  "openflow": {
+    "label": "OpenFlow",
+    "section": "Infrastructure",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "OpenFlow",
+      "Global Configuration",
+      "Flow Tables"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Flow Tables",
+      "Add Flow",
+      "No flow tables received. Waiting for live data…",
+      "Table",
+      "flows",
+      "pri=",
+      "pkts / bytes",
+      "Match:",
+      "any",
+      "Actions:",
+      "Add Flow Entry",
+      "Define match fields and actions for a new OpenFlow rule."
+    ]
+  },
+  "btrfs": {
+    "label": "BTRFS Storage",
+    "section": "Infrastructure",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "BTRFS Storage",
+      "Subvolumes",
+      "Snapshots",
+      "Incremental Send State",
+      "Disaster Recovery Status"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "BTRFS Storage",
+      "Subvolume layout, snapshots, incremental send state, and disaster recovery status.",
+      "Refresh",
+      "Subvolumes",
+      "snaps",
+      "Modified",
+      "Snapshots",
+      "📌 Pinned ( remote )",
+      "Parent:",
+      "Pinned for:",
+      "Pin released only after successful incremental send to ALL remotes",
+      "Incremental Send State",
+      "Last sent:",
+      "At:",
+      "Transferred:",
+      "Disaster Recovery Status",
+      "state_subvol/current.json",
+      "Vector Snapshot",
+      "Blocks to Replay",
+      "Last Checkpoint",
+      "Recovery Order"
+    ]
+  },
+  "data-stores": {
+    "label": "Data Stores",
+    "section": "Infrastructure",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Data Stores"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Data Stores",
+      "Health and status of all persistent and runtime data stores.",
+      "ms",
+      "Checked"
+    ]
+  },
+  "tched-router-config": {
+    "label": "3tched Config",
+    "section": "ZeroClaw",
+    "source": "captured",
+    "headings": [],
+    "tabs": [],
+    "fields": [
+      "Filter sections"
+    ],
+    "columns": [],
+    "texts": [
+      "plugin · tched_router",
+      "No matching sections.",
+      "Reset",
+      "Save",
+      "Could not load tched_router config.",
+      "Existing aliases only (compact, agents). New MCP names cannot be created here."
+    ]
+  },
+  "gateway": {
+    "label": "Gateway",
+    "section": "ZeroClaw",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Gateway",
+      "Gateway Status"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Gateway",
+      "Manage webhooks, websockets, and gateway server settings",
+      "Gateway Status",
+      "ZeroClaw gateway server for webhooks and websockets",
+      "Stopped",
+      "Start Gateway",
+      "Test Connection",
+      "Gateway management coming soon. This will allow you to:",
+      "Start/stop the gateway server",
+      "View active webhook endpoints",
+      "Monitor websocket connections",
+      "Configure gateway settings"
+    ]
+  },
+  "channels": {
+    "label": "Channels",
+    "section": "ZeroClaw",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Channels"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Channels",
+      "Configure communication channels for ZeroClaw",
+      "Configure"
+    ]
+  },
+  "cron": {
+    "label": "Cron",
+    "section": "ZeroClaw",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Scheduled Tasks"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Scheduled Tasks",
+      "Manage cron jobs and scheduled tasks for ZeroClaw",
+      "Add Task",
+      "No scheduled tasks configured",
+      "Create tasks to run autonomously on a schedule"
+    ]
+  },
+  "integrations": {
+    "label": "Integrations",
+    "section": "ZeroClaw",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Integrations"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Integrations",
+      "Browse and install 50+ integrations for ZeroClaw"
+    ]
+  },
+  "hardware": {
+    "label": "Hardware",
+    "section": "ZeroClaw",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Hardware",
+      "Connected Devices"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Hardware",
+      "Discover and introspect USB hardware and peripherals",
+      "Connected Devices",
+      "Scan",
+      "No USB devices detected",
+      "Connect hardware to see it listed here"
+    ]
+  },
+  "config": {
+    "label": "Config",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Config"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Settings",
+      "valid",
+      "Reset",
+      "Save",
+      "Apply",
+      "Model options unavailable — showing free-text fields instead of a picker. Reason:",
+      "model from the live gateway"
+    ]
+  },
+  "inspector": {
+    "label": "Inspector",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "D-Bus Inspector",
+      "Properties",
+      "Methods",
+      "Signals"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Object Tree",
+      "No D-Bus objects. Waiting for live data…",
+      "Properties",
+      "Methods",
+      "Execute",
+      "Signals"
+    ]
+  },
+  "state": {
+    "label": "State",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Live State",
+      "State Changes"
+    ],
+    "tabs": [],
+    "fields": [
+      "Filter plugins, keys, and events…"
+    ],
+    "columns": [],
+    "texts": [
+      "props",
+      "tunable",
+      "No data received for this plugin yet.",
+      "Changed Value",
+      "New Value",
+      "plugins",
+      "tunables",
+      "state changes",
+      "No plugins match \" \""
+    ]
+  },
+  "logs": {
+    "label": "Logs",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Logs"
+    ],
+    "tabs": [],
+    "fields": [
+      "Search logs"
+    ],
+    "columns": [],
+    "texts": [
+      "Refresh",
+      "Export",
+      "Failed to load logs",
+      "Filter",
+      "Auto-follow",
+      "Loading logs…"
+    ]
+  },
+  "estop": {
+    "label": "E-Stop",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Emergency Stop",
+      "Emergency Stop Status"
+    ],
+    "tabs": [],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "Emergency Stop",
+      "Engage, inspect, and resume emergency-stop states",
+      "Emergency Stop Status",
+      "Currently inactive",
+      "Emergency stop will immediately halt all ZeroClaw operations. Use with caution.",
+      "Engage Emergency Stop"
+    ]
+  },
+  "grpc": {
+    "label": "gRPC Diagnostics",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "gRPC Diagnostics",
+      "Event Counts by Type",
+      "Projected State Keys",
+      "Latest Stats ( metrics)"
+    ],
+    "tabs": [
+      "Unary RPCs",
+      "Server Streams",
+      "Store Inspector"
+    ],
+    "fields": [],
+    "columns": [],
+    "texts": [
+      "gRPC Diagnostics",
+      "Probe every gRPC-Web endpoint to pinpoint connection issues",
+      "Run All Probes",
+      "Stop Streams",
+      "Connection Error",
+      "Unary RPCs",
+      "Server Streams",
+      "Store Inspector",
+      "ms",
+      "TTFM: ms",
+      "msgs",
+      "waiting for events…",
+      "Event Counts by Type",
+      "No events received yet",
+      "Projected State Keys",
+      "No state projected yet — streams may be idle. Snapshot RPCs will populate this on connect.",
+      "Latest Stats ( metrics)",
+      "No metrics received — RuntimeMirror.StreamMetrics may not be connected"
+    ]
+  },
+  "explorer": {
+    "label": "gRPC Explorer",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "gRPC Explorer",
+      "About this view"
+    ],
+    "tabs": [],
+    "fields": [
+      "Filter frames (substring match on JSON)…",
+      "Page size"
+    ],
+    "columns": [],
+    "texts": [
+      "Streaming Methods",
+      "frames",
+      "+ buffered",
+      "Invoke",
+      "Pause",
+      "Resume",
+      "Stop",
+      "Cancel",
+      "Clear",
+      "Page size",
+      "/ shown",
+      "Frames are decoded from the gRPC-Web length-prefixed framing and projected through the shared catalog. The last frames are kept in memory; older frames roll off the buffer.",
+      "@json-render",
+      "Selected method, filter, and page size are persisted in the URL and , so reloading or sharing the link reopens the same view.",
+      "localStorage",
+      "All calls run with the authenticated session — no additional credentials are required inside the WireGuard perimeter."
+    ]
+  },
+  "invoke": {
+    "label": "Invoke",
+    "section": "Settings",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Invoke"
+    ],
+    "tabs": [],
+    "fields": [
+      "Filter methods…"
+    ],
+    "columns": [],
+    "texts": [
+      "Refresh",
+      "no codec",
+      "ms",
+      "Invoke",
+      "Clear",
+      "in",
+      "out",
+      "Request (JSON)",
+      "Response"
+    ]
+  },
+  "blobs": {
+    "label": "Sealed Blobs",
+    "section": "Blobs",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Sealed Blobs"
+    ],
+    "tabs": [],
+    "fields": [
+      "Filter plugins…"
+    ],
+    "columns": [],
+    "texts": [
+      "Sealed Blobs",
+      "Loading catalog…",
+      "No sealed blobs in the catalog.",
+      "No plugins match \" \".",
+      "sealed"
+    ]
+  },
+  "plugins": {
+    "label": "Stream",
+    "section": "Plugins",
+    "source": "operation-dashboard-ui-07",
+    "headings": [
+      "Plugins"
+    ],
+    "tabs": [],
+    "fields": [
+      "Filter plugins…"
+    ],
+    "columns": [],
+    "texts": []
+  }
+}

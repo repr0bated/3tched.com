@@ -7,8 +7,10 @@ import { DoorError, OIA1_HEADER, PLUGIN_INTERFACE, PLUGIN_OBJECT_ROOT, IDENTITY_
 import { TCHED_ROUTER_METHODS, connectDoorChatAdapter } from "./door-chat-adapter";
 import type { CatalogModel } from "./model-catalog";
 import type { ChatResponse } from "./chat-adapter";
+import type { ChatMode } from "./chat-mode";
+import { ChatSession, type ChatRuntime } from "../svelte/chat-session";
 
-type Recorded = { request: CallMethodRequest; meta: NonNullable<RpcOptions["meta"]> };
+type Recorded = { request: CallMethodRequest; meta: NonNullable<RpcOptions["meta"]>; timeout: RpcOptions["timeout"] };
 
 function envelope(method: string, result: unknown): CallMethodResponse {
   return {
@@ -26,14 +28,52 @@ function envelope(method: string, result: unknown): CallMethodResponse {
   };
 }
 
-function mockDoor(handlers: Record<string, (args: unknown) => CallMethodResponse | Promise<CallMethodResponse>>) {
+const fixtureUiAuthoring = {
+  format: "threetched-ui-authoring-v1",
+  instructions: "Use the implemented Svelte catalog and registry. A visual does not grant tool access.",
+  documents: [{
+    path: "references/upstream/json-render/svelte-guide.md",
+    content: "Svelte reference fixture content.",
+    repository: "https://github.com/example/docs",
+    revision: "0123456789abcdef0123456789abcdef01234567",
+    source_path: "docs/svelte-guide.md",
+    sha256: "b".repeat(64),
+  }, {
+    path: "references/unselected/private.md",
+    content: "unselected-document-secret",
+    repository: "https://github.com/example/docs",
+    revision: "0123456789abcdef0123456789abcdef01234567",
+    source_path: "docs/private.md",
+    sha256: "c".repeat(64),
+  }],
+  prompt_document_paths: ["references/upstream/json-render/svelte-guide.md"],
+};
+
+function mockDoor(
+  handlers: Record<string, (args: unknown) => CallMethodResponse | Promise<CallMethodResponse>>,
+  contextMode: ChatMode | (() => ChatMode) = "personal",
+) {
   const calls: Recorded[] = [];
   vi.spyOn(PluginServiceClient.prototype, "callMethod").mockImplementation(
     (request: CallMethodRequest, options?: RpcOptions) => {
-      calls.push({ request, meta: options?.meta ?? {} });
-      const handler = handlers[request.methodName];
-      if (!handler) throw new Error(`unexpected method ${request.methodName}`);
+      calls.push({ request, meta: options?.meta ?? {}, timeout: options?.timeout });
       const args = request.arguments[0] ? Value.toJson(request.arguments[0]) : {};
+      const fallback: ((args: unknown) => CallMethodResponse) | undefined = request.methodName === "schema_read"
+        ? () => {
+          const pluginId = (args as { plugin_id?: string }).plugin_id;
+          return pluginId === "json_render"
+            ? envelope("schema_read", { plugin_id: "json_render", schema_hash: "d".repeat(64), schema: { name: "json_render", fields: { ui_authoring: { default: fixtureUiAuthoring }, private_state: { default: "schema-secret" } }, methods: { hidden: { description: "method-secret" } } } })
+            : envelope("schema_read", { plugin_id: "model_registry", schema_hash: "a".repeat(64), schema: { name: "model_registry", description: "[chatbot-guide:v1] fixture provider guide" } });
+        }
+        : request.methodName === "get_context"
+          ? () => envelope("get_context", {
+            mode: typeof contextMode === "function" ? contextMode() : contextMode,
+            effective_capabilities: ["chat.context", "json_render.read"],
+            session_id: "private-session-fixture",
+          })
+          : undefined;
+      const handler = handlers[request.methodName] ?? fallback;
+      if (!handler) throw new Error(`unexpected method ${request.methodName}`);
       const response = handler(args);
       return Promise.resolve(response).then(response => ({ response })) as never;
     },
@@ -48,6 +88,13 @@ const config = {
 
 function catalog(providers: unknown[] = [], models: unknown[] = [], more = false) {
   return {
+    refresh: () => envelope("refresh", {
+      refreshed_at: "2026-10-11T14:36:00Z", revision: 1,
+      providers: providers.map(provider => ({
+        provider_id: (provider as { provider_id: string }).provider_id,
+        status: "ok", available_models: 0, added: 0, dropped: 0,
+      })),
+    }),
     GetState: () =>
       envelope("GetState", {
         state: { status: "active", selected_provider: "", selected_model: "", providers: [], model_routes: [] },
@@ -108,7 +155,9 @@ it("retains fresh per-RPC bound identity through catalog construction and skips 
   vi.spyOn(PluginServiceClient.prototype, "callMethod").mockImplementation((request, options) => {
     methods.push(request.methodName);
     assertions.push(options?.meta?.[OIA1_HEADER]);
-    const result = request.methodName === "list_providers"
+    const result = request.methodName === "refresh"
+      ? { refreshed_at: "2026-10-11T14:36:00Z", revision: 1, providers: [] }
+      : request.methodName === "list_providers"
       ? { providers: [{ provider_id: "vendor", configured: true, enabled: true }], revision: 1 }
       : request.methodName === "GetState"
         ? { state: { status: "active", selected_provider: "", selected_model: "" } }
@@ -120,12 +169,12 @@ it("retains fresh per-RPC bound identity through catalog construction and skips 
   let nonce = 0;
   const nextIdentity = vi.fn(async () => ({ kind: "oia1" as const, assertion: btoa(`fresh-${++nonce}`) }));
   const adapter = await connectDoorChatAdapter({ ...config, boundOracle: { sessionId: "assigned", nextIdentity } });
-  expect(assertions).toEqual([btoa("fresh-1"), btoa("fresh-2"), btoa("fresh-3")]);
+  expect(assertions).toEqual([btoa("fresh-1"), btoa("fresh-2"), btoa("fresh-3"), btoa("fresh-4")]);
   const status = vi.fn();
   const stop = adapter.followKnowledge(vi.fn(), status);
   stop();
   expect(status).toHaveBeenCalledWith({ state: "closed", reason: "Updates unavailable", retryInMs: null });
-  expect(methods).toEqual(["list_providers", "list_models", "GetState"]);
+  expect(methods).toEqual(["refresh", "list_providers", "list_models", "GetState"]);
 });
 
 const inferencePrefix = "https://inference.example/subscription";
@@ -139,7 +188,9 @@ function nativeReads(values: Record<string, string>): Record<string, (args: unkn
 }
 async function expectNoGeneration(response: Promise<ChatResponse>, calls: Recorded[]) {
   const previous = calls.filter(call => call.request.methodName === "Chat").length;
-  expect((await response).message.content).toMatch(/Apply|binding|context changed/);
+  const refused = await response;
+  expect(refused.message.content).toMatch(/Apply|binding|context changed/);
+  expect(refused.historyEligible).toBe(false);
   expect(calls.filter(call => call.request.methodName === "Chat")).toHaveLength(previous);
 }
 
@@ -169,7 +220,95 @@ describe("ordinary catalog/native routing", () => {
   };
   const reply = () => envelope("Chat", { content: "answer", provider: "dynamic-family", model: selection.modelId });
   const applyResult = (reference = "dynamic-family.exact_alias", model = selection.modelId) => ({ provider_id: selection.providerId, model_id: selection.modelId, reference, model, uri: inferenceUri, catalog_revision: 17 });
-  const wire = (calls: Recorded[]) => Value.toJson(calls.filter(call => call.request.methodName === "Chat").at(-1)!.request.arguments[0]);
+  type ChatWire = { message: string; messages: { role: string; content: string }[]; provider?: string; model?: string };
+  const wire = (calls: Recorded[]) => Value.toJson(calls.filter(call => call.request.methodName === "Chat").at(-1)!.request.arguments[0]) as ChatWire;
+
+  it.each(["personal", "project", "control_plane", "accountability", "notebook_lm", "ui_render"] as const)("consumes the selected provider guide in %s", async mode => {
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply }, mode);
+    const adapter = await connectDoorChatAdapter(config);
+    if (mode !== "control_plane" && mode !== "accountability") await adapter.selectRoute(selection);
+    await adapter.submit({ message: "hello", history: [], route: selection, mode });
+    expect(wire(calls)).toMatchObject({ message: expect.stringContaining("fixture provider guide") });
+    expect(wire(calls).message).toContain("Use the implemented Svelte catalog and registry.");
+    expect(wire(calls).message).toContain("Svelte reference fixture content.");
+    expect(wire(calls).message).not.toContain("unselected-document-secret");
+    expect(wire(calls).message).not.toContain("private-session-fixture");
+    expect(wire(calls).message).toContain("do not provide model tools");
+    expect(wire(calls).message).toContain(`mode=${mode}`);
+    expect(calls.filter(call => call.request.methodName === "schema_read")).toHaveLength(2);
+    expect(calls.filter(call => call.request.methodName === "get_context")).toHaveLength(1);
+  });
+
+  it.each([false, true])("does not carry a locally rejected render prompt into the next Personal Chat (prior exchange: %s)", async priorExchange => {
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply });
+    const adapter = await connectDoorChatAdapter(config);
+    const session = new ChatSession();
+    const runtime: ChatRuntime = {
+      adapter, scopeKey: "personal", route: selection, modelLabel: "Chosen model", setCanvas: vi.fn(),
+      context: {
+        session_id: "session", mode: "personal", project_id: null,
+        memory_namespace: "session/session/personal/main", read_only: false,
+        effective_capabilities: [], allowed_agents: [], selected_agent: null,
+      },
+    };
+    session.configure(runtime);
+    if (priorExchange) {
+      await adapter.selectRoute(selection);
+      await session.submit("Earlier question");
+      await expect(adapter.selectRoute({ ...selection, modelId: "missing" })).rejects.toThrow("not available");
+    }
+    const before = calls.filter(call => call.request.methodName === "Chat").length;
+    const rejected = "rerender page with ui elements from catalog";
+    await session.submit(rejected);
+    expect(calls.filter(call => call.request.methodName === "Chat")).toHaveLength(before);
+    expect(session.current.messages.at(-2)?.content).toBe(rejected);
+    expect(session.current.messages.at(-1)?.content).toBe("Apply an available catalog model with a confirmed threetched routing binding before sending a chat message.");
+    expect(session.current.draft).toBe(rejected);
+    await adapter.selectRoute(selection);
+    await session.submit("hi");
+    expect(wire(calls)).toMatchObject({
+      message: expect.stringMatching(/\n\nUser request:\nhi$/), provider: record.native_provider_id, model: selection.modelId,
+      messages: [
+        ...(priorExchange ? [{ role: "user", content: "Earlier question" }, { role: "assistant", content: "answer" }] : []),
+        { role: "user", content: expect.stringMatching(/\n\nUser request:\nhi$/) },
+      ],
+    });
+    expect(calls.filter(call => call.request.methodName === "Chat")).toHaveLength(before + 1);
+    expect(calls.filter(call => call.request.methodName === "Chat").at(-1)?.request.capabilityId).toBe(TCHED_ROUTER_METHODS.Chat);
+    session.dispose();
+  });
+
+  it("keeps an unknown Chat outcome visible without forwarding it or retrying on the next turn", async () => {
+    const detail = "method_outcome_unknown; operation_id=12b52490-a40c-480a-9769-5bee2b4af58c; do not retry automatically";
+    let generations = 0;
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()),
+      Chat: () => ++generations === 1
+        ? { success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.VALIDATION_FAILED, message: detail } }
+        : reply(),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await adapter.selectRoute(selection);
+    const session = new ChatSession();
+    session.configure({
+      adapter, scopeKey: "personal", route: selection, modelLabel: "Chosen model", setCanvas: vi.fn(),
+      context: {
+        session_id: "session", mode: "personal", project_id: null,
+        memory_namespace: "session/session/personal/main", read_only: false,
+        effective_capabilities: [], allowed_agents: [], selected_agent: null,
+      },
+    });
+    await session.submit("Uncertain request");
+    expect(session.current.messages.at(-1)?.content).toBe(`⚠️ Chat outcome unknown: ${detail}`);
+    expect(session.current.draft).toBe("Uncertain request");
+    expect(generations).toBe(1);
+    await session.submit("hi");
+    expect(wire(calls)).toMatchObject({ message: expect.stringMatching(/\n\nUser request:\nhi$/), messages: [{ role: "user", content: expect.stringMatching(/\n\nUser request:\nhi$/) }] });
+    expect(generations).toBe(2);
+    session.dispose();
+  });
 
   it("applies a receiver-verified OpenAI subscription binding without an API endpoint", async () => {
     const subscription = { ...applyResult("openai.personal"), uri: "", oauth: true };
@@ -201,6 +340,7 @@ describe("ordinary catalog/native routing", () => {
 
   it("applies the exact model binding and retains Cozo IDs from canonical readback", async () => {
     const selected_provider = "dynamic-family.exact_alias";
+    let currentMode: ChatMode = "personal";
     const calls = mockDoor({
       ...catalog([provider], [record]),
       ...reads,
@@ -208,7 +348,7 @@ describe("ordinary catalog/native routing", () => {
         expect(args).toEqual({ provider_id: selection.providerId, model_id: selection.modelId });
         return envelope("apply_catalog_model_binding", applyResult(selected_provider));
       }, Chat: reply,
-    });
+    }, () => currentMode);
     const adapter = await connectDoorChatAdapter(config);
     expect(adapter.providers[0].id).toBe(selection.providerId);
     await expectNoGeneration(adapter.submit({ message: "before apply", history: [], route: selection, mode: "personal" }), calls);
@@ -217,10 +357,12 @@ describe("ordinary catalog/native routing", () => {
     expect(wire(calls)).toMatchObject({ provider: record.native_provider_id, model: selection.modelId });
     expect(calls.some(call => call.request.methodName === "SetSelection" || call.request.methodName === "config_set" || call.request.methodName === "config_get")).toBe(false);
     for (const mode of ["control_plane", "accountability"] as const) {
+      currentMode = mode;
       await adapter.submit({ message: "singleton", history: [], route: selection, mode });
       expect(wire(calls)).not.toHaveProperty("provider");
       expect(wire(calls)).not.toHaveProperty("model");
     }
+    currentMode = "personal";
     await expectNoGeneration(adapter.submit({ message: "different draft", history: [], route: { ...selection, modelId: "another" }, mode: "personal" }), calls);
   });
 
@@ -322,12 +464,91 @@ describe("ordinary catalog/native routing", () => {
     await expectNoGeneration(adapter.submit({ message: "failed attempt cleared assertion", history: [], route: selection, mode: "personal" }), calls);
   });
 
+  it("stops provider selection at a schema-read denial without applying or logging in", async () => {
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      schema_read: () => ({ success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.PERMISSION_DENIED, message: "guide capability denied" } }),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await expect(adapter.selectRoute(selection)).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+    expect(calls.some(call => ["apply_catalog_model_binding", "Chat", "auth_login"].includes(call.request.methodName))).toBe(false);
+  });
+
   it("invalidates a successful capture on identity replacement", async () => {
     const calls = mockDoor({ ...catalog([provider], [record]), ...reads, apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply });
     const adapter = await connectDoorChatAdapter(config);
     await adapter.selectRoute(selection);
     adapter.setIdentity({ kind: "oia1", assertion: "RUZHSA==" });
     await expectNoGeneration(adapter.submit({ message: "new identity", history: [], route: selection, mode: "personal" }), calls);
+  });
+
+  it("rejects a server-side mode change before calling Chat", async () => {
+    let currentMode: ChatMode = "personal";
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply,
+    }, () => currentMode);
+    const adapter = await connectDoorChatAdapter(config);
+    await adapter.selectRoute(selection);
+    currentMode = "project";
+    const response = await adapter.submit({ message: "stale personal request", history: [], route: selection, mode: "personal" });
+    expect(response.message.content).toContain("Chat mode changed from personal to project");
+    expect(response.historyEligible).toBe(false);
+    expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
+  });
+
+  it("surfaces a sealed docs denial without falling back to prompt-only guesses", async () => {
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()),
+      schema_read: args => (args as { plugin_id: string }).plugin_id === "json_render"
+        ? { success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.PERMISSION_DENIED, message: "sealed UI docs denied" } }
+        : envelope("schema_read", { plugin_id: "model_registry", schema_hash: "a".repeat(64), schema: { name: "model_registry", description: "[chatbot-guide:v1] fixture provider guide" } }),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await adapter.selectRoute(selection);
+    const response = await adapter.submit({ message: "do not invent docs", history: [], route: selection, mode: "personal" });
+    expect(response.historyEligible).toBe(false);
+    // The door shows a user-safe denial; the server's detail stays out of the chat.
+    expect(response.message.content).toBe("⚠️ Chat unavailable: This identity does not hold the capability for that operation.");
+    expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
+    const docsRead = calls.find(call => call.request.methodName === "schema_read" && (Value.toJson(call.request.arguments[0]) as { plugin_id: string }).plugin_id === "json_render");
+    expect(docsRead?.meta["x-opdbus-capability"]).toBe("cognitive_mcp.read");
+  });
+
+  it("stops before Chat when the authoritative context read is denied", async () => {
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()),
+      get_context: () => ({ success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.PERMISSION_DENIED, message: "chat context denied" } }),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await adapter.selectRoute(selection);
+    const response = await adapter.submit({ message: "no context", history: [], route: selection, mode: "personal" });
+    expect(response.historyEligible).toBe(false);
+    expect(response.message.content).toBe("⚠️ Chat unavailable: This identity does not hold the capability for that operation.");
+    expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
+    const contextRead = calls.find(call => call.request.methodName === "get_context");
+    expect(contextRead?.meta["x-opdbus-capability"]).toBe("chat.context");
+  });
+
+  it("does not send Chat when identity changes during the sealed docs read", async () => {
+    let finish!: (response: CallMethodResponse) => void;
+    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
+      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()),
+      schema_read: args => (args as { plugin_id: string }).plugin_id === "json_render"
+        ? new Promise(resolve => { finish = resolve; })
+        : envelope("schema_read", { plugin_id: "model_registry", schema_hash: "a".repeat(64), schema: { name: "model_registry", description: "[chatbot-guide:v1] fixture provider guide" } }),
+      Chat: reply,
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    await adapter.selectRoute(selection);
+    const pending = adapter.submit({ message: "identity rotates", history: [], route: selection, mode: "personal" });
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    adapter.setIdentity({ kind: "oia1", assertion: "RUZHSA==" });
+    finish(envelope("schema_read", {
+      plugin_id: "json_render", schema_hash: "d".repeat(64),
+      schema: { name: "json_render", fields: { ui_authoring: { default: fixtureUiAuthoring } } },
+    }));
+    const response = await pending;
+    expect(response.historyEligible).toBe(false);
+    expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
   });
 
   it("does not capture a late Apply response after identity replacement", async () => {
@@ -373,6 +594,7 @@ describe("ordinary catalog/native routing", () => {
     await adapter.selectRoute(selection);
     const response = await adapter.submit({ message: "hi", history: [], route: selection, mode: "personal" });
     expect(response.message.content).toBe("⚠️ Chat unavailable: native route unavailable");
+    expect(response.historyEligible).toBe(false);
   });
 
   it("labels an admitted Chat call with an unknown outcome without retrying it", async () => {
@@ -382,11 +604,99 @@ describe("ordinary catalog/native routing", () => {
     await adapter.selectRoute(selection);
     const response = await adapter.submit({ message: "hi", history: [], route: selection, mode: "personal" });
     expect(response.message.content).toBe(`⚠️ Chat outcome unknown: ${detail}`);
+    expect(response.historyEligible).toBe(false);
     expect(calls.filter((call) => call.request.methodName === "Chat")).toHaveLength(1);
   });
 });
 
 describe("connectDoorChatAdapter", () => {
+  it("returns stored choices before a background refresh and coalesces an explicit refresh with it", async () => {
+    const records = [{ provider_id: "vendor", model_id: "stored", available: true }];
+    const fixture = catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }], records);
+    let finish!: (response: CallMethodResponse) => void;
+    const calls = mockDoor({
+      ...fixture,
+      refresh: () => new Promise<CallMethodResponse>(resolve => { finish = resolve; }),
+    });
+    const adapter = await connectDoorChatAdapter(config, { refreshOnLoad: "background" });
+    expect(adapter.providers[0].models[0].id).toBe("stored");
+    expect(adapter.catalogRefreshOnMount).toBe(true);
+    expect(calls.map(call => call.request.methodName)).toEqual(["list_providers", "list_models", "GetState"]);
+    const pending = adapter.refreshProviders!();
+    expect(adapter.catalogRefreshOnMount).toBe(false);
+    expect(adapter.refreshProviders!()).toBe(pending);
+    expect(adapter.providers[0].models[0].id).toBe("stored");
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    records[0] = { ...records[0], model_id: "fresh" };
+    finish(fixture.refresh());
+    await pending;
+    expect(adapter.providers[0].models[0].id).toBe("fresh");
+    expect(calls.map(call => call.request.methodName)).toEqual([
+      "list_providers", "list_models", "GetState", "refresh", "list_providers", "list_models",
+    ]);
+  });
+
+  it("refreshes once before connection when no stored providers exist", async () => {
+    const empty = catalog();
+    const populated = catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+      [{ provider_id: "vendor", model_id: "first", available: true }]);
+    let refreshed = false;
+    const calls = mockDoor({
+      ...populated,
+      list_providers: () => refreshed ? populated.list_providers() : empty.list_providers(),
+      refresh: () => { refreshed = true; return populated.refresh(); },
+    });
+    const adapter = await connectDoorChatAdapter(config, { refreshOnLoad: "background" });
+    expect(adapter.providers[0].models[0].id).toBe("first");
+    expect(adapter.catalogRefreshOnMount).toBe(false);
+    expect(calls.map(call => call.request.methodName)).toEqual([
+      "list_providers", "refresh", "list_providers", "list_models", "GetState",
+    ]);
+  });
+
+  it("retains stored choices and consumes automatic refresh after an unknown outcome", async () => {
+    const detail = "method_outcome_unknown; operation_id=8e0adbef-441f-493f-a61d-a028e6dfca48; do not retry automatically";
+    const calls = mockDoor({
+      ...catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+        [{ provider_id: "vendor", model_id: "stored", available: true }]),
+      refresh: () => { throw new RpcError(detail, "INTERNAL"); },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const adapter = await connectDoorChatAdapter(config, { refreshOnLoad: "background" });
+    await adapter.refreshProviders!();
+    expect(adapter.catalogRefreshOnMount).toBe(false);
+    expect(adapter.catalogError).toContain(detail);
+    expect(adapter.providers[0].models[0].id).toBe("stored");
+    expect(calls.filter(call => call.request.methodName === "refresh")).toHaveLength(1);
+    expect(calls.some(call => ["schema_read", "Chat", "apply_catalog_model_binding"].includes(call.request.methodName))).toBe(false);
+  });
+
+  it.each(["UNAUTHENTICATED", "PERMISSION_DENIED", "CANCELLED"])(
+    "does not start a background mutation when the initial catalog read is refused (%s)",
+    async code => {
+      const calls = mockDoor({ list_providers: () => { throw new RpcError("catalog refused", code); } });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      await expect(connectDoorChatAdapter(config, { refreshOnLoad: "background" })).rejects.toMatchObject({ code });
+      expect(calls.map(call => call.request.methodName)).toEqual(["list_providers"]);
+    },
+  );
+
+  it("preserves read-only CLI discovery when refresh on load is explicitly disabled", async () => {
+    const calls = mockDoor({
+      ...catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+        [{ provider_id: "vendor", model_id: "stored", available: true }]),
+    });
+    const adapter = await connectDoorChatAdapter(config, { refreshOnLoad: false });
+    expect(adapter.catalogRefreshOnMount).toBe(false);
+    expect(adapter.providers[0].models[0].id).toBe("stored");
+    expect(adapter.catalogError).toBeNull();
+    expect(calls.map(call => call.request.methodName)).toEqual(["list_providers", "list_models", "GetState"]);
+    await adapter.refreshProviders!();
+    expect(calls.map(call => call.request.methodName)).toEqual([
+      "list_providers", "list_models", "GetState", "refresh", "list_providers", "list_models",
+    ]);
+  });
+
   it("loads the shared provider catalog and leaves the router families behind once models exist", async () => {
     const calls = mockDoor({
       ...catalog(
@@ -436,6 +746,16 @@ describe("connectDoorChatAdapter", () => {
     ]);
 
     const byMethod = Object.fromEntries(calls.map((call) => [call.request.methodName, call]));
+    expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "list_models", "GetState"]);
+    expect(byMethod.refresh.request).toMatchObject({
+      pluginId: "model_registry", objectPath: `${PLUGIN_OBJECT_ROOT}/model_registry`,
+      interfaceName: PLUGIN_INTERFACE, capabilityId: "model_registry.refresh",
+    });
+    expect(Value.toJson(byMethod.refresh.request.arguments[0])).toEqual({});
+    expect(byMethod.refresh.meta).toEqual({
+      [OIA1_HEADER]: "QUJDRA==", "x-opdbus-capability": "model_registry.refresh",
+    });
+    expect(byMethod.refresh.timeout).toBe(300_000);
     expect(byMethod.list_providers.request).toMatchObject({
       pluginId: "model_registry",
       objectPath: `${PLUGIN_OBJECT_ROOT}/model_registry`,
@@ -503,6 +823,7 @@ describe("connectDoorChatAdapter", () => {
       { provider_id: "dynamic_vendor", model_id: "b-unbound", name: "Visible without binding", available: true },
     ];
     let nativeModel = "a-old";
+    let currentMode: ChatMode = "control_plane";
     const calls = mockDoor({
       ...catalog([{ provider_id: "dynamic_vendor", name: "Dynamic", configured: true, enabled: true, status: "ok", control_plane_profiles: [] }], records),
       config_get: args => envelope("config_get", {
@@ -522,7 +843,7 @@ describe("connectDoorChatAdapter", () => {
         return envelope("config_patch", {});
       },
       Chat: () => envelope("Chat", { content: "native route answer", provider: "custom", model: nativeModel, finish_reason: "stop", usage: {} }),
-    });
+    }, () => currentMode);
     const adapter = await connectDoorChatAdapter(config);
     expect(adapter.providers[0].models.map(model => model.id)).toEqual(["a-old", "b-unbound"]);
     expect(await adapter.controlPlane.current()).toEqual({ providerId: "dynamic_vendor", modelId: "a-old" });
@@ -551,6 +872,7 @@ describe("connectDoorChatAdapter", () => {
     const cpChat = calls.filter(call => call.request.methodName === "Chat").at(-1)!;
     expect(Value.toJson(cpChat.request.arguments[0])).not.toHaveProperty("provider");
     expect(Value.toJson(cpChat.request.arguments[0])).not.toHaveProperty("model");
+    currentMode = "personal";
     await expectNoGeneration(adapter.submit({ message: "personal answer", history: [], route: ordinaryRoute, mode: "personal" }), calls);
   });
 
@@ -591,9 +913,8 @@ describe("connectDoorChatAdapter", () => {
     const chat = calls.find((call) => call.request.methodName === "Chat")!;
     expect(chat.request.capabilityId).toBe(TCHED_ROUTER_METHODS.Chat);
     const args = Value.toJson(chat.request.arguments[0]) as { message: string; messages: { role: string; content: string }[]; provider: string; model: string };
-    expect(args.message).toContain("Answer the user's request normally");
-    expect(args.message).toContain("dashboardTable");
-    expect(args.message).toContain("User request:\nhi");
+    expect(args.message).toContain("fixture provider guide");
+    expect(args.message).toMatch(/\n\nUser request:\nhi$/);
     expect(args.messages).toEqual([
       { role: "assistant", content: "earlier reply" },
       { role: "user", content: args.message },
@@ -609,13 +930,14 @@ describe("connectDoorChatAdapter", () => {
       ...nativeReads({ "agents.control_plane.model_provider": "custom.cp_route", "providers.models.custom.cp_route.model": "gemma", "providers.models.custom.cp_route.uri": inferenceUri }),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "gemma", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "gemma", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
       Chat: () => envelope("Chat", { content: "control plane reply", provider: "", model: "", finish_reason: "stop", usage: {} }),
-    });
+    }, "control_plane");
     const adapter = await connectDoorChatAdapter(config);
     await adapter.submit({ message: "status", history: [], route: { providerId: "local", modelId: "gemma" }, mode: "control_plane" });
     const chat = calls.find((call) => call.request.methodName === "Chat")!;
     const args = Value.toJson(chat.request.arguments[0]) as { message: string; messages: { role: string; content: string }[]; provider?: string; model?: string };
     expect(args.message).toContain("Answer the user's request normally");
-    expect(args.message).toContain("dashboardTable");
+    expect(args.message).toContain("catalogComponent");
+    expect(args.message).not.toContain("dashboardTable");
     expect(args.messages).toEqual([{ role: "user", content: args.message }]);
     expect(args.provider).toBeUndefined();
     expect(args.model).toBeUndefined();
@@ -624,6 +946,7 @@ describe("connectDoorChatAdapter", () => {
 
   it("surfaces a bridge refusal as a DoorError, never as empty data", async () => {
     mockDoor({
+      ...catalog(),
       list_providers: () => ({
         success: false,
         result: undefined,
@@ -660,18 +983,92 @@ describe("connectDoorChatAdapter", () => {
     expect(adapter.providers[0].models[0].id).toBe("model");
     expect(adapter.committedRoute).toBeNull();
     expect(adapter.routeInitiallyApplied).toBe(false);
-    expect(calls.map(call => call.request.methodName)).toEqual(["list_providers", "list_models", "GetState"]);
+    expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "GetState"]);
+  });
+
+  it("keeps successful and stored choices with a warning after a partial refresh", async () => {
+    const calls = mockDoor({
+      ...catalog([
+        { provider_id: "fresh", configured: true, enabled: true, status: "ok" },
+        { provider_id: "stored", configured: true, enabled: true, status: "error" },
+      ], [
+        { provider_id: "fresh", model_id: "new", available: true },
+        { provider_id: "stored", model_id: "previous", available: true },
+      ]),
+      refresh: () => envelope("refresh", {
+        refreshed_at: "2026-10-11T14:36:00Z", revision: 1,
+        providers: [
+          { provider_id: "fresh", status: "ok", available_models: 0, added: 0, dropped: 0 },
+          { provider_id: "stored", status: "error", available_models: 0, added: 0, dropped: 0 },
+        ],
+      }),
+    });
+    const adapter = await connectDoorChatAdapter(config);
+    expect(adapter.providers.map(provider => [provider.id, provider.models.map(model => model.id)])).toEqual([
+      ["fresh", ["new"]], ["stored", ["previous"]],
+    ]);
+    expect(adapter.catalogError).toBe("Could not refresh stored. Showing stored models for those providers.");
+    expect(adapter.committedRoute).toBeNull();
+    expect(adapter.routeInitiallyApplied).toBe(false);
+    expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "list_models", "GetState"]);
+  });
+
+  it.each([
+    { code: "PERMISSION_DENIED", detail: "refresh capability not held", warning: "freshness is unconfirmed" },
+    { code: "INTERNAL", detail: "method_outcome_unknown; operation_id=8e0adbef-441f-493f-a61d-a028e6dfca48; do not retry automatically", warning: "operation_id=8e0adbef-441f-493f-a61d-a028e6dfca48" },
+  ])("keeps readable picker data after refresh $code without replay or selection", async ({ code, detail, warning }) => {
+    const calls = mockDoor({
+      ...catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+        [{ provider_id: "vendor", model_id: "stored", available: true }]),
+      refresh: () => { throw new RpcError(detail, code); },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const adapter = await connectDoorChatAdapter(config);
+    expect(adapter.providers[0].models[0].id).toBe("stored");
+    expect(adapter.catalogError).toContain(warning);
+    expect(adapter.committedRoute).toBeNull();
+    expect(adapter.routeInitiallyApplied).toBe(false);
+    expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "GetState"]);
+    for (const call of calls.filter(call => call.request.pluginId === "model_registry")) {
+      expect(call.meta[OIA1_HEADER]).toBe(config.identity.assertion);
+      expect(call.meta["x-opdbus-capability"]).toBe(call.request.methodName === "refresh" ? "model_registry.refresh" : "model_registry.read");
+    }
+  });
+
+  it.each(["UNAUTHENTICATED", "CANCELLED"])("stops interface loading after refresh %s without catalog reads", async code => {
+    const calls = mockDoor({ refresh: () => { throw new RpcError("refresh refused", code); } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(connectDoorChatAdapter(config)).rejects.toMatchObject({ code });
+    expect(calls.map(call => call.request.methodName)).toEqual(["refresh"]);
+  });
+
+  it("exposes picker data and the operation ID when initial route confirmation has an unknown outcome", async () => {
+    const detail = "method_outcome_unknown; operation_id=8e0adbef-441f-493f-a61d-a028e6dfca48; do not retry automatically";
+    const calls = mockDoor({
+      ...catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+        [{ provider_id: "vendor", model_id: "fresh", available: true }]),
+      GetState: () => { throw new RpcError(detail, "INTERNAL"); },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const adapter = await connectDoorChatAdapter(config);
+    expect(adapter.providers[0].models[0].id).toBe("fresh");
+    expect(adapter.committedRoute).toBeNull();
+    expect(adapter.routeInitiallyApplied).toBe(false);
+    expect(adapter.initialRouteError).toContain(detail);
+    expect(adapter.catalogError).toBeNull();
+    expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "GetState"]);
   });
 
   it.each(["UNAUTHENTICATED", "UNAVAILABLE", "CANCELLED"])(
     "keeps router-state authentication/transport/cancellation failures fatal (%s)",
     async code => {
-      mockDoor({
+      const calls = mockDoor({
         ...catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }]),
-        GetState: () => { throw new RpcError("router state unavailable", code); },
+        GetState: () => { throw new RpcError("method_outcome_unknown; operation_id=8e0adbef-441f-493f-a61d-a028e6dfca48", code); },
       });
       vi.spyOn(console, "error").mockImplementation(() => {});
       await expect(connectDoorChatAdapter(config)).rejects.toMatchObject({ code });
+      expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "GetState"]);
     },
   );
 
@@ -685,10 +1082,10 @@ describe("connectDoorChatAdapter", () => {
 });
 
 describe("UI reference and rendering transport", () => {
-  it.each((["personal", "control_plane", "accountability"] as const).flatMap(mode =>
+  it.each((["personal", undefined, "control_plane", "accountability"] as const).flatMap(mode =>
     (["json-render", "spec", "raw-json", "raw-jsonl"] as const).map(format => ({ mode, format })),
   ))("offers validated catalog presentation in $mode mode from $format", async ({ mode, format }) => {
-    const spec = { root: "status", elements: { status: { type: "dashboardStatus", props: { label: "Example only", tone: "info" } } } };
+    const spec = { root: "status", elements: { status: { type: "heading", props: { text: "Example only", level: 2 } } } };
     const patches = [
       { op: "add", path: "/root", value: spec.root },
       { op: "add", path: "/elements/status", value: spec.elements.status },
@@ -704,24 +1101,35 @@ describe("UI reference and rendering transport", () => {
       apply_catalog_model_binding: args => envelope("apply_catalog_model_binding", { ...(args as object), reference: "custom.demo", model: "demo", uri: inferenceUri, catalog_revision: 1 }),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "demo", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "demo", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
       Chat: () => envelope("Chat", { content: reply, provider: "local", model: "demo" }),
-    });
+    }, mode ?? "personal");
     const adapter = await connectDoorChatAdapter(config);
     const route = { providerId: "openrouter", modelId: "demo" };
-    if (mode === "personal") await adapter.selectRoute(route);
+    const personal = mode === undefined || mode === "personal";
+    if (personal) await adapter.selectRoute(route);
     const response = await adapter.submit({ message: "show status", history: [], route, mode });
     expect(response.canvasSpec).toMatchObject(spec);
     expect(response.message.content).toBe(format.startsWith("raw-") ? "Rendered the requested interface." : "Status");
     const chat = calls.find(call => call.request.methodName === "Chat")!;
     const args = Value.toJson(chat.request.arguments[0]) as { message: string; messages: { content: string }[]; provider?: string; model?: string };
-    expect(args.message).toContain("optionally include exactly one fenced spec block");
-    expect(args.message).toContain("dashboardStatus");
+    if (personal) {
+      expect(args.message).toMatch(/User request:\nshow status$/);
+      expect(args.messages).toEqual([{ role: "user", content: args.message }]);
+    } else {
+      expect(args.message).toContain("optionally include one fenced spec block per distinct interface");
+      expect(args.message).toContain("catalogComponent");
+      expect(args.message).not.toContain("dashboardStatus");
+    }
+    expect(args.message).toContain("Use the implemented Svelte catalog and registry.");
+    expect(args.message).not.toContain("unselected-document-secret");
+    expect(args.message).toContain("fixture provider guide");
+    expect(calls.filter(call => call.request.methodName === "schema_read")).toHaveLength(2);
     expect(args.messages.at(-1)?.content).toBe(args.message);
-    expect(args.provider).toBe(mode === "personal" ? "custom.demo" : undefined);
-    expect(args.model).toBe(mode === "personal" ? "demo" : undefined);
+    expect(args.provider).toBe(personal ? "custom.demo" : undefined);
+    expect(args.model).toBe(personal ? "demo" : undefined);
   });
 
   it("supplies the implemented catalog in UI render mode and validates the returned canvas", async () => {
-    const spec = { root: "status", elements: { status: { type: "dashboardStatus", props: { label: "Example only", tone: "info" } } } };
+    const spec = { root: "status", elements: { status: { type: "heading", props: { text: "Example only", level: 2 } } } };
     const calls = mockDoor({
       ...catalog([
         { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
@@ -731,7 +1139,7 @@ describe("UI reference and rendering transport", () => {
       apply_catalog_model_binding: args => envelope("apply_catalog_model_binding", { ...(args as object), reference: "custom.demo", model: "demo", uri: inferenceUri, catalog_revision: 1 }),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "demo", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "demo", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
       Chat: () => envelope("Chat", { content: `Preview\n\`\`\`json-render\n${JSON.stringify(spec)}\n\`\`\``, provider: "local", model: "demo" }),
-    });
+    }, "ui_render");
     const adapter = await connectDoorChatAdapter(config);
     const route = await adapter.selectRoute({ providerId: "openrouter", modelId: "demo" });
     const response = await adapter.submit({ message: "show btrfs", history: [], route, mode: "ui_render" });
@@ -739,10 +1147,11 @@ describe("UI reference and rendering transport", () => {
     expect(response.message.content).toBe("Preview");
     const call = calls.find(call => call.request.methodName === "Chat")!;
     const args = Value.toJson(call.request.arguments[0]) as { message: string; messages: { content: string }[] };
-    expect(args.message).toContain("Relevant static reference (btrfs)");
+    expect(args.message).not.toContain("Relevant static reference");
     expect(args.message).toContain("gallery for proposing possible interfaces");
     expect(args.message).toContain("Do not claim any proposal has been promoted into the main catalog");
-    expect(args.message).toContain("dashboardTable");
+    expect(args.message).toContain("catalogComponent");
+    expect(args.message).not.toContain("dashboardTable");
     expect(args.messages.at(-1)?.content).toBe(args.message);
     const before = calls.length;
     const reference = await adapter.submit({ message: "/ui-reference btrfs", history: [], route: { providerId: "local", modelId: "demo" } });
@@ -751,10 +1160,11 @@ describe("UI reference and rendering transport", () => {
   });
 });
 
-it("reloads Cozo choices without mutating routing and preserves them when a reload fails", async () => {
+it("refreshes once before each coalesced catalog read and preserves choices when the read fails", async () => {
   let current = "old";
   let fail = false;
   const calls = mockDoor({
+    ...catalog(),
     GetState: () =>
       envelope("GetState", {
         state: { status: "active", selected_provider: "", selected_model: "", providers: [], model_routes: [] },
@@ -778,11 +1188,39 @@ it("reloads Cozo choices without mutating routing and preserves them when a relo
   await expect(adapter.refreshProviders!()).rejects.toThrow("The door is not reachable right now.");
   expect(adapter.providers[0].models[0].id).toBe("new");
   expect(calls.map(c => c.request.methodName)).toEqual([
+    "refresh",
     "list_providers",
     "list_models",
     "GetState",
+    "refresh",
     "list_providers",
     "list_models",
+    "refresh",
     "list_providers",
   ]);
+  expect(calls.filter(call => call.request.methodName === "refresh")).toHaveLength(3);
+  expect(calls.some(call => ["SetSelection", "config_set", "apply_catalog_model_binding", "Chat"].includes(call.request.methodName))).toBe(false);
+});
+
+it("stops a pending refresh at identity rotation without reading or publishing under the new identity", async () => {
+  let refreshes = 0;
+  let finish: ((response: CallMethodResponse) => void) | undefined;
+  const fixture = catalog([{ provider_id: "vendor", configured: true, enabled: true, status: "ok" }],
+    [{ provider_id: "vendor", model_id: "original", available: true }]);
+  const calls = mockDoor({
+    ...fixture,
+    refresh: () => ++refreshes === 1 ? fixture.refresh()
+      : new Promise<CallMethodResponse>(resolve => { finish = resolve; }),
+  });
+  const adapter = await connectDoorChatAdapter(config);
+  const pending = adapter.refreshProviders!();
+  // Attach the rejection assertion before resolving the pending operation.
+  const rejected = expect(pending).rejects.toMatchObject({ code: "CANCELLED" });
+  await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+  adapter.setIdentity({ kind: "oia1", assertion: "RUZHSA==" });
+  finish!(fixture.refresh());
+  await rejected;
+  expect(adapter.providers[0].models[0].id).toBe("original");
+  expect(calls.map(call => call.request.methodName)).toEqual(["refresh", "list_providers", "list_models", "GetState", "refresh"]);
+  expect(calls.at(-1)!.meta[OIA1_HEADER]).toBe(config.identity.assertion);
 });
