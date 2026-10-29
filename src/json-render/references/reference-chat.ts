@@ -1,8 +1,10 @@
+import { mountedPluginSourcesPrompt } from "../../chat/mounted-plugin-sources";
 import type { ChatResponse } from "../../chat/chat-adapter";
 import type { ChatMode, NotebookDetail } from "../../chat/chat-mode";
 import type { CatalogEntry } from "../../chat/ui-gallery";
 import { canvasCatalog } from "./canvas-contract";
 import { dashboardReferences, findDashboardReference } from "./dashboard-examples";
+import { GOV_INDEX_ID, govIndexMessage, governanceReferences } from "./governance-examples";
 import { STORY_INDEX_ID, storyIndexMessage, storyReferences } from "./story-examples";
 import { PAGE_REQUEST } from "../navigation/manifest";
 import { registeredComponentPrompt } from "./registered-components";
@@ -28,6 +30,25 @@ function storyChatResponse(query: string): ChatResponse | undefined {
   };
 }
 
+/** `/ui-reference gov [chapter]` opens the governance consoles; it has its own namespace. */
+function govChatResponse(query: string): ChatResponse | undefined {
+  const [head, ...rest] = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (head !== GOV_INDEX_ID) return undefined;
+  const chapterId = rest.join(" ");
+  const chapter = chapterId ? governanceReferences.find(item => item.id === chapterId) : governanceReferences[0];
+  if (!chapter) {
+    return { message: { id: `gov-index-${referenceSequence}`, role: "agent", content: govIndexMessage() } };
+  }
+  return {
+    message: {
+      id: `gov-${chapter.id}-${referenceSequence}`,
+      role: "agent",
+      content: chapterId ? `${chapter.label}.` : `${chapter.label}.\n\n${govIndexMessage()}`,
+    },
+    canvasSpec: chapter.spec,
+  };
+}
+
 /** An explicit local command exposes the same examples to offline and connected chat. */
 export function referenceChatResponse(message: string): ChatResponse | undefined {
   if (!/^\/ui-reference(?:\s|$)/i.test(message.trim())) return undefined;
@@ -35,6 +56,8 @@ export function referenceChatResponse(message: string): ChatResponse | undefined
   const query = message.trim().replace(/^\/ui-reference\s*/i, "");
   const story = storyChatResponse(query);
   if (story) return story;
+  const gov = govChatResponse(query);
+  if (gov) return gov;
   const reference = dashboardReferences.find(item => item.id === query.toLowerCase()) ?? findDashboardReference(query);
   if (reference) return {
     message: { id: `reference-${reference.id}-${referenceSequence}`, role: "agent", content: `${reference.label}: static reference composed from reusable catalog elements. Values are examples; controls do not operate the host.` },
@@ -60,6 +83,7 @@ export function catalogPresentationMessage(message: string, mode?: ChatMode, not
         ? "NotebookLM mode must render the selected notebook on the canvas. The canvas is the single fenced spec block; it appears under the chat. Answer the user in text, then put JSONL patches for the notebook interface in that canvas block. The root is a container. Its children are notebookHeader and notebookSourceList, using only the notebook facts below. Copy those facts into static props. Do not invent sources, titles, or URLs. Do not describe the notebook only in prose. If the facts say the notebook is unavailable, say so in text and omit the canvas block."
         : "Answer the user's request normally. This chat can also present a useful visual through the application's implemented json-render catalog in any mode. When a table, diagram, status view, or other structured interface helps, optionally include one fenced spec block per distinct interface, each containing JSONL patches that build {root,elements} with flat element IDs. A plain-text answer is fine when a visual would not help.",
     notebookMode ? `Selected notebook facts:\n${JSON.stringify(notebook ?? { unavailable: true })}` : "",
+    mountedPluginSourcesPrompt(),
     canvasCatalog.prompt({ mode: "inline" }),
     "For this application's canvas, build only static props and children in the spec block. No state patches, actions, bindings, HTML, remote URLs, chat controls or new component types. Pages are compositions of reusable elements. Label fictional data as illustrative; never claim it is live telemetry. A form preview does not authorize an operation. The visual does not change the selected mode, permissions, or model route. Each code block is its own temporary catalog object. Each UI fence must contain one complete independent JSON or JSONL spec; use separate fences for multiple interfaces. A chat keeps all of them until that chat closes, and then every one of those objects is removed. If no catalog component fits, add a component fence before the spec: JSON with name, description, and spec. name is PascalCase. spec uses only components already in the catalog. Refer to it as type catalogComponent with props.name. It is registered in the catalog for the next page.",
     registeredComponentPrompt(),
