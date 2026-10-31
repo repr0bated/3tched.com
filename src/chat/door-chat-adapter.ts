@@ -1,17 +1,19 @@
 import { readPluginGuide, readUiAuthoringGuide, SelectionGuide } from "./plugin-guide";
-import { readCanvasResponse } from "../json-render/references/canvas-contract";
-import { catalogPresentationMessage, referenceChatResponse } from "../json-render/references/reference-chat";
+import { readMountedCatalog } from "./mounted-catalog";
+import { referenceChatResponse } from "../json-render/references/reference-chat";
 /**
  * ChatAdapter backed by the :8090 door.
  *
  * Every call is one `PluginService/CallMethod`. The provider menu reads the
- * sealed `model_registry`; chat and selection stay on `tched_router`.
+ * sealed `model_registry`; ordinary selection still uses catalog binding reads.
+ * Chat replies come only from committed `chat_response` turns — never from
+ * retired `tched_router.Chat` or `json_render.generate_spec`.
  * Method names, argument shapes and capability ids are copied from the live
  * sealed schema (`zcall help`); if a reseal changes them the bridge refuses
  * the call and the refusal is surfaced verbatim.
  */
 import { startKnowledgeFeed, type KnowledgeFeed, type KnowledgePush } from "./knowledge-feed";
-import type { DoorbellStatus } from "./doorbell";
+import { doorbellPassword, type DoorbellStatus } from "./doorbell";
 import {
   getChatContext,
   getNotebook,
@@ -28,7 +30,6 @@ import {
 import type { DoorIdentity } from "../grpc/door";
 import type {
   ChatAdapter,
-  ChatMessage,
   ChatRequest,
   ChatResponse,
   ProviderOption,
@@ -40,36 +41,32 @@ import { listCatalog, refreshCatalog, type CatalogModel, type CatalogProvider } 
 import { uiGallery, type UiGallery } from "./ui-gallery";
 import {
   authorizeTask,
+  controlPlaneModelAccess,
   currentControlPlaneModel,
   setControlPlaneModel,
-  verifiedControlPlaneModel,
+  type ControlPlaneModelAccess,
 } from "./control-plane-model";
-import { applyCatalogModelBinding, resolveCatalogModelBinding, sameCatalogModelBinding, verifiedAccountabilityModel } from "./native-routing";
+import { applyCatalogModelBinding, resolveCatalogModelBinding, sameCatalogModelBinding } from "./native-routing";
 import { loadCommittedCatalogRoute } from "./router-committed-route";
+import {
+  CHAT_RESPONSE_CAPS,
+  CHAT_RESPONSE_METHODS,
+  COMMITTED_REPLY_TIMEOUT_MS,
+  submitAndAwaitCommittedReply,
+} from "./chat-response-client";
 import type { AuthorizeTask, Elevate } from "./elevation";
 import { binaryMethods, type BinaryMethod } from "./threetchedfs-surface";
 
-export const TCHED_ROUTER = "tched_router";
+export const TCHED_ROUTER = "chat_router";
 
-/** Method → declared capability, from the sealed tched_router schema. */
+/** Method → declared capability, from the sealed catalog-binding schema. */
 export const TCHED_ROUTER_METHODS = {
   SetSelection: "cap.software.tched-router.selection.set@v1",
   ResolveCatalogModelBinding: "cap.software.tched-router.model.binding.read@v1",
   ApplyCatalogModelBinding: "cap.software.tched-router.catalog.selection.set@v1",
-  Chat: "cap.software.3tched-router.chat@v1",
 } as const;
 
-interface ChatOutput {
-  content: string;
-  provider: string;
-  model: string;
-  finish_reason: string;
-  usage: unknown;
-}
-
-function roleForWire(role: ChatMessage["role"]): string {
-  return role === "agent" ? "assistant" : role;
-}
+export { CHAT_RESPONSE_CAPS, CHAT_RESPONSE_METHODS };
 
 function catalogOptions(providers: CatalogProvider[], models: CatalogModel[]): ProviderOption[] {
   const configured = providers.filter((provider) => provider.configured && provider.enabled && provider.provider_id);
@@ -99,13 +96,6 @@ function catalogOptions(providers: CatalogProvider[], models: CatalogModel[]): P
   });
 }
 
-/**
- * A chat turn runs the router's agent loop against an upstream model; the
- * bridge allows it up to 600s. Give the browser a generous deadline so a slow
- * turn surfaces as a reply, not a client-side timeout.
- */
-const CHAT_TIMEOUT_MS = 300_000;
-
 let responseSequence = 0;
 
 export interface DoorChatAdapter extends ChatAdapter {
@@ -113,7 +103,7 @@ export interface DoorChatAdapter extends ChatAdapter {
   readonly door: string;
   readonly committedRoute: RouteSelection | null;
   readonly routeInitiallyApplied: boolean;
-  /** The verified caller's mounted ZeroClaw filesystem. */
+  /** The verified caller's mounted threetched filesystem. */
   readonly binarySurface: {
     describe(): Promise<BinaryMethod[]>;
     invoke(method: BinaryMethod, args: Record<string, unknown>, confirmSideEffects: boolean): Promise<unknown>;
@@ -144,6 +134,7 @@ export interface DoorChatAdapter extends ChatAdapter {
   readonly gallery: UiGallery;
   /** Exact Control Plane selection from the same shared model catalog. */
   readonly controlPlane: {
+    access(): Promise<ControlPlaneModelAccess>;
     current(): Promise<RouteSelection>;
     set(selection: RouteSelection, elevate: Elevate): Promise<void>;
   };
@@ -164,12 +155,29 @@ export async function connectDoorChatAdapter(
   const uiAuthoringGuide = new SelectionGuide(() => readUiAuthoringGuide(client));
   const pluginFeeds = new PluginFeedStore(client);
   let identity: DoorIdentity = config.identity;
-
   // CLI discovery opts out; the browser refreshes through its reactive runtime.
   let refreshOnMount = options.refreshOnLoad === "background";
   let catalog: Awaited<ReturnType<typeof refreshCatalog>> = options.refreshOnLoad === false || refreshOnMount
     ? { ...await listCatalog(client), refreshError: null }
     : await refreshCatalog(client);
+  const activeChatWaits = new Set<AbortController>();
+  const knowledgeStops = new Set<() => void>();
+  const cancelChatWaits = () => {
+    for (const controller of activeChatWaits) controller.abort();
+  };
+  const doorbellCredential = async () => {
+    if (config.boundOracle) {
+      const fresh = await config.boundOracle.nextIdentity();
+      if (fresh.kind !== "oia1") throw new DoorError("UNAUTHENTICATED", "Bound identity requires a fresh Oracle assertion.");
+      return doorbellPassword(fresh);
+    }
+    return doorbellPassword(identity);
+  };
+  const cancelSession = () => {
+    cancelChatWaits();
+    for (const stop of knowledgeStops) stop();
+  };
+  config.signal?.addEventListener("abort", cancelSession, { once: true });
   let providers = catalogOptions(catalog.providers, catalog.models);
   // Without stored providers there is no menu to show. Make the same single
   // startup attempt as before, and do not repeat it when the runtime mounts.
@@ -183,9 +191,16 @@ export async function connectDoorChatAdapter(
   let selectionGeneration = 0;
   let contextGeneration = 0;
   let identityGeneration = 0;
+  /** Bridge-minted chat_response conversation; reused until identity/context changes. */
+  let conversationId: string | null = null;
   const invalidateAppliedRoute = () => {
     appliedRoute = null;
     return ++selectionGeneration;
+  };
+  const invalidateConversation = () => {
+    cancelChatWaits();
+    conversationId = null;
+    contextGeneration += 1;
   };
 
   if (providers.length === 0) {
@@ -232,6 +247,7 @@ export async function connectDoorChatAdapter(
     }
   }
 
+  const binaryPins = new WeakMap<BinaryMethod, string>();
   return {
     kind: "remote",
     door: client.url,
@@ -243,14 +259,24 @@ export async function connectDoorChatAdapter(
     get catalogRefreshOnMount() { return refreshOnMount; },
     binarySurface: {
       async describe() {
-        return binaryMethods(await client.describeMountedZeroClaw());
+        const catalog = await readMountedCatalog(client, "threetched");
+        const plugin = catalog.views.flatMap(view => view.plugins).find(entry => entry.plugin_id === "threetched");
+        if (!plugin || !plugin.schema.methods || typeof plugin.schema.methods !== "object" || Array.isArray(plugin.schema.methods))
+          throw new Error("The caller's mounted threetched schema is unavailable.");
+        const methods = binaryMethods({ methods: plugin.operations.map(operation => ({
+          plugin_id: plugin.plugin_id, method: operation.method, path: operation.call_path,
+          declaration: (plugin.schema.methods as Record<string, unknown>)[operation.method],
+        })) });
+        for (const method of methods) binaryPins.set(method, plugin.schema_hash);
+        return methods;
       },
       async invoke(method, args, confirmSideEffects) {
-        const receipt = await client.invokeMountedZeroClaw(method.path, args, confirmSideEffects);
-        if (!receipt || typeof receipt !== "object" || !("result" in receipt)) {
-          throw new Error("The mounted ZeroClaw call returned no result receipt.");
-        }
-        return receipt.result;
+        const schemaHash = binaryPins.get(method);
+        if (!schemaHash) throw new Error("Discover the current mounted method before invoking it.");
+        if (method.declaration.side_effect !== "read" && !confirmSideEffects)
+          throw new Error("Confirm this binary command before calling it.");
+        return (await client.call("threetched", method.method, args, method.declaration.required_capability,
+          { expectedSchemaHash: schemaHash })).result;
       },
     },
     get providers() { return providers; },
@@ -279,19 +305,25 @@ export async function connectDoorChatAdapter(
       return refreshing;
     },
     setIdentity: (next: DoorIdentity) => {
+      if (client.isBoundOracle) throw new DoorError("UNAUTHENTICATED", "Reconnect to change a bound identity.");
       identityGeneration += 1;
       providerGuide.reset();
       uiAuthoringGuide.reset();
-      invalidateAppliedRoute();
-      contextGeneration += 1;
-      identity = next;
       client.setIdentity(next);
+      invalidateAppliedRoute();
+      invalidateConversation();
+      for (const stop of knowledgeStops) stop();
+      knowledgeStops.clear();
+      identity = next;
       pluginFeeds.restart();
     },
 
+    async invokeApplicationAction(plugin, method, capability, args, schemaHash) {
+      return (await client.call(plugin, method, args, capability, { expectedSchemaHash: schemaHash })).result;
+    },
     getChatContext: () => getChatContext(client),
     selectChatMode: (request) => {
-      contextGeneration += 1;
+      invalidateConversation();
       return selectChatMode(client, request);
     },
     listProjects: () => listProjects(client),
@@ -300,40 +332,48 @@ export async function connectDoorChatAdapter(
     getNotebook: (notebookId) => getNotebook(client, notebookId),
     gallery: uiGallery(client),
     controlPlane: {
-      current: () => currentControlPlaneModel(client, catalog.models),
-      set: async (selection, elevate) => {
-        const generation = invalidateAppliedRoute();
-        const context = contextGeneration;
-        await providerGuide.select(selection.providerId);
-        if (generation !== selectionGeneration || context !== contextGeneration) throw new Error("Model selection context changed before Apply.");
+      access: () => controlPlaneModelAccess(client),
+      current: async () => currentControlPlaneModel(client, catalog.models, await controlPlaneModelAccess(client) === "self" || client.isBoundOracle),
+      set: (selection, elevate) => {
+        invalidateAppliedRoute();
         return setControlPlaneModel(client, selection, catalog.models, elevate);
       },
     },
     authorizeTask: (plugin, method, args, password) => authorizeTask(client, plugin, method, args, password),
     followKnowledge(onKnowledge, onStatus) {
-      // Assigned Oracle binding is admitted only by canonical CallMethod.
-      // Never reuse its spent bootstrap assertion on the optional broker.
-      if (client.isBoundOracle) {
-        onStatus?.({ state: "closed", reason: "Updates unavailable", retryInMs: null });
+      if (config.signal?.aborted) {
+        onStatus?.({ state: "closed", reason: "Connection cancelled", retryInMs: null });
         return () => {};
       }
       let feed: KnowledgeFeed | null = null;
       let stopped = false;
+      const feedController = new AbortController();
+      const stop = () => {
+        if (stopped) return;
+        stopped = true;
+        feedController.abort();
+        feed?.stop();
+        knowledgeStops.delete(stop);
+      };
+      knowledgeStops.add(stop);
       void startKnowledgeFeed({
         client,
-        identity: () => identity,
+        signal: feedController.signal,
+        credential: doorbellCredential,
         onKnowledge,
         onStatus,
+        ...(!config.boundOracle ? { identity: () => identity } : {}),
       })
         .then((started) => {
           if (stopped) started.stop();
           else feed = started;
         })
-        .catch((error) => console.warn("[knowledge] feed unavailable", error));
-      return () => {
-        stopped = true;
-        feed?.stop();
-      };
+        .catch((error) => {
+          if (stopped) return;
+          console.warn("[knowledge] feed unavailable", error);
+          stop();
+        });
+      return stop;
     },
 
     async selectRoute(selection: RouteSelection): Promise<RouteSelection> {
@@ -363,115 +403,32 @@ export async function connectDoorChatAdapter(
       if (reference) return reference;
       const generation = selectionGeneration;
       const context = contextGeneration;
-      const identityAtStart = identityGeneration;
-      const singleton = request.mode === "control_plane" || request.mode === "accountability";
-      const confirmedRoute = appliedRoute && appliedRoute.selection.providerId === request.route.providerId && appliedRoute.selection.modelId === request.route.modelId ? appliedRoute : null;
-      if (!singleton && !confirmedRoute) {
-        responseSequence += 1;
-        return {
-          message: {
-            id: `door-route-required-${responseSequence}`,
-            role: "agent",
-            content: "Apply an available catalog model with a confirmed threetched routing binding before sending a chat message.",
-          },
-          historyEligible: false,
-        };
-      }
-      const messages = request.history
-        .filter((message) => message.role !== "system")
-        .map((message) => ({ role: roleForWire(message.role), content: message.content }));
-      if (messages.length === 0 || messages[messages.length - 1].content !== request.message) {
-        messages.push({ role: "user", content: request.message });
-      }
+      const uiRender = request.mode === "ui_render";
 
+      const waitController = new AbortController();
+      activeChatWaits.add(waitController);
+      if (config.signal?.aborted) waitController.abort();
       try {
-        const [guide, authoringGuide] = await Promise.all([
-          providerGuide.select(request.route.providerId),
-          uiAuthoringGuide.select("json_render"),
-        ]);
-        if (identityAtStart !== identityGeneration || generation !== selectionGeneration || context !== contextGeneration) {
-          throw new DoorError("CANCELLED", "Identity, chat context, or model changed while loading the sealed chat guides.");
-        }
-        if (request.mode === "control_plane") await verifiedControlPlaneModel(client, catalog.models);
-        else if (request.mode === "accountability") await verifiedAccountabilityModel(client, catalog.models);
-        else if (confirmedRoute) {
-          const observed = await resolveCatalogModelBinding(
-            client,
-            confirmedRoute.selection.providerId,
-            confirmedRoute.selection.modelId,
-            confirmedRoute.inferenceUrlPrefix,
-          );
-          if (!sameCatalogModelBinding({
-            providerId: confirmedRoute.selection.providerId,
-            modelId: confirmedRoute.selection.modelId,
-            reference: confirmedRoute.nativeProviderId,
-            model: confirmedRoute.resolvedModel,
-            uri: confirmedRoute.uri,
-            oauth: confirmedRoute.oauth,
-            catalogRevision: observed.catalogRevision,
-          }, observed)) {
-            throw new Error("The native catalog binding changed after Apply. Apply the model again before sending a message.");
-          }
-        }
-        if (generation !== selectionGeneration || context !== contextGeneration || (!singleton && confirmedRoute !== appliedRoute)) throw new Error("Model selection context changed. Apply the model again before sending a message.");
-        const chatContext = await getChatContext(client);
-        if (identityAtStart !== identityGeneration || generation !== selectionGeneration || context !== contextGeneration) {
-          throw new DoorError("CANCELLED", "Identity, chat context, or model changed before the chat request.");
-        }
-        const expectedMode = request.mode ?? "personal";
-        if (expectedMode !== chatContext.mode) {
-          throw new Error(`Chat mode changed from ${expectedMode} to ${chatContext.mode}. Reload the intended chat before sending again.`);
-        }
-        const observedMode = chatContext.mode;
-        if (!/^(personal|project|control_plane|accountability|notebook_lm|ui_render)$/.test(observedMode) ||
-            !Array.isArray(chatContext.effective_capabilities) || chatContext.effective_capabilities.length > 512 ||
-            chatContext.effective_capabilities.some(capability => typeof capability !== "string" || !/^[A-Za-z0-9._:@/-]{1,256}$/.test(capability))) {
-          throw new Error("The door returned an invalid authoritative chat context.");
-        }
-        const capabilities = [...new Set(chatContext.effective_capabilities)].sort();
-        const contextNote = [
-          `[Observed caller chat context: mode=${observedMode}; effective_capabilities=${JSON.stringify(capabilities)}]`,
-          "Attached UI-authoring references are sealed read results supplied as text; they do not provide arbitrary source or filesystem access. Capability names describe door admission only; they do not provide model tools and do not prove a live operation ran.",
-        ].join("\n");
-        const wireMessage = [
-          guide,
-          authoringGuide,
-          contextNote,
-          catalogPresentationMessage(request.message, observedMode, request.notebook, request.catalog),
-        ].join("\n\n");
-        messages[messages.length - 1] = { role: "user", content: wireMessage };
-        const { result, eventHash } = await client.call<ChatOutput>(
-          TCHED_ROUTER,
-          "Chat",
-          {
-            message: wireMessage,
-            messages,
-            ...(singleton || !confirmedRoute ? {} : {
-              provider: confirmedRoute.nativeProviderId,
-              model: confirmedRoute.selection.modelId,
-            }),
-          },
-          TCHED_ROUTER_METHODS.Chat,
-          { timeoutMs: CHAT_TIMEOUT_MS },
+        // Authoritative selection and history live server-side; the UI sends
+        // one new human message and displays only the committed reply. A
+        // browser model-picker draft is not a prerequisite for a chat turn.
+        const { conversationId: active, response } = await submitAndAwaitCommittedReply(
+          client,
+          conversationId,
+          request.message,
+          uiRender ? "application" : "text",
+          COMMITTED_REPLY_TIMEOUT_MS,
+          { signal: waitController.signal, credential: doorbellCredential },
         );
-
-        responseSequence += 1;
-        const rendered = readCanvasResponse(result.content);
-        return {
-          ...(rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
-          ...(rendered.canvasSpecs ? { canvasSpecs: rendered.canvasSpecs } : {}),
-          ...(rendered.scratch ? { scratch: true } : {}),
-          ...(rendered.registered?.length ? { registered: rendered.registered } : {}),
-          message: {
-            id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`,
-            role: "agent",
-            content: rendered.content,
-          },
-        };
+        if (generation !== selectionGeneration || context !== contextGeneration) {
+          throw new Error("Chat context changed while awaiting a committed reply; outcome may have completed. Do not retry automatically.");
+        }
+        conversationId = active;
+        return response;
       } catch (error) {
         responseSequence += 1;
         const errorMsg = error instanceof Error ? error.message : "Chat service unavailable";
-        const outcomeUnknown = errorMsg.startsWith("method_outcome_unknown;");
+        const outcomeUnknown = errorMsg.startsWith("method_outcome_unknown;") || /outcome (?:is unknown|may have completed)/i.test(errorMsg);
         return {
           message: {
             id: `door-error-${responseSequence}`,
@@ -480,6 +437,8 @@ export async function connectDoorChatAdapter(
           },
           historyEligible: false,
         };
+      } finally {
+        activeChatWaits.delete(waitController);
       }
     },
   };

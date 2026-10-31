@@ -88,6 +88,8 @@ export interface ChatAdapter {
   readonly catalogRefreshOnMount?: boolean;
   /** Refresh providers and read committed catalog choices; absent offline. */
   refreshProviders?(): Promise<ProviderOption[]>;
+  /** Generated application action; the door revalidates the target seal and grant. */
+  invokeApplicationAction?(plugin: string, method: string, capability: string, args: Record<string, unknown>, schemaHash: string): Promise<unknown>;
   selectRoute(selection: RouteSelection): Promise<RouteSelection>;
   submit(request: ChatRequest): Promise<ChatResponse>;
 }

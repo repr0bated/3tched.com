@@ -3,7 +3,7 @@ import type { RouteSelection } from "./chat-adapter";
 import type { CatalogModel, CatalogProvider } from "./model-catalog";
 import { resolveCatalogModelBinding } from "./native-routing";
 
-const ROUTER_STATE_READ = "cap.software.3tched-router.state.read@v1";
+const ROUTER_STATE_READ = "cap.software.tched-router.state.read@v1";
 
 interface ObservedRouterState {
   selected_provider?: string;
@@ -74,7 +74,7 @@ export async function loadCommittedCatalogRoute(
   let result: { state?: ObservedRouterState };
   try {
     ({ result } = await client.call<{ state?: ObservedRouterState }>(
-      "tched_router",
+      "chat_router",
       "GetState",
       {},
       ROUTER_STATE_READ,

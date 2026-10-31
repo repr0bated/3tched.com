@@ -18,7 +18,7 @@
 <button
   onclick={() =>
     void elevation
-      .elevate("tched_router", "config_set", {
+      .elevate("chat_router", "config_set", {
         path: "agents.control_plane.model_provider",
         value: "openai.old",
       })

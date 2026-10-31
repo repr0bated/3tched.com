@@ -28,10 +28,11 @@ function protectedAdapter(overrides: Partial<DoorChatAdapter> = {}) {
   const adapter = remote({
     authorizeTask: vi.fn().mockResolvedValue(undefined),
     controlPlane: {
+      access: vi.fn().mockResolvedValue("admin"),
       current: vi.fn(async () => current),
       set: vi.fn(async (selection, elevate) => {
         // The fixture delegates exact native operation construction to the adapter.
-        await elevate("tched_router", "config_patch", { provider: selection.providerId, model: selection.modelId });
+        await elevate("chat_router", "config_patch", { provider: selection.providerId, model: selection.modelId });
         await mutate(selection);
       }),
     },
@@ -217,10 +218,33 @@ describe("the scaffold's catalog model picker", () => {
     expect(adapter.selectRoute).not.toHaveBeenCalled();
     fireEvent.change(within(dialog).getByLabelText("Root password"), { target: { value: "test-password" } });
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Authorize" })));
-    expect(adapter.authorizeTask).toHaveBeenCalledExactlyOnceWith("tched_router", "config_patch", { provider: "two", model: "wanted" }, "test-password");
+    expect(adapter.authorizeTask).toHaveBeenCalledExactlyOnceWith("chat_router", "config_patch", { provider: "two", model: "wanted" }, "test-password");
     expect(mutate).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
     expect(screen.getByText("Current model").parentElement).toHaveTextContent("Two / Wanted");
     expect(adapter.selectRoute).not.toHaveBeenCalled();
+  });
+  it("uses authoritative own-model access without a password dialog", async () => {
+    const { adapter, mutate } = protectedAdapter();
+    vi.mocked(adapter.controlPlane.access).mockResolvedValue("self");
+    vi.mocked(adapter.controlPlane.set).mockImplementation(async selection => { await mutate(selection); });
+    mount(adapter, true);
+    await screen.findByText("One / Old");
+    pickTwo();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply own model" })));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(adapter.authorizeTask).not.toHaveBeenCalled();
+    expect(screen.getByText("Current model").parentElement).toHaveTextContent("Two / Wanted");
+  });
+
+  it("does not enable either mutation lane when authoritative access fails", async () => {
+    const { adapter } = protectedAdapter();
+    vi.mocked(adapter.controlPlane.access).mockRejectedValue(new Error("access unavailable"));
+    mount(adapter, true);
+    await screen.findByRole("alert");
+    pickTwo();
+    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeDisabled();
+    expect(adapter.controlPlane.set).not.toHaveBeenCalled();
+    expect(adapter.authorizeTask).not.toHaveBeenCalled();
   });
   it("keeps an accepted model change unconfirmed until Refresh reads it back", async () => {
     const { adapter, mutate } = protectedAdapter();
@@ -253,7 +277,7 @@ describe("the scaffold's catalog model picker", () => {
   it("blocks repeat mutation after a sent request loses its response until current readback reconciles", async () => {
     const { adapter, mutate } = protectedAdapter();
     vi.mocked(adapter.controlPlane.set).mockImplementationOnce(async (selection, elevate) => {
-      await elevate("tched_router", "config_patch", { provider: selection.providerId, model: selection.modelId });
+      await elevate("chat_router", "config_patch", { provider: selection.providerId, model: selection.modelId });
       throw new ControlPlaneMutationUnconfirmedError(new Error("response lost"));
     });
     mount(adapter, true);
@@ -308,7 +332,7 @@ describe("the scaffold's catalog model picker", () => {
     let finishPreflight!: () => void;
     vi.mocked(adapter.controlPlane.set).mockImplementationOnce(async (selection, elevate) => {
       await new Promise<void>(resolve => { finishPreflight = resolve; });
-      await elevate("tched_router", "config_patch", { provider: selection.providerId, model: selection.modelId });
+      await elevate("chat_router", "config_patch", { provider: selection.providerId, model: selection.modelId });
       await mutate(selection);
     });
     mount(adapter, true); await screen.findByText("One / Old");

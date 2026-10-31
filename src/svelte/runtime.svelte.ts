@@ -8,22 +8,13 @@ import type {
 } from "../chat/chat-adapter";
 import type { ResolvedChatContext } from "../chat/chat-mode";
 import { chatScopeKey } from "../chat/chat-scope";
-import { initialCanvasSpec } from "../chat/local-chat-adapter";
 import { removeScratchCatalogObject } from "../json-render/references/chat-scratch";
+import { acceptCanvasSpec } from "../json-render/references/canvas-contract";
+import { registeredComponent } from "../json-render/references/registered-components";
+import type { UiGallery } from "../chat/ui-gallery";
+import { submitHumanReview } from "../chat/review-lanes";
 import type { ChatRuntime } from "./chat-session";
 
-const empty: Spec = {
-  root: "awaiting-canvas",
-  elements: {
-    "awaiting-canvas": {
-      type: "text",
-      props: {
-        text: "Canvas content will appear here when returned by the chat.",
-        className: null,
-      },
-    },
-  },
-};
 export class Runtime {
   readonly adapter: ChatAdapter;
   providers = $state.raw<ProviderOption[]>([]);
@@ -36,9 +27,12 @@ export class Runtime {
   routeAttempt = $state.raw<RouteSelection | null>(null);
   catalogPending = $state(false);
   catalogError = $state<string | null>(null);
+  interfacePending = $state(false);
+  interfaceError = $state<string | null>(null);
+  private interfaceScope: string | null = null;
   readonly canvases = new SvelteMap<string, Spec>();
   layout = $state<"balanced" | "conversation" | "canvas">("balanced");
-  view = $state<"canvas" | "accountability" | "compliance" | "routing" | "zeroclaw">(
+  view = $state<"canvas" | "accountability" | "compliance" | "routing" | "threetched">(
     "canvas",
   );
   inspecting = $state(false);
@@ -66,11 +60,8 @@ export class Runtime {
   get scopeKey() {
     return chatScopeKey(this.chatContext, this.adapter.kind === "remote");
   }
-  get canvasSpec() {
-    return (
-      this.canvases.get(this.scopeKey) ??
-      (this.adapter.kind === "local" ? initialCanvasSpec : empty)
-    );
+  get canvasSpec(): Spec | null {
+    return this.canvases.get(this.scopeKey) ?? null;
   }
   setChatContext = (context: ResolvedChatContext) => {
     const previous = this.scopeKey;
@@ -81,11 +72,72 @@ export class Runtime {
       this.routePending = false;
       this.routeError = null;
       this.routeAttempt = null;
+      this.interfaceScope = null;
+      this.interfacePending = false;
+      this.interfaceError = null;
     }
     this.chatContext = context;
   };
   setCanvas = (spec: Spec, scope = this.scopeKey) => {
     if (!this.disposed) this.canvases.set(scope, spec);
+  };
+  /** Generate presentation only; never submit a chat turn or change the selected mode. */
+  loadInterface = async (retry = false) => {
+    const context = this.chatContext;
+    const scope = this.scopeKey;
+    if (
+      this.disposed ||
+      this.adapter.kind !== "remote" ||
+      !context ||
+      this.interfacePending ||
+      (!retry && this.interfaceScope === scope) ||
+      this.canvases.has(scope)
+    ) return;
+    const generation = this.generation;
+    this.interfaceScope = scope;
+    this.interfacePending = true;
+    this.interfaceError = null;
+    try {
+      const response = await this.adapter.submit({
+        mode: "ui_render",
+        route: this.route,
+        history: [],
+        message: [
+          "Render yourself first. Then render the menus and the canvas.",
+          "You may be the only element, in a collapsed pane, once the page is loaded.",
+          "Allowed render stack: Svelte 5, SvelteKit, @json-render/core, @json-render/svelte, and Zod. Use only catalog components. A spec is a flat { root, elements } map.",
+          "The host draws nothing else.",
+          "Do not claim that operations have run, invent system state, or infer root access from login.",
+          `Current session context: ${JSON.stringify({
+            mode: context.mode,
+            memory_namespace: context.memory_namespace,
+            read_only: context.read_only,
+          })}`,
+        ].join("\n"),
+      });
+      if (this.disposed || generation !== this.generation) return;
+      if (!response.canvasSpec)
+        throw new Error(response.message.content || "The chatbot returned no interface.");
+      const accepted = acceptCanvasSpec(response.canvasSpec);
+      const spec = accepted.spec;
+      const gallery = this.adapter.kind === "remote"
+        ? (this.adapter as { gallery?: Pick<UiGallery, "saveCandidate" | "suggestCandidate"> }).gallery
+        : undefined;
+      const mode = this.chatContext?.mode;
+      if (gallery && mode && accepted.registered.length) {
+        await Promise.all(accepted.registered.map(async (name) => {
+          const component = registeredComponent(name);
+          if (component) await submitHumanReview(gallery, component, mode).catch(() => undefined);
+        }));
+      }
+      // A user-requested result or notebook read that arrived meanwhile takes precedence.
+      if (!this.canvases.has(scope)) this.setCanvas(spec, scope);
+    } catch (error) {
+      if (!this.disposed && generation === this.generation)
+        this.interfaceError = error instanceof Error ? error.message : "Interface generation failed.";
+    } finally {
+      if (!this.disposed && generation === this.generation) this.interfacePending = false;
+    }
   };
   snapshot(): ChatRuntime {
     const scope = this.scopeKey;
@@ -138,7 +190,9 @@ export class Runtime {
       this.disposed ||
       this.routePending ||
       (this.adapter.kind === "remote" &&
-        (!this.chatContext || this.chatContext.mode === "control_plane"))
+        (!this.chatContext ||
+          this.chatContext.mode === "control_plane" ||
+          this.chatContext.mode === "ui_render"))
     )
       return;
     const generation = this.generation;

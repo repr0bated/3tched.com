@@ -34,9 +34,8 @@ it("binds a remote startup result into the existing page canvas after context re
   vi.mocked(connect).mockResolvedValue({ state: "ready", adapter });
   render(App);
   await waitFor(() => expect(adapter.submit).toHaveBeenCalledTimes(1));
-  const canvas = await screen.findByRole("region", { name: "Control · Overview" });
+  const canvas = await screen.findByRole("main", { name: "Interface canvas" });
   expect(await within(canvas).findByText("Remote fixture view loaded")).toBeVisible();
-  expect(screen.getByRole("menubar", { name: "Main" })).toBeVisible();
-  expect(screen.getByRole("textbox", { name: "Message" })).toBeVisible();
+  expect(screen.queryByRole("menubar", { name: "Main" })).not.toBeInTheDocument();
   expect(adapter.getChatContext).toHaveBeenCalledTimes(1);
 });

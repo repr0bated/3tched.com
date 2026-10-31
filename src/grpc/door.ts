@@ -16,7 +16,7 @@
  *   - OIA1 — signed Oracle identity assertion, remote human
  *   - SID1 — server-authored sealed session id, locally registered human
  * Both are binary metadata (`-bin` suffix), so they travel base64-encoded.
- * The separate ZeroClaw explorer uses same-origin op-web routes that verify
+ * The separate threetched explorer uses same-origin op-web routes that verify
  * this credential through the door, then use a private caller-bound FUSE mount.
  */
 import { GrpcWebFetchTransport } from "@protobuf-ts/grpcweb-transport";
@@ -100,6 +100,7 @@ export function identityMetadata(identity: DoorIdentity): Record<string, string>
 const PAGE_CONNECTOR_ORIGINS = new Set([
   "http://10.0.0.4:8080",
   "http://10.0.0.2:8080",
+  "http://10.0.0.1:8080",
 ]);
 
 function pageOrigin(): string {
@@ -187,71 +188,6 @@ export class DoorClient {
     for (const controller of this.subscriptions) controller.abort();
   }
 
-  /** The same-origin op-web route opens a FUSE mount bound to this verified caller. */
-  private async mountedRequest(path: string, body?: Record<string, unknown>): Promise<unknown> {
-    if (typeof window === "undefined") throw new DoorError("UNAVAILABLE", "Mounted ZeroClaw requires the browser host.");
-    if (this.signal?.aborted) throw new DoorError("CANCELLED", "Connection cancelled.");
-    if (this.boundInvalid) throw new DoorError("UNAUTHENTICATED", "Reconnect to renew this identity binding.");
-    let source: Record<string, string>;
-    try {
-      if (this.boundOracle) {
-        const identity = await this.boundOracle.nextIdentity();
-        if (identity.kind !== "oia1") throw new DoorError("UNAUTHENTICATED", "Bound identity requires an Oracle assertion.");
-        source = identityMetadata(identity);
-      } else source = { ...this.meta };
-    } catch (error) {
-      if (this.boundOracle) this.boundInvalid = true;
-      throw error;
-    }
-    const entries = Object.entries(source);
-    if (entries.length !== 1 || !entries[0][0] || !entries[0][1]) {
-      throw new DoorError("UNAUTHENTICATED", "Exactly one identity credential is required.");
-    }
-    const [name, value] = entries[0];
-    const headers = new Headers({
-      [name]: value.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
-      ...(body ? { "content-type": "application/json" } : {}),
-    });
-    let response: Response;
-    try {
-      response = await fetch(new URL(path, window.location.origin), {
-        method: body ? "POST" : "GET",
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        credentials: "omit",
-        cache: "no-store",
-        redirect: "error",
-        signal: this.signal,
-      });
-    } catch (error) {
-      if (this.signal?.aborted) throw new DoorError("CANCELLED", "Connection cancelled.");
-      throw new DoorError("UNAVAILABLE", body
-        ? "Mounted ZeroClaw outcome unknown; do not retry automatically."
-        : "The mounted ZeroClaw route is unavailable.", error instanceof Error ? error.message : undefined);
-    }
-    const payload: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      const message = payload && typeof payload === "object" && "error" in payload &&
-        typeof payload.error === "string" ? payload.error : `Mounted ZeroClaw refused the request (${response.status}).`;
-      const code = response.status === 401 ? "UNAUTHENTICATED" : response.status === 403 ? "PERMISSION_DENIED" :
-        response.status === 400 ? "INVALID_ARGUMENT" : "UNAVAILABLE";
-      throw new DoorError(code, message);
-    }
-    if (payload === null && body) {
-      throw new DoorError("UNAVAILABLE", "Mounted ZeroClaw outcome unknown: no receipt was returned. Do not retry automatically.");
-    }
-    return payload;
-  }
-
-  describeMountedZeroClaw(): Promise<unknown> {
-    return this.mountedRequest("/api/threetchedfs/describe");
-  }
-
-  invokeMountedZeroClaw(path: string, argumentsObject: Record<string, unknown>, confirmSideEffects: boolean): Promise<unknown> {
-    return this.mountedRequest("/api/threetchedfs/invoke", {
-      path, arguments: argumentsObject, confirm_side_effects: confirmSideEffects,
-    });
-  }
 
   /** Local transport behavior established by receiver-confirmed bootstrap. */
   get isBoundOracle(): boolean { return this.boundOracle !== undefined; }
@@ -342,7 +278,7 @@ export class DoorClient {
     method: string,
     args: Record<string, unknown>,
     capability: string,
-    options: { timeoutMs?: number } = {},
+    options: { timeoutMs?: number; expectedSchemaHash?: string } = {},
   ): Promise<CallEnvelope<T>> {
     if (this.signal?.aborted) throw new DoorError("CANCELLED", "Connection cancelled.");
     // Local metadata per request: concurrent pickups cannot replace each
@@ -374,7 +310,7 @@ export class DoorClient {
           capabilityId: capability,
         },
         {
-          meta: { ...meta, [DECLARED_CAPABILITY_HEADER]: capability },
+          meta: { ...meta, [DECLARED_CAPABILITY_HEADER]: capability, ...(options.expectedSchemaHash ? { "x-opdbus-target-schema": options.expectedSchemaHash } : {}) },
           timeout: options.timeoutMs ?? this.timeoutMs,
           abort: this.signal,
         },

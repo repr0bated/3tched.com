@@ -3,6 +3,7 @@ import { matchRoute, pagePrompt } from "../navigation/manifest";
 import { readCanvasResponse, validateCanvasSpec } from "./canvas-contract";
 import { catalogPresentationMessage } from "./reference-chat";
 import {
+  admitUnregisteredElements,
   adoptPromotedEntries,
   clearRegisteredComponents,
   registeredComponent,
@@ -63,6 +64,22 @@ describe("registered catalog components", () => {
     ], validateCanvasSpec)).toEqual(["Promoted status page"]);
     expect(pagePrompt(matchRoute("/btrfs")!)).toContain("Promoted status page — From the UI renderer");
     expect(registeredComponent("Broken")).toBeUndefined();
+  });
+
+  it("registers a missing canvas element for human review and renders it as a catalog element", () => {
+    const spec = {
+      root: "status",
+      elements: {
+        status: { type: "dashboardStatus", props: { label: "Door", detail: "Listening", tone: "info" } },
+      },
+    };
+    const known = new Set(["heading", "text", "badge", "row", "container", "catalogComponent"]);
+    const admitted = admitUnregisteredElements(spec, (type) => known.has(type));
+    expect(admitted.registered).toEqual(["DashboardStatus"]);
+    expect(admitted.spec.elements.status.type).toBe("catalogComponent");
+    expect(admitted.spec.elements.status.props).toEqual({ name: "DashboardStatus" });
+    expect(registeredComponent("DashboardStatus")?.description).toContain("Needs human review");
+    expect(validateCanvasSpec(admitted.spec).root).toBe("status");
   });
 
   it("rejects a component that depends on something still missing", () => {

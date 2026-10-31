@@ -5,15 +5,27 @@ import {
   GALLERY_CAPABILITY,
   JSON_RENDER,
   PROMOTE_CAPABILITY,
+  RETIRE_CAPABILITY,
   candidateTitle,
   clipBytes,
   uiGallery,
   type CatalogEntry,
+  type SuggestionSummary,
 } from "./ui-gallery";
 
 const spec = {
   root: "page",
   elements: { page: { type: "text", props: { text: "hi", className: null } } },
+};
+
+const source: SuggestionSummary = {
+  suggestion_id: "suggestion",
+  from_principal: "creator",
+  candidate_id: "candidate",
+  title: "Status",
+  spec_hash: "a".repeat(64),
+  profile_sha256: "b".repeat(64),
+  submitted_at: "2026-10-22T00:00:00Z",
 };
 
 function entry(id: string, name: string): CatalogEntry {
@@ -25,6 +37,7 @@ function entry(id: string, name: string): CatalogEntry {
     spec_hash: "a".repeat(64),
     profile_sha256: "b".repeat(64),
     from_candidate_id: "c",
+    created_by: "creator",
     promoted_by: "p",
     promoted_at: "2026-09-28T00:00:00Z",
     status: "active",
@@ -54,7 +67,7 @@ describe("ui gallery client", () => {
     const gallery = uiGallery(client);
     await gallery.saveCandidate({ spec, title: "Draw my network\nmore", mode: "ui_render", prompt: "Draw my network" });
     const page = await gallery.listCandidates("before-id", 10);
-    await gallery.promoteCandidate("1", " Status ", " desc ");
+    await gallery.promoteCandidate(source, " Status ", " desc ");
     await gallery.listCatalog();
     await gallery.retireCatalogEntry("e");
     expect(page).toEqual({ items: [], nextBefore: "x", total: 3 });
@@ -64,11 +77,15 @@ describe("ui gallery client", () => {
       ["list_candidates", GALLERY_CAPABILITY],
       ["promote_candidate", PROMOTE_CAPABILITY],
       ["list_catalog", GALLERY_CAPABILITY],
-      ["retire_catalog_entry", PROMOTE_CAPABILITY],
+      ["retire_catalog_entry", RETIRE_CAPABILITY],
     ]);
     expect(calls[0].args).toMatchObject({ title: "Draw my network", mode: "ui_render", prompt: "Draw my network" });
     expect(calls[1].args).toEqual({ limit: 10, before: "before-id" });
-    expect(calls[2].args).toEqual({ candidate_id: "1", name: "Status", description: "desc" });
+    expect(calls[2].args).toEqual({
+      suggestion_id: source.suggestion_id, from_principal: source.from_principal,
+      candidate_id: source.candidate_id, expected_spec_hash: source.spec_hash,
+      name: "Status", description: "desc",
+    });
   });
 
   it("caches the active catalog until a promotion changes it", async () => {
@@ -81,7 +98,7 @@ describe("ui gallery client", () => {
     expect((await gallery.activeCatalog()).map((item) => item.name)).toEqual(["Status"]);
     await gallery.activeCatalog();
     expect(calls.filter((call) => call.method === "list_catalog")).toHaveLength(1);
-    await gallery.promoteCandidate("c", "Other", "");
+    await gallery.promoteCandidate(source, "Other", "");
     await gallery.activeCatalog();
     expect(calls.filter((call) => call.method === "list_catalog")).toHaveLength(2);
   });
@@ -115,20 +132,19 @@ describe("clipBytes", () => {
 });
 
 describe("catalog elevation", () => {
-  it("elevates promote and retire with the arguments they send", async () => {
+  it("promotes without elevation but retains retirement's exact elevated arguments", async () => {
     const { client, calls } = fakeClient({
       promote_candidate: { entry: entry("e", "Status") },
       retire_catalog_entry: { entry: entry("e", "Status") },
     });
     const elevated: Array<{ method: string; args: Record<string, unknown> }> = [];
     const gallery = uiGallery(client);
-    await gallery.promoteCandidate("c", " Status ", "", async (_plugin, method, args) => {
-      elevated.push({ method, args });
-    });
+    await gallery.promoteCandidate(source, " Status ", "");
     await gallery.retireCatalogEntry("e", "", async (_plugin, method, args) => {
       elevated.push({ method, args });
     });
-    expect(elevated.map((item) => item.method)).toEqual(["promote_candidate", "retire_catalog_entry"]);
-    expect(calls.map((call) => call.args)).toEqual(elevated.map((item) => item.args));
+    expect(elevated.map((item) => item.method)).toEqual(["retire_catalog_entry"]);
+    expect(calls.filter((call) => call.method === "retire_catalog_entry").map((call) => call.args))
+      .toEqual(elevated.map((item) => item.args));
   });
 });

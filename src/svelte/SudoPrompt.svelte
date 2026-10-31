@@ -4,7 +4,6 @@
   const labels: Record<string, string> = {
     "tched_router.config_patch": "Change the Control Plane model",
     "tched_router.config_set": "Change the Control Plane model",
-    "json_render.promote_candidate": "Promote to the catalog",
     "json_render.retire_catalog_entry": "Retire from the catalog",
   };
   let label = $derived(

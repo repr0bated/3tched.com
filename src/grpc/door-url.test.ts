@@ -13,7 +13,7 @@ function page(origin: string): void {
 }
 
 describe("door origin validation", () => {
-  it.each(["http://10.0.0.4:8080", "http://10.0.0.2:8080"])(
+  it.each(["http://10.0.0.4:8080", "http://10.0.0.2:8080", "http://10.0.0.1:8080"])(
     "uses the connector only on its exact canonical page %s", (origin) => {
       page(origin);
       expect(sameOriginDoorUrl()).toBe(origin);
@@ -33,7 +33,9 @@ describe("door origin validation", () => {
 
   it.each([
     "http://10.0.0.4", "http://10.0.0.4:8090", "http://10.0.0.4.evil:8080",
-    "http://remote.example", "http://localhost:8080", "//10.0.0.4:8080",
+    "http://10.0.0.1", "http://10.0.0.1:8090", "http://10.0.0.1.evil:8080",
+    "http://user:secret@10.0.0.1:8080", "http://10.0.0.1:8080/call",
+    "http://remote.example", "http://localhost:8080", "//10.0.0.4:8080", "//10.0.0.1:8080",
     "https://user:secret@door.example", "https://door.example/call",
     "https://door.example/path/..", "https://door.example//", "https://door.example/?x=1",
     "https://door.example/#fragment", "https://door.example?", "https://door.example#",
@@ -47,6 +49,7 @@ describe("door origin validation", () => {
     page("http://remote.example");
     expect(sameOriginDoorUrl()).toBeUndefined();
     expect(() => normalizeDoorUrl("http://remote.example")).toThrow();
+    expect(() => normalizeDoorUrl("http://10.0.0.1:8080")).toThrow();
   });
 
   it("forwards exactly one unchanged credential when the connector credential is renewed", async () => {

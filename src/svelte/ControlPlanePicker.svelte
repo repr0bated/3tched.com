@@ -3,7 +3,7 @@
   import { getRuntime } from "./runtime.svelte";
   import type { DoorChatAdapter } from "../chat/door-chat-adapter";
   import type { RouteSelection } from "../chat/chat-adapter";
-  import { ControlPlaneMutationUnconfirmedError } from "../chat/control-plane-model";
+  import { ControlPlaneMutationUnconfirmedError, type ControlPlaneModelAccess } from "../chat/control-plane-model";
   import {
     catalogDraft,
     selectionLabel,
@@ -18,6 +18,7 @@
   const elevation = new Elevation(adapter.authorizeTask);
   let alive = true;
   let current = $state.raw<RouteSelection | null>(null),
+    access = $state<ControlPlaneModelAccess | null>(null),
     edited = $state(false),
     selection = $state.raw(untrack(() => runtime.route));
   let loading = $state(!!control),
@@ -45,11 +46,13 @@
   async function read() {
     if (!control || !alive) return;
     loading = true;
+    access = null;
     error = null;
     try {
-      const value = await control.current();
+      const [value, admittedAccess] = await Promise.all([control.current(), control.access()]);
       if (alive) {
         current = value;
+        access = admittedAccess;
         unconfirmed = false;
         accepted = false;
         attempt = null;
@@ -72,7 +75,7 @@
     };
   });
   async function apply() {
-    if (!control || pending || unconfirmed || !valid || !alive) return;
+    if (!control || !access || pending || unconfirmed || !valid || !alive) return;
     const requested = draft;
     attempt = requested;
     pending = true;
@@ -136,13 +139,14 @@
 <div class="route-catalog model-picker__actions">
   <button
     disabled={!control ||
+      !access ||
       loading ||
       pending ||
       unconfirmed ||
       sameSelection(current, draft) ||
       !valid}
     onclick={() => void apply()}
-    >{pending ? "Elevating and applying…" : "Elevate and apply model"}</button
+    >{pending ? (access === "self" ? "Applying…" : "Elevating and applying…") : (access === "self" ? "Apply own model" : "Elevate and apply model")}</button
   ><button
     disabled={loading || pending || runtime.catalogPending}
     onclick={() => void reload()}
@@ -170,11 +174,15 @@
           ? `${accepted ? "Change sent" : "Change outcome unknown"} for ${label(attempt)}; current model unconfirmed. Refresh before applying another model.`
           : loading
             ? "Reading the current Control Plane model."
-            : !valid
-              ? "Choose a model from the catalog to enable elevation."
-              : sameSelection(current, draft)
-                ? "This is already the current Control Plane model. Choose a different model to enable elevation."
-                : "Changing the Control Plane model requires a root password for this task."}
+            : !access
+              ? "Refresh to check this identity's model-change access."
+              : !valid
+                ? "Choose a model from the catalog to enable Apply."
+                : sameSelection(current, draft)
+                  ? "This is already the current Control Plane model. Choose a different model to enable Apply."
+                  : access === "self"
+                    ? "This authenticated Control Plane identity can change its own model without a password."
+                    : "Administrative Control Plane model changes require a root password for this task."}
   </p>
   {#if error}<p class="route-status route-status--error" role="alert">
       {attempt

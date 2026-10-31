@@ -5,7 +5,7 @@
  * from `ctl_plane_chatbot.list_knowledge` under the page's own credential.
  */
 import type { DoorClient, DoorIdentity } from "../grpc/door";
-import { ringDoorbell, doorbellPassword, type Doorbell, type DoorbellStatus } from "./doorbell";
+import { subscribeDoorbell, doorbellPassword, type Doorbell, type DoorbellStatus } from "./doorbell";
 
 export const CTL_PLANE_CHATBOT = "ctl_plane_chatbot";
 export const CHATBOT_READ = "chatbot.read";
@@ -40,69 +40,113 @@ export interface KnowledgeFeed {
 
 export interface KnowledgeFeedOptions {
   client: DoorClient;
-  /** The credential the page currently carries (renewed OIA1 or SID1). */
-  identity: () => DoorIdentity;
+  /** Existing proof factory, invoked separately for each MQTT CONNECT. */
+  credential?: () => Promise<string>;
+  /** Backward-compatible source when no asynchronous proof renewal is needed. */
+  identity?: () => DoorIdentity;
+  /** The owning identity/session scope; abort prevents late reads from escaping it. */
+  signal?: AbortSignal;
   /** Called with the newest pushes first, only when something new arrived. */
   onKnowledge: (pushes: KnowledgePush[], revision: number) => void;
   onStatus?: (status: DoorbellStatus) => void;
   /** Test seam passed through to the doorbell. */
-  socketFactory?: Parameters<typeof ringDoorbell>[0]["socketFactory"];
+  socketFactory?: Parameters<typeof subscribeDoorbell>[0]["socketFactory"];
 }
-
 /**
- * Read the current window, then ring the doorbell and re-read on every wake
- * whose `seq` is newer than the last revision seen.
+ * Read the current window, then subscribe to content-free wake hints and
+ * re-read authoritative knowledge state after every wake or reconnect.
  */
 export async function startKnowledgeFeed(options: KnowledgeFeedOptions): Promise<KnowledgeFeed> {
-  const { client } = options;
-  let revision = -1;
+  const { client, signal } = options;
   let seen = new Set<string>();
-  let stopped = false;
+  let stopped = signal?.aborted ?? false;
+  let dirty = false;
   let reading: Promise<void> | null = null;
+  let doorbell: Doorbell | null = null;
+
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    signal?.removeEventListener("abort", stop);
+    doorbell?.stop();
+  };
+  if (!stopped) signal?.addEventListener("abort", stop, { once: true });
 
   const read = async () => {
     const { result } = await client.call<ListKnowledgeOutput>(CTL_PLANE_CHATBOT, "list_knowledge", {}, CHATBOT_READ);
     if (stopped) return;
     const fresh = result.knowledge.filter((push) => !seen.has(push.push_id));
     seen = new Set(result.knowledge.map((push) => push.push_id));
-    revision = Math.max(revision, result.episode_revision);
-    if (fresh.length > 0) options.onKnowledge(fresh, result.episode_revision);
+    if (!stopped && fresh.length > 0) options.onKnowledge(fresh, result.episode_revision);
   };
 
-  const readOnce = () => {
-    if (reading) return reading;
-    reading = read()
-      .catch((error) => console.warn("[knowledge] re-read failed", error))
-      .finally(() => {
-        reading = null;
-      });
+  const readOnce = (): Promise<void> => {
+    if (stopped) return Promise.resolve();
+    if (reading) {
+      dirty = true;
+      return reading;
+    }
+    reading = (async () => {
+      do {
+        dirty = false;
+        try {
+          await read();
+        } catch (error) {
+          if (!stopped) console.warn("[knowledge] re-read failed", error);
+        }
+      } while (dirty && !stopped);
+    })().finally(() => {
+      reading = null;
+      if (dirty && !stopped) void readOnce();
+    });
     return reading;
   };
 
   await readOnce();
-  if (stopped) return { stop() {} };
+  if (stopped) return { stop };
 
-  const { result: bell } = await client.call<DoorbellOutput>(CTL_PLANE_CHATBOT, "get_doorbell", {}, CHATBOT_READ);
-  const doorbell: Doorbell = ringDoorbell({
-    listener: bell.listener,
-    ownerKey: bell.owner_key,
-    topic: bell.topic,
-    credential: async () => doorbellPassword(options.identity()),
-    onWake: (seq) => {
-      if (seq > revision) void readOnce();
-    },
-    onStatus: (status) => {
-      // A reconnect may have missed wakes: re-read once subscribed again.
-      if (status.state === "subscribed") void readOnce();
-      options.onStatus?.(status);
-    },
-    socketFactory: options.socketFactory,
-  });
-
-  return {
-    stop() {
-      stopped = true;
-      doorbell.stop();
-    },
+  let bell: DoorbellOutput;
+  try {
+    ({ result: bell } = await client.call<DoorbellOutput>(CTL_PLANE_CHATBOT, "get_doorbell", {}, CHATBOT_READ));
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  if (stopped) return { stop };
+  const identity = options.identity;
+  const credential = options.credential ?? (identity ? async () => doorbellPassword(identity()) : null);
+  if (!credential) {
+    stop();
+    throw new Error("The knowledge feed has no current identity credential.");
+  }
+  const currentCredential = async () => {
+    if (stopped || signal?.aborted) throw new Error("The knowledge feed is cancelled.");
+    return credential();
   };
+  try {
+    doorbell = subscribeDoorbell({
+      listener: bell.listener,
+      ownerKey: bell.owner_key,
+      topic: bell.topic,
+      credential: currentCredential,
+      onWake: () => { void readOnce(); },
+      onStatus: (status) => {
+        if (stopped) return;
+        if (status.state === "subscribed") void readOnce();
+        try {
+          options.onStatus?.(status);
+        } catch (error) {
+          console.warn("[knowledge] status callback failed", error);
+        }
+      },
+      socketFactory: options.socketFactory,
+    });
+    if (stopped) doorbell.stop();
+  } catch (error) {
+    stop();
+    throw error;
+  }
+
+  return { stop };
 }
+

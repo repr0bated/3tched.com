@@ -177,12 +177,103 @@ async function toBytes(data: ArrayBuffer | Blob | string): Promise<Uint8Array> {
   if (typeof data === "string") return encoder.encode(data);
   return new Uint8Array(await data.arrayBuffer());
 }
+interface SharedDoorbellListener {
+  config: DoorbellConfig;
+  active: boolean;
+}
+
+interface SharedDoorbellEntry {
+  listener: string;
+  topic: string;
+  listeners: Set<SharedDoorbellListener>;
+  doorbell: Doorbell;
+  status: DoorbellStatus;
+}
+
+const sharedDoorbells = new Map<string, SharedDoorbellEntry>();
+
+/** One MQTT client ID owns one socket; readers receive independent wake hints. */
+export function subscribeDoorbell(config: DoorbellConfig): Doorbell {
+  let entry = sharedDoorbells.get(config.ownerKey);
+  if (entry && (entry.listener !== config.listener || entry.topic !== config.topic)) {
+    throw new Error("The owner-key doorbell is already bound to a different listener or topic.");
+  }
+
+  const listener: SharedDoorbellListener = { config, active: true };
+  if (!entry) {
+    const listeners = new Set<SharedDoorbellListener>([listener]);
+    const created: SharedDoorbellEntry = {
+      listener: config.listener,
+      topic: config.topic,
+      listeners,
+      status: { state: "connecting" },
+      doorbell: { stop() {} },
+    };
+    created.doorbell = startDoorbell({
+      ...config,
+      credential: async () => {
+        for (const item of created.listeners) {
+          if (item.active) return item.config.credential();
+        }
+        throw new Error("No active owner-key doorbell subscriber.");
+      },
+      onWake: (seq) => {
+        for (const item of created.listeners) {
+          if (!item.active) continue;
+          try {
+            item.config.onWake(seq);
+          } catch (error) {
+            console.warn("[doorbell] wake callback failed", error);
+          }
+        }
+      },
+      onStatus: (status) => {
+        created.status = status;
+        for (const item of created.listeners) {
+          if (!item.active) continue;
+          try {
+            item.config.onStatus?.(status);
+          } catch (error) {
+            console.warn("[doorbell] status callback failed", error);
+          }
+        }
+      },
+    });
+    entry = created;
+    sharedDoorbells.set(config.ownerKey, entry);
+  } else {
+    entry.listeners.add(listener);
+    try {
+      listener.config.onStatus?.(entry.status);
+    } catch (error) {
+      console.warn("[doorbell] status callback failed", error);
+    }
+  }
+
+  const ownedEntry = entry;
+  return {
+    stop() {
+      if (!listener.active) return;
+      listener.active = false;
+      ownedEntry.listeners.delete(listener);
+      if (ownedEntry.listeners.size === 0) {
+        sharedDoorbells.delete(config.ownerKey);
+        ownedEntry.doorbell.stop();
+      }
+    },
+  };
+}
+/** Public entry point; all owner-key callers share the refcounted socket. */
+export function ringDoorbell(config: DoorbellConfig): Doorbell {
+  return subscribeDoorbell(config);
+}
+
 
 /**
  * Connect, subscribe, and call `onWake` for every `{"seq"}` on the topic.
  * Reconnects with backoff (fresh credential each time) until `stop()`.
  */
-export function ringDoorbell(config: DoorbellConfig): Doorbell {
+function startDoorbell(config: DoorbellConfig): Doorbell {
   const keepAlive = config.keepAliveSeconds ?? 60;
   const factory = config.socketFactory ?? ((url: string) => new WebSocket(url, "mqtt") as unknown as WebSocketLike);
   let stopped = false;
@@ -190,7 +281,6 @@ export function ringDoorbell(config: DoorbellConfig): Doorbell {
   let socket: WebSocketLike | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let pingTimer: ReturnType<typeof setInterval> | undefined;
-  let lastSeq = -1;
 
   const status = (next: DoorbellStatus) => config.onStatus?.(next);
 
@@ -201,6 +291,7 @@ export function ringDoorbell(config: DoorbellConfig): Doorbell {
     socket = null;
     if (current) {
       current.onmessage = null;
+      current.onopen = null;
       current.onclose = null;
       current.onerror = null;
       try {
@@ -245,7 +336,10 @@ export function ringDoorbell(config: DoorbellConfig): Doorbell {
     }
     socket = ws;
     ws.binaryType = "arraybuffer";
-    ws.onopen = () => ws.send(encodeConnect(config.ownerKey, credential, keepAlive));
+    ws.onopen = () => {
+      ws.onopen = null;
+      ws.send(encodeConnect(config.ownerKey, credential, keepAlive));
+    };
     ws.onerror = () => {
       /* onclose follows */
     };
@@ -257,6 +351,7 @@ export function ringDoorbell(config: DoorbellConfig): Doorbell {
     ws.onmessage = async (ev) => {
       if (socket !== ws) return;
       const chunk = await toBytes(ev.data);
+      if (socket !== ws) return;
       const joined = new Uint8Array(pending.length + chunk.length);
       joined.set(pending);
       joined.set(chunk, pending.length);
@@ -304,10 +399,7 @@ export function ringDoorbell(config: DoorbellConfig): Doorbell {
             if (publish.qos > 0 && publish.packetId !== null) ws.send(encodePuback(publish.packetId));
             if (publish.topic !== config.topic) break;
             const seq = wakeSequence(publish.payload);
-            if (seq !== null && seq > lastSeq) {
-              lastSeq = seq;
-              config.onWake(seq);
-            }
+            if (seq !== null) config.onWake(seq);
             break;
           }
           case PINGRESP:

@@ -78,6 +78,10 @@ if [[ ! -d "$static_root" || ! -w "$static_root" ]]; then
 fi
 
 publish_dir="$target_dir"
+readonly_mount=false
+if [[ -z "$relative_path" ]] && findmnt -rn -T "$target_dir" -O ro >/dev/null; then
+  readonly_mount=true
+fi
 if [[ -z "$relative_path" ]]; then
   overlay="${OP_WEB_DASHBOARD_OVERLAY:-}"
   if [[ -z "$overlay" ]]; then
@@ -108,7 +112,15 @@ else
 fi
 "${privileged[@]}" install -m 0644 "$project_root/dist/index.html" "$publish_dir/index.html"
 
-if [[ "$publish_dir" != "$target_dir" ]]; then
+if [[ "$readonly_mount" == true ]]; then
+  # The release owns the read-only dashboard mount. Overlay only the two
+  # frontend-owned paths; do not remount or replace the backend release tree.
+  # This runtime override lasts until reboot or the next release activation.
+  for name in assets index.html; do
+    sudo mount --bind "$publish_dir/$name" "$target_dir/$name"
+  done
+  echo "Applied runtime-only static override; republish after reboot or release activation."
+elif [[ "$publish_dir" != "$target_dir" ]]; then
   for name in index.html assets; do
     link="$target_dir/$name"
     if [[ -e "$link" || -L "$link" ]]; then

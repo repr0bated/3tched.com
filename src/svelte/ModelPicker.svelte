@@ -28,14 +28,22 @@
           "Local"} model</span
       ><small
         >{runtime.chatContext?.mode === "control_plane"
-          ? "protected change · root password per task"
+          ? "identity-scoped model selection"
           : runtime.adapter.kind === "local"
             ? "offline workspace"
-            : "router selection"}</small
+            : runtime.chatContext?.mode === "ui_render"
+              ? "backend-configured generation"
+              : "router selection"}</small
       >
     </div>
     {#if runtime.adapter.kind === "remote" && runtime.chatContext?.mode === "control_plane"}<ControlPlanePicker
-      />{:else}
+      />
+    {:else if runtime.adapter.kind === "remote" && runtime.chatContext?.mode === "ui_render"}
+      <p class="route-status">
+        UI generation uses the backend’s configured model. No model-change
+        permission or elevation is required.
+      </p>
+    {:else}
       <RouteFields
         providers={runtime.providers}
         {draft}

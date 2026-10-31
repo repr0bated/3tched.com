@@ -19,11 +19,15 @@ const nativePath = "providers.models.custom.dynamic_route.model";
 const nativeUriPath = "providers.models.custom.dynamic_route.uri";
 const nativeUri = "https://inference.example/subscription/v1";
 
-function fake(values: Record<string, string | null> = {}) {
+function fake(values: Record<string, string | null> = {}, canApply = false) {
   const calls: Array<{ plugin: string; method: string; args: Record<string, unknown>; capability: string }> = [];
   const call = vi.fn(async (plugin: string, method: string, args: Record<string, unknown>, capability: string) => {
     calls.push({ plugin, method, args, capability });
-    return { result: method === "config_get" ? { value: values[args.path as string] } : {} };
+    const result: Record<string, unknown> = method === "config_get" ? { value: values[args.path as string] }
+      : method === "get_own_agent_route_access" ? { can_apply: canApply }
+      : method === "apply_own_agent_route" ? { mode: "control_plane", reference: models[0].control_plane_profile, model: selection.modelId, uri: nativeUri }
+      : {};
+    return { result };
   });
   const client = { call } as unknown as DoorClient;
   return { client, calls, call };
@@ -60,8 +64,8 @@ describe("Control Plane uses the shared catalog model", () => {
   it("elevates and atomically patches both model and agent with exactly the same guarded arguments", async () => {
     const { client, calls } = beforeChange();
     const elevate = vi.fn(async (plugin, method, args) => {
-      expect(calls.every((call) => call.method === "config_get")).toBe(true);
-      expect(plugin).toBe("tched_router");
+      expect(calls.every((call) => ["get_own_agent_route_access", "config_get"].includes(call.method))).toBe(true);
+      expect(plugin).toBe("chat_router");
       expect(method).toBe("config_patch");
       expect(args.operations).toEqual([
         { op: "test", path: "/agents/control_plane/model_provider", value: "openai.previous_route" },
@@ -108,11 +112,12 @@ describe("Control Plane uses the shared catalog model", () => {
   it("does not mutate when elevation is refused", async () => {
     const { client, calls } = beforeChange();
     await expect(setControlPlaneModel(client, selection, models, async () => { throw new Error("cancelled"); })).rejects.toThrow("cancelled");
-    expect(calls.every((call) => call.method === "config_get")).toBe(true);
+    expect(calls.every((call) => ["get_own_agent_route_access", "config_get"].includes(call.method))).toBe(true);
   });
 
   it("requires reconciliation if the mutation response is lost", async () => {
     const { client, call } = beforeChange();
+    call.mockResolvedValueOnce({ result: { can_apply: false } });
     call.mockResolvedValueOnce({ result: { value: "openai.previous_route" } });
     call.mockResolvedValueOnce({ result: { value: "previous-model" } });
     call.mockResolvedValueOnce({ result: { value: nativeUri } });
@@ -125,7 +130,41 @@ describe("Control Plane uses the shared catalog model", () => {
     const elevate = vi.fn();
     await setControlPlaneModel(client, selection, models, elevate);
     expect(elevate).not.toHaveBeenCalled();
-    expect(calls.every((call) => call.method === "config_get")).toBe(true);
+    expect(calls.every((call) => ["get_own_agent_route_access", "config_get"].includes(call.method))).toBe(true);
+  });
+
+  it("uses server-authorized own selection without elevation or client target paths", async () => {
+    const { client, calls } = fake({}, true);
+    const elevate = vi.fn();
+    await setControlPlaneModel(client, selection, models, elevate);
+    expect(elevate).not.toHaveBeenCalled();
+    expect(calls.at(-1)).toEqual({
+      plugin: "chat_router", method: "apply_own_agent_route",
+      args: { provider_id: selection.providerId, model_id: selection.modelId },
+      capability: "cap.software.tched-router.agent.route.self.write@v1",
+    });
+    expect(calls.some(call => ["config_get", "config_patch", "authorize_task"].includes(call.method))).toBe(false);
+  });
+
+  it("never falls back to administration after a scoped denial or mismatched readback", async () => {
+    for (const response of [new Error("permission denied"), { mode: "accountability", reference: models[0].control_plane_profile, model: selection.modelId, uri: nativeUri }]) {
+      const { client, calls, call } = fake({}, true);
+      call.mockResolvedValueOnce({ result: { can_apply: true } });
+      if (response instanceof Error) call.mockRejectedValueOnce(response);
+      else call.mockResolvedValueOnce({ result: response });
+      const elevate = vi.fn();
+      await expect(setControlPlaneModel(client, selection, models, elevate)).rejects.toBeInstanceOf(ControlPlaneMutationUnconfirmedError);
+      expect(elevate).not.toHaveBeenCalled();
+      expect(calls.some(call => call.method === "config_patch")).toBe(false);
+    }
+  });
+
+  it("fails closed on unavailable authoritative access instead of guessing from mode", async () => {
+    const { client, call } = fake();
+    call.mockRejectedValueOnce(new Error("access unavailable"));
+    const elevate = vi.fn();
+    await expect(setControlPlaneModel(client, selection, models, elevate)).rejects.toThrow("access unavailable");
+    expect(elevate).not.toHaveBeenCalled();
   });
 });
 

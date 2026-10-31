@@ -14,7 +14,8 @@
   let {
     backToChat,
     navigation = true,
-  }: { backToChat: () => void; navigation?: boolean } = $props();
+    controlsOnly = false,
+  }: { backToChat: () => void; navigation?: boolean; controlsOnly?: boolean } = $props();
   const runtime = getRuntime(),
     remote =
       runtime.adapter.kind === "remote"
@@ -45,13 +46,13 @@
 
 {#if navigation}<WorkbenchNavigation />{/if}
 <aside class="sc-workspace-tools" aria-label="Chat and rendering controls">
-  <label
+  {#if !controlsOnly}<label
     >Layout <select bind:value={runtime.layout}
       ><option value="balanced">Balanced</option><option value="conversation"
         >Chat focus</option
       ><option value="canvas">Canvas focus</option></select
     ></label
-  ><button
+  >{/if}<button
     aria-pressed={runtime.inspecting}
     onclick={() => (runtime.inspecting = !runtime.inspecting)}
     >Inspect spec</button
@@ -69,7 +70,7 @@
   aria-label="Canvas workspace"
   hidden={runtime.view !== "canvas" && runtime.view !== "accountability"}
 >
-  <h2>Interface canvas</h2>
+  {#if !controlsOnly}<h2>Interface canvas</h2>{/if}
   {#if remote?.gallery}<nav
       class="workspace-controls"
       aria-label="Workspace views"
@@ -88,10 +89,10 @@
           runtime.setCanvas(spec);
           view = "canvas";
         }}
-      />{/key}{:else}{#key runtime.renderRevision}<SpecRenderer
-        spec={runtime.canvasSpec}
-      />{/key}{/if}
-  {#if runtime.inspecting}<pre class="workbench-spec-inspector">{JSON.stringify(
+      />{/key}{:else if !controlsOnly}
+        {#if runtime.canvasSpec}{#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}{/if}
+      {/if}
+  {#if runtime.inspecting && !controlsOnly}<pre class="workbench-spec-inspector">{JSON.stringify(
         runtime.canvasSpec,
         null,
         2,

@@ -12,7 +12,7 @@
     spec = antigravitySpec,
   }: {
     adapter?: ChatAdapter;
-    view?: "spec" | "picker" | "runtime";
+    view?: "spec" | "picker" | "runtime" | "interface";
     spec?: Spec;
   } = $props();
   const personal = {
@@ -56,6 +56,9 @@
           >{runtime.route.providerId}/{runtime.route.modelId}</span
         ><span data-testid="pending">{String(runtime.catalogPending)}</span>
         <p role="status">{runtime.catalogError}</p>
+      {:else if view === "interface"}
+        <button onclick={() => runtime.setChatContext(personal)}>Authenticated context</button>
+        <SpecRenderer spec={runtime.canvasSpec} />
       {:else}
         <button
           onclick={() =>

@@ -1,4 +1,4 @@
-import { extractComponentFences, registerComponentDefinitions } from "./registered-components";
+import { admitUnregisteredElements, extractComponentFences, registerComponentDefinitions, registeredComponent } from "./registered-components";
 import { defineCatalog, type Spec } from "@json-render/core";
 import { compileChatCanvas } from "./chat-scratch";
 import { z } from "zod";
@@ -135,12 +135,24 @@ function isCanvasPayload(source: string): boolean {
   return elements;
 }
 
+/** Validate a canvas. A missing component is registered from what was rendered, then the page uses that catalog element. */
+export function acceptCanvasSpec(value: unknown): { spec: Spec; registered: string[] } {
+  try {
+    return { spec: validateCanvasSpec(value), registered: [] };
+  } catch (error) {
+    if (!value || typeof value !== "object" || !Object.hasOwn(value, "elements")) throw error;
+    const admitted = admitUnregisteredElements(value as Spec, (type) => Object.hasOwn(canvasCatalog.data.components, type) || registeredComponent(type) !== undefined);
+    if (!admitted.registered.length) throw error;
+    return { spec: validateCanvasSpec(admitted.spec), registered: admitted.registered };
+  }
+}
+
 export function readCanvasResponse(content: string): { content: string; canvasSpec?: Spec; canvasSpecs?: Spec[]; scratch?: boolean; registered?: string[] } {
   const extracted = extractComponentFences(content);
   const defined = registerComponentDefinitions(extracted.bodies, validateCanvasSpec);
   content = extracted.content;
   const notes = [
-    defined.registered.length ? `Registered ${defined.registered.join(", ")} in the catalog.` : "",
+    defined.registered.length ? `Registered ${defined.registered.join(", ")} for human review. It is on screen and is not in the approved catalog yet.` : "",
     defined.rejected.join(" "),
   ].filter(Boolean);
   const fences = [...content.matchAll(/^[ \t]*```([^\r\n`]*)\r?\n([\s\S]*?)\r?\n[ \t]*```[ \t]*(?=\r?\n|$)/gm)];
@@ -152,6 +164,7 @@ export function readCanvasResponse(content: string): { content: string; canvasSp
   }
   const canvasSpecs: Spec[] = [];
   const prose: string[] = [];
+  const admitted: string[] = [];
   let cursor = 0;
   let rejected = false;
   const blocks = fences.length ? fences : [{ 0: content, 1: "spec", 2: content.trim(), index: 0 }];
@@ -166,8 +179,18 @@ export function readCanvasResponse(content: string): { content: string; canvasSp
         (["", "json", "jsonl"].includes(format) && isCanvasPayload(block[2]));
       let spec: Spec;
       if (ui) {
-        try { spec = validateCanvasSpec(JSON.parse(block[2])); }
-        catch { spec = compileChatCanvas(block[2]); }
+        let parsed: unknown;
+        try { parsed = JSON.parse(block[2]); }
+        catch { parsed = undefined; }
+        if (parsed !== undefined) {
+          try {
+            const accepted = acceptCanvasSpec(parsed);
+            spec = accepted.spec;
+            admitted.push(...accepted.registered);
+          } catch { spec = compileChatCanvas(block[2]); }
+        } else {
+          spec = compileChatCanvas(block[2]);
+        }
       } else {
         // Code is escaped by an existing catalog component, never executed.
         spec = validateCanvasSpec({ root: "code", elements: {
@@ -184,10 +207,12 @@ export function readCanvasResponse(content: string): { content: string; canvasSp
   const text = prose.join("").trim();
   const reply = (text || (canvasSpecs.length ? "Rendered the requested interface." : content)) +
     (rejected ? "\n\nThe generated interface did not pass catalog validation and was not rendered." : "");
+  if (admitted.length) notes.push(`Registered ${admitted.join(", ")} for human review. It is on screen and is not in the approved catalog yet.`);
+  const registeredNames = [...defined.registered, ...admitted];
   return {
     content: [reply.trim(), ...notes].filter(Boolean).join("\n\n"),
     ...(canvasSpecs.length ? { canvasSpec: canvasSpecs[0], scratch: true } : {}),
     ...(canvasSpecs.length > 1 ? { canvasSpecs } : {}),
-    ...registered,
+    ...(registeredNames.length ? { registered: registeredNames } : {}),
   };
 }

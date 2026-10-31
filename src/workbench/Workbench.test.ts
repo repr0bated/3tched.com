@@ -15,60 +15,77 @@ function mount(adapter: ChatAdapter = createLocalChatAdapter()) {
 function navigate(label: string) {
   fireEvent.click(within(screen.getByRole("navigation", { name: "Identity workspace" })).getByRole("button", { name: label }));
 }
-function binaryMethod(name: string, sideEffect = "unknown"): BinaryMethod {
-  return { plugin_id: "zeroclaw", method: name,
-    path: `plugins/zeroclaw/operations/${name}/call`,
-    declaration: { args: { type: "object" }, returns: { type: "object" }, side_effect: sideEffect,
-      idempotent: sideEffect === "read", required_capability: `cap.${name}`, subid: name } };
-}
+// Identity fields from the mounted native metadata.json declarations, 2026-10-22.
+const listModels: BinaryMethod = {
+  plugin_id: "threetched", method: "models.list",
+  path: "plugins/threetched/operations/models.list/call",
+  declaration: { name: "models.list", args: { type: "object" }, returns: { type: "object" },
+    side_effect: "mutation", idempotent: false,
+    required_capability: "cap.software.threetched.call.ccc2ba7f9b4187900c4a578019288c511d8f031d3409f666757655be1ee3631b4@v1",
+    subid: "mut.software.threetched.call.ccc2ba7f9b4187900c4a578019288c511d8f031d3409f666757655be1ee3631b4@v1" },
+};
+const addSkill: BinaryMethod = {
+  plugin_id: "threetched", method: "skills.add",
+  path: "plugins/threetched/operations/skills.add/call",
+  declaration: { name: "skills.add", args: { type: "object" }, returns: { type: "object" },
+    side_effect: "mutation", idempotent: false,
+    required_capability: "cap.software.threetched.call.cd8639904c40b1b5bef1a1b12b7e881bce89342d394af5f6be5852d2385349c3b@v1",
+    subid: "mut.software.threetched.call.cd8639904c40b1b5bef1a1b12b7e881bce89342d394af5f6be5852d2385349c3b@v1" },
+};
 
 afterEach(cleanup);
 
 describe("identity workbench", () => {
-  it("lists binary methods, calls models on request, and shows denials without retrying", async () => {
+  it("lists native methods, calls models.list with no legacy subcommand, and shows denials without retrying", async () => {
     const invoke = vi.fn(async (method: BinaryMethod) => {
-      if (method.method === "models") return { stdout: "native-model", stderr: "", exit: 0 };
-      throw new Error("Config grant required");
+      if (method.method === "models.list") return { stdout: "native-model", stderr: "", exit: 0 };
+      throw new Error("Skill grant required");
     });
     const adapter = { ...createLocalChatAdapter(), kind: "remote", binarySurface: {
-      describe: vi.fn().mockResolvedValue([binaryMethod("models"), binaryMethod("config")]), invoke,
+      describe: vi.fn().mockResolvedValue([listModels, addSkill]), invoke,
     } } as unknown as DoorChatAdapter;
     mount(adapter);
-    navigate("ZeroClaw");
-    const panel = screen.getByRole("region", { name: "ZeroClaw binary surface" });
-    await within(panel).findByRole("button", { name: "Call models" });
-    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm unknown for models/ }));
-    fireEvent.click(within(panel).getByRole("button", { name: "Call models" }));
+    navigate("threetched");
+    const panel = screen.getByRole("region", { name: "threetched binary surface" });
+    await within(panel).findByRole("button", { name: "Call models.list" });
+    expect(invoke).not.toHaveBeenCalled();
+    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm mutation for models.list/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Call models.list" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+    expect(invoke).toHaveBeenNthCalledWith(1, listModels, {}, true);
     expect(within(panel).getByText("native-model")).toBeVisible();
-    fireEvent.click(within(panel).getByRole("button", { name: "config" }));
-    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm unknown for config/ }));
-    fireEvent.click(within(panel).getByRole("button", { name: "Call config" }));
-    await waitFor(() => expect(within(panel).getByRole("alert")).toHaveTextContent("Config grant required"));
+    fireEvent.click(within(panel).getByRole("button", { name: "skills.add", exact: true }));
+    const args = { arguments: ["sample-skill"], "--no-scaffold": true };
+    fireEvent.change(within(panel).getByLabelText("Arguments as JSON"), { target: { value: JSON.stringify(args) } });
+    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm mutation for skills.add/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Call skills.add" }));
+    await waitFor(() => expect(within(panel).getByRole("alert")).toHaveTextContent("Skill grant required"));
+    expect(invoke).toHaveBeenNthCalledWith(2, addSkill, args, true);
     expect(invoke).toHaveBeenCalledTimes(2);
   });
 
   it("requires an explicit confirmation for a binary mutation", async () => {
     const invoke = vi.fn().mockResolvedValue({});
     const adapter = { ...createLocalChatAdapter(), kind: "remote", binarySurface: {
-      describe: vi.fn().mockResolvedValue([binaryMethod("update", "mutation")]), invoke,
+      describe: vi.fn().mockResolvedValue([addSkill]), invoke,
     } } as unknown as DoorChatAdapter;
     mount(adapter);
-    navigate("ZeroClaw");
-    const panel = screen.getByRole("region", { name: "ZeroClaw binary surface" });
-    await within(panel).findByRole("button", { name: "Call update" });
-    fireEvent.click(within(panel).getByRole("button", { name: "Call update" }));
+    navigate("threetched");
+    const panel = screen.getByRole("region", { name: "threetched binary surface" });
+    await within(panel).findByRole("button", { name: "Call skills.add" });
+    fireEvent.change(within(panel).getByLabelText("Arguments as JSON"), { target: { value: '{"arguments":["sample-skill"]}' } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Call skills.add" }));
     expect(within(panel).getByRole("alert")).toHaveTextContent("Confirm this binary command");
     expect(invoke).not.toHaveBeenCalled();
-    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm mutation for update/ }));
-    fireEvent.click(within(panel).getByRole("button", { name: "Call update" }));
+    fireEvent.click(within(panel).getByRole("checkbox", { name: /Confirm mutation for skills.add/ }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Call skills.add" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
   });
 
   it("provides horizontal destinations and keeps chat draft and selected model while switching views", () => {
     mount();
     const nav = screen.getByRole("navigation", { name: "Identity workspace" });
-    expect(within(nav).getAllByRole("button").map(button => button.textContent)).toEqual(["Canvas", "Accountability", "Compliance", "Schema routing", "ZeroClaw"]);
+    expect(within(nav).getAllByRole("button").map(button => button.textContent)).toEqual(["Canvas", "Accountability", "Compliance", "Schema routing", "threetched"]);
     const message = screen.getByLabelText("Message");
     fireEvent.change(message, { target: { value: "Keep my conversation" } });
     const model = screen.getByRole("combobox", { name: "Model" });
@@ -78,8 +95,8 @@ describe("identity workbench", () => {
     expect(screen.queryByRole("heading", { name: "Interface canvas" })).not.toBeInTheDocument();
     navigate("Schema routing");
     expect(screen.getByRole("region", { name: "Schema routing draft" })).toBeVisible();
-    navigate("ZeroClaw");
-    expect(screen.getByRole("region", { name: "ZeroClaw binary surface" })).toHaveTextContent("Connect to the door to call ZeroClaw methods.");
+    navigate("threetched");
+    expect(screen.getByRole("region", { name: "threetched binary surface" })).toHaveTextContent("Connect to the door to call threetched methods.");
     navigate("Canvas");
     expect(screen.getByRole("heading", { name: "Interface canvas" })).toBeVisible();
     expect(message).toHaveValue("Keep my conversation");

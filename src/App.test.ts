@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "./test/native";
+import { fireEvent, render, screen } from "./test/native";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup } from "./test/native";
 import App from "./svelte/App.svelte";
@@ -25,7 +25,7 @@ async function openGate() {
   render(App, {  });
   // No host injection and no same-origin identity endpoint in jsdom: the
   // resolving step must fall through to the gate on its own.
-  await screen.findByRole("heading", { level: 1, name: "Connect to the door" });
+  await screen.findByRole("heading", { name: "Connect to the door" });
 }
 
 describe("Door connect gate", () => {
@@ -46,7 +46,7 @@ describe("Door connect gate", () => {
       createLocalChatAdapter() as Awaited<ReturnType<typeof connectDoorChatAdapter>>,
     );
     render(App, {  });
-    await screen.findByRole("button", { name: "Settings" });
+    await screen.findByRole("main", { name: "Interface canvas" });
     expect(connectDoorChatAdapter).toHaveBeenCalledWith({
       url: "https://10.0.0.3:8090", identity, signal: expect.any(AbortSignal),
     }, { refreshOnLoad: "background" });
@@ -71,7 +71,7 @@ describe("Door connect gate", () => {
       createLocalChatAdapter() as Awaited<ReturnType<typeof connectDoorChatAdapter>>,
     );
     render(App, {  });
-    await screen.findByRole("button", { name: "Settings" });
+    await screen.findByRole("main", { name: "Interface canvas" });
     expect(fetch).toHaveBeenNthCalledWith(2, "http://10.0.0.1:51888/identity/self",
       expect.objectContaining({ mode: "cors", credentials: "omit", cache: "no-store" }));
     expect(connectDoorChatAdapter).toHaveBeenCalledWith({
@@ -93,7 +93,7 @@ describe("Door connect gate", () => {
     await screen.findByRole("heading", { name: "Models unavailable" });
     expect(screen.getByRole("alert")).toHaveTextContent("not reachable");
     fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
-    await screen.findByRole("button", { name: "Settings" });
+    await screen.findByRole("main", { name: "Interface canvas" });
     expect(connectDoorChatAdapter).toHaveBeenLastCalledWith({
       url: "https://10.0.0.3:8090", identity: { kind: "sid1", sealedId: "TkVX" },
       signal: expect.any(AbortSignal),
@@ -108,32 +108,11 @@ describe("Local workbench fallback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use local workbench" }));
   }
 
-  it("renders the local Json Render workbench", async () => {
+  it("gives the chatbot the canvas and does not draw the page", async () => {
     await openLocal();
-
-    expect(screen.getByRole("heading", { level: 1, name: "3tched Chat" })).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByLabelText("Local model routing")).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole("button", { name: "Menu" }));
-    const menubar = await screen.findByRole("menubar", { name: "Main" });
-    expect(within(menubar).getAllByRole("menuitem")).toHaveLength(10);
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeVisible();
-  });
-
-  it("adds a local user message and deterministic assistant response", async () => {
-    await openLocal();
-    const input = screen.getByRole("textbox", { name: "Message" });
-
-    fireEvent.change(input, {
-      target: { value: "Build an incident triage board" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
-
-    expect(screen.getByText("Build an incident triage board")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sending" })).toBeDisabled();
-    expect(
-      await screen.findByText(/Local adapter acknowledged:/, {}, { timeout: 1600 }),
-    ).toHaveTextContent("Build an incident triage board");
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.getByRole("main", { name: "Interface canvas" })).toBeVisible();
+    expect(screen.queryByRole("menubar", { name: "Main" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
   });
 });

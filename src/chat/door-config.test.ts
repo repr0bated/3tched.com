@@ -23,7 +23,7 @@ describe("canonical page connector selection", () => {
     vi.unstubAllEnvs();
   });
 
-  it.each(["http://10.0.0.4:8080", "http://10.0.0.2:8080"])(
+  it.each(["http://10.0.0.4:8080", "http://10.0.0.2:8080", "http://10.0.0.1:8080"])(
     "overrides stale door sources consistently on %s", async (origin) => {
       localStorage.setItem("3tched.door", "https://10.0.0.4");
       vi.stubEnv("VITE_OPDBUS_DOOR", "https://10.0.0.2:8090");

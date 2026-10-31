@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, tick, untrack } from "svelte";
-  import SpecRenderer from "./SpecRenderer.svelte";
   import { ChatSession, type ChatRuntime } from "./chat-session";
 
   let {
@@ -18,16 +17,6 @@
   let copied = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
   const ready = $derived(runtime.adapter.kind === "local" || !!runtime.context);
-  const suggestions = [
-    { label: "Explore 3tched", prompt: "/ui-reference story" },
-    { label: "Storage dashboard", prompt: "/ui-reference btrfs" },
-    { label: "Browse UI examples", prompt: "/ui-reference" },
-    {
-      label: "Build an interface",
-      prompt:
-        "Design a dashboard for my project with key metrics and a status overview.",
-    },
-  ];
 
   onMount(() => {
     const unsubscribe = session.subscribe(() => {
@@ -70,9 +59,9 @@
     }
   });
 
-  async function send(text?: string) {
+  async function send() {
     stickToBottom = true;
-    await session.submit(text);
+    await session.submit();
     input?.focus();
   }
 
@@ -97,7 +86,7 @@
 
 <section class="sc-conversation" aria-label="Conversation">
   <div class="sc-thread-toolbar">
-    <span>{runtime.modelLabel || "Select a model above"}</span>
+    {#if runtime.modelLabel}<span>{runtime.modelLabel}</span>{/if}
     {#if thread.messages.length}
       <button
         class="sc-button"
@@ -122,28 +111,6 @@
     aria-label="Messages"
     tabindex="0"
   >
-    {#if !thread.messages.length}
-      <div class="sc-empty">
-        <div class="sc-empty-mark" aria-hidden="true">✳</div>
-        <h2>What would you like to explore?</h2>
-        <p>
-          Ask a question, explore your data, or build an interface.<br />Bring
-          the answer to life, right here in your conversation.
-        </p>
-        <div class="sc-suggestions">
-          {#each suggestions as suggestion (suggestion.label)}
-            <button
-              disabled={!ready || thread.sending}
-              onclick={() => void send(suggestion.prompt)}
-              ><span aria-hidden="true">✧</span>{suggestion.label}</button
-            >
-          {/each}
-        </div>
-        {#if runtime.adapter.kind === "local"}<small
-            >Local preview · sample responses, no network required</small
-          >{/if}
-      </div>
-    {:else}
       <div
         class="sc-thread"
         role="log"
@@ -165,24 +132,9 @@
                   : "System"}
               </div>{/if}
             <p class="sc-message-text">{message.content}</p>
-            {#each (message.canvasSpecs ?? (message.canvasSpec ? [message.canvasSpec] : [])) as spec, index (index)}
-              <section class="sc-result" aria-label={`Response block ${index + 1}`}>
-                <SpecRenderer {spec} />
-                {#if runtime.adapter.kind === "remote"}
-                  <button
-                    disabled={message.savedCanvases?.includes(index) || (index === 0 && message.saved) || message.saving}
-                    onclick={() => void session.save(message.id, undefined, index)}
-                    >{message.savedCanvases?.includes(index) || (index === 0 && message.saved)
-                      ? "Saved to gallery"
-                      : message.saving
-                        ? "Saving…"
-                        : (message.canvasSpecs?.length ?? 0) > 1
-                          ? `Save block ${index + 1} to gallery`
-                          : "Save to gallery"}</button
-                  >
-                {/if}
-              </section>
-            {/each}
+            {#if message.canvasSpec || message.canvasSpecs?.length}
+              <p class="sc-canvas-note">Interface rendered on the canvas</p>
+            {/if}
             {#if message.role === "agent"}
               <div class="sc-message-actions">
                 <button
@@ -200,7 +152,6 @@
             >
           </div>{/if}
       </div>
-    {/if}
   </div>
   <footer class="sc-composer-area">
     {#if showScrollButton && thread.messages.length}<button
@@ -224,17 +175,15 @@
         oninput={(event) => session.setDraft(event.currentTarget.value)}
         onkeydown={handleKeydown}
         disabled={!ready}
-        placeholder={thread.messages.length
-          ? "Ask a follow-up…"
-          : "Ask anything, or describe what you want to build…"}
+        placeholder="Message"
         rows="2"></textarea>
       <div class="sc-composer-bottom">
-        <span
+        {#if runtime.adapter.kind === "local" || runtime.context}<span
           >{runtime.adapter.kind === "local"
             ? "Local preview"
-            : (runtime.context?.mode.replaceAll("_", " ") ??
-              "Loading chat mode…")}</span
-        ><button
+            : runtime.context?.mode.replaceAll("_", " ")}</span
+        >{/if}
+        <button
           type="submit"
           aria-label={thread.sending ? "Sending" : "Send"}
           disabled={!ready || !thread.draft.trim() || thread.sending}

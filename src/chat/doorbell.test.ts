@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   decodePackets,
   decodePublish,
@@ -9,6 +9,8 @@ import {
   wakeSequence,
   type WebSocketLike,
 } from "./doorbell";
+
+afterEach(() => vi.restoreAllMocks());
 
 const OWNER = "ab".repeat(32);
 const TOPIC = `opdbus/wake/${OWNER}`;
@@ -93,18 +95,17 @@ describe("doorbell codec", () => {
 });
 
 describe("ringDoorbell", () => {
-  it("connects with a fresh credential, subscribes, wakes once per new seq, and acks QoS1", async () => {
+  it("connects with a fresh credential, subscribes at QoS1, acknowledges publishes, and releases", async () => {
     const sockets: FakeSocket[] = [];
     let issued = 0;
     const credential = vi.fn(async () => `oia1:${++issued}`);
-    const onWake = vi.fn();
     const statuses: string[] = [];
     const bell = ringDoorbell({
       listener: "wss://10.0.0.3:8084",
       ownerKey: OWNER,
       topic: TOPIC,
       credential,
-      onWake,
+      onWake: () => {},
       onStatus: (s) => statuses.push(s.state),
       socketFactory: () => {
         const s = new FakeSocket();
@@ -124,15 +125,61 @@ describe("ringDoorbell", () => {
 
     await ws.deliver(publish(TOPIC, '{"seq":5}'));
     await ws.deliver(publish(TOPIC, '{"seq":5}', 1, 8));
-    await ws.deliver(publish(TOPIC, '{"seq":6}', 0));
     await ws.deliver(publish("opdbus/wake/other", '{"seq":9}'));
-    expect(onWake.mock.calls.map((c) => c[0])).toEqual([5, 6]);
-    // PUBACKs for the two QoS1 publishes on our topic and the foreign one.
     expect(ws.sent.filter((b) => b[0] === 0x40)).toHaveLength(3);
 
     bell.stop();
     expect(ws.closed).toEqual(["stopped"]);
     expect(statuses.at(-1)).toBe("closed");
+  });
+
+  it("shares one socket, preserves independent readers, and releases only after the last stop", async () => {
+    const sockets: FakeSocket[] = [];
+    const make = (onWake: () => void, onStatus?: (state: string) => void) => ringDoorbell({
+      listener: "wss://10.0.0.3:8084",
+      ownerKey: OWNER,
+      topic: TOPIC,
+      credential: async () => "sid1:proof",
+      onWake,
+      onStatus: (status) => onStatus?.(status.state),
+      socketFactory: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    let stateA = "a-before";
+    let stateB = "b-before";
+    const seenA: string[] = [];
+    const seenB: string[] = [];
+    const first = make(() => seenA.push(stateA), () => { throw new Error("consumer status failure"); });
+    const second = make(() => seenB.push(stateB));
+    await vi.waitFor(() => expect(sockets).toHaveLength(1));
+    const ws = sockets[0];
+    ws.open();
+    await ws.deliver(connack(0));
+    await ws.deliver(suback(1));
+
+    stateA = "a-committed";
+    stateB = "b-committed";
+    await ws.deliver(publish(TOPIC, '{"seq":4}', 0));
+    stateA = "a-later";
+    stateB = "b-later";
+    await ws.deliver(publish(TOPIC, '{"seq":4}', 0));
+    await ws.deliver(publish(TOPIC, '{"seq":3}', 0));
+    expect(seenA).toEqual(["a-committed", "a-later", "a-later"]);
+    expect(seenB).toEqual(["b-committed", "b-later", "b-later"]);
+
+    first.stop();
+    expect(ws.closed).toHaveLength(0);
+    stateA = "must-not-deliver";
+    stateB = "b-still-live";
+    await ws.deliver(publish(TOPIC, '{"seq":3}', 0));
+    expect(seenA).not.toContain("must-not-deliver");
+    expect(seenB.at(-1)).toBe("b-still-live");
+    second.stop();
+    expect(ws.closed).toEqual(["stopped"]);
   });
 
   it("retries with a new credential when the broker refuses the connect", async () => {

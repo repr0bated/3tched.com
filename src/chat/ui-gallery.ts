@@ -6,14 +6,15 @@ import type { Elevate } from "./elevation";
 /**
  * The json_render UI gallery and active catalog, through the door.
  *
- * Candidates are the caller's own saved canvases (no count limit, paged
- * newest first). The catalog is system-wide: promoted compositions every
- * user reads, and the normal chat modes compose from. Method names and
- * capability ids are the sealed json_render schema's.
+ * Candidates are the caller's private canvases until explicitly submitted.
+ * Only application $ROOT can review submitted title/spec/provenance and
+ * promote it into the system-wide catalog; submission never publishes or
+ * shares the original prompt. Authority always comes from the backend.
  */
 export const JSON_RENDER = "json_render";
 export const GALLERY_CAPABILITY = "json_render.gallery";
 export const PROMOTE_CAPABILITY = "json_render.promote";
+export const RETIRE_CAPABILITY = "json_render.retire";
 
 export interface CandidateSummary {
   candidate_id: string;
@@ -22,6 +23,7 @@ export interface CandidateSummary {
   spec_hash: string;
   created_at: string;
   promoted_entry_id?: string | null;
+  submission?: { suggestion_id: string; submitted_at: string } | null;
 }
 
 export interface Candidate extends CandidateSummary {
@@ -31,12 +33,28 @@ export interface Candidate extends CandidateSummary {
   profile_sha256: string;
 }
 
+export interface SuggestionSummary {
+  suggestion_id: string;
+  from_principal: string;
+  candidate_id: string;
+  title: string;
+  spec_hash: string;
+  profile_sha256: string;
+  submitted_at: string;
+}
+
+export interface Suggestion extends SuggestionSummary {
+  spec: Spec;
+}
+
 export interface CatalogEntrySummary {
   entry_id: string;
   name: string;
   description: string;
   spec_hash: string;
   promoted_at: string;
+  created_by: string;
+  promoted_by: string;
   status: "active" | "retired";
 }
 
@@ -44,7 +62,6 @@ export interface CatalogEntry extends CatalogEntrySummary {
   spec: Spec;
   profile_sha256: string;
   from_candidate_id: string;
-  promoted_by: string;
   retired_at?: string | null;
   retired_by?: string | null;
   retire_reason?: string | null;
@@ -57,11 +74,15 @@ export interface Page<T> {
 }
 
 export interface UiGallery {
+  getAccess(): Promise<{ can_promote: boolean; can_retire: boolean }>;
   saveCandidate(request: { spec: Spec; title: string; mode: ChatMode; prompt?: string }): Promise<Candidate>;
   listCandidates(before?: string | null, limit?: number): Promise<Page<CandidateSummary>>;
   getCandidate(candidateId: string): Promise<Candidate>;
   deleteCandidate(candidateId: string): Promise<boolean>;
-  promoteCandidate(candidateId: string, name: string, description: string, elevate?: Elevate): Promise<CatalogEntry>;
+  suggestCandidate(candidateId: string): Promise<Candidate>;
+  listSuggestions(before?: string | null, limit?: number): Promise<Page<SuggestionSummary>>;
+  getSuggestion(suggestionId: string): Promise<Suggestion>;
+  promoteCandidate(source: SuggestionSummary, name: string, description: string): Promise<CatalogEntry>;
   listCatalog(before?: string | null, limit?: number, includeRetired?: boolean): Promise<Page<CatalogEntrySummary>>;
   getCatalogEntry(entryId: string): Promise<CatalogEntry>;
   retireCatalogEntry(entryId: string, reason?: string, elevate?: Elevate): Promise<CatalogEntry>;
@@ -103,6 +124,10 @@ export function uiGallery(client: DoorClient): UiGallery {
   }
 
   const gallery: UiGallery = {
+    async getAccess() {
+      return call<{ can_promote: boolean; can_retire: boolean }>("get_gallery_access", {});
+    },
+
     async saveCandidate({ spec, title, mode, prompt }) {
       const clippedPrompt = prompt?.trim() ? clipBytes(prompt, MAX_PROMPT_BYTES) : undefined;
       const result = await call<{ candidate: Candidate }>("save_candidate", {
@@ -130,9 +155,34 @@ export function uiGallery(client: DoorClient): UiGallery {
       return (await call<{ deleted: boolean }>("delete_candidate", { candidate_id: candidateId })).deleted;
     },
 
-    async promoteCandidate(candidateId, name, description, elevate) {
-      const args = { candidate_id: candidateId, name: name.trim(), description: description.trim() };
-      if (elevate) await elevate(JSON_RENDER, "promote_candidate", args);
+    async suggestCandidate(candidateId) {
+      return (await call<{ candidate: Candidate }>("suggest_candidate", { candidate_id: candidateId })).candidate;
+    },
+
+    async listSuggestions(before, limit = 20) {
+      const result = await call<{ suggestions: SuggestionSummary[]; next_before?: string | null; total: number }>(
+        "list_suggestions",
+        { limit, ...(before ? { before } : {}) },
+        PROMOTE_CAPABILITY,
+      );
+      return { items: result.suggestions, nextBefore: result.next_before ?? null, total: result.total };
+    },
+
+    async getSuggestion(suggestionId) {
+      return (await call<{ suggestion: Suggestion }>(
+        "get_suggestion", { suggestion_id: suggestionId }, PROMOTE_CAPABILITY,
+      )).suggestion;
+    },
+
+    async promoteCandidate(source, name, description) {
+      const args = {
+        suggestion_id: source.suggestion_id,
+        from_principal: source.from_principal,
+        candidate_id: source.candidate_id,
+        expected_spec_hash: source.spec_hash,
+        name: name.trim(),
+        description: description.trim(),
+      };
       const result = await call<{ entry: CatalogEntry }>("promote_candidate", args, PROMOTE_CAPABILITY);
       forget();
       return result.entry;
@@ -153,7 +203,7 @@ export function uiGallery(client: DoorClient): UiGallery {
     async retireCatalogEntry(entryId, reason = "", elevate) {
       const args = { entry_id: entryId, reason: reason.trim() };
       if (elevate) await elevate(JSON_RENDER, "retire_catalog_entry", args);
-      const result = await call<{ entry: CatalogEntry }>("retire_catalog_entry", args, PROMOTE_CAPABILITY);
+      const result = await call<{ entry: CatalogEntry }>("retire_catalog_entry", args, RETIRE_CAPABILITY);
       forget();
       return result.entry;
     },

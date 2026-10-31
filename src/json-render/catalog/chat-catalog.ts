@@ -27,6 +27,11 @@ export const chatCatalog = defineCatalog(schema, {
       slots: [],
       description: "Compact page title and runtime subtitle.",
     },
+    interfaceGeneration: {
+      props: z.object({}),
+      slots: [],
+      description: "Trusted post-login interface generation status and explicit retry. Uses the authenticated runtime, never grants permissions or substitutes local samples.",
+    },
     workbenchNavigation: {
       props: z.object({}),
       slots: [],

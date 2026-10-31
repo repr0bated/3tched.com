@@ -8,8 +8,10 @@ import type { ResolvedChatContext } from "../chat/chat-mode";
 import { notebookIdFromNamespace } from "../chat/chat-mode";
 import type { DoorChatAdapter } from "../chat/door-chat-adapter";
 import { registerScratchCatalogObject, removeScratchCatalogObject } from "../json-render/references/chat-scratch";
-import { validateCanvasSpec } from "../json-render/references/canvas-contract";
+import { acceptCanvasSpec, validateCanvasSpec } from "../json-render/references/canvas-contract";
 import { adoptPromotedEntries, registeredComponent } from "../json-render/references/registered-components";
+import { isValidatedApplicationSpec } from "../json-render/references/application-validation";
+import { reviewTitle, submitHumanReview } from "../chat/review-lanes";
 
 export interface ChatRuntime {
   adapter: ChatAdapter;
@@ -120,6 +122,18 @@ export class ChatSession {
     this.notify();
   }
 
+  applicationInvoker() {
+    const runtime = this.runtime;
+    return async (plugin: string, method: string, capability: string, args: Record<string, unknown>, hash: string) => {
+      if (this.disposed || !runtime || this.runtime?.adapter !== runtime.adapter || this.runtime.scopeKey !== runtime.scopeKey || !runtime.adapter.invokeApplicationAction)
+        throw new Error("Application identity or scope is unavailable.");
+      const result = await runtime.adapter.invokeApplicationAction(plugin, method, capability, args, hash);
+      if (this.disposed || this.runtime?.adapter !== runtime.adapter || this.runtime.scopeKey !== runtime.scopeKey)
+        throw new Error("Application context changed; outcome may have completed. Do not retry automatically.");
+      return result;
+    };
+  }
+
   async submit(text = this.current.draft) {
     const runtime = this.runtime;
     const message = text.trim();
@@ -214,9 +228,28 @@ export class ChatSession {
           ? { draft: this.threads.get(scopeKey)!.draft || message }
           : {}),
       });
-      const canvases = response.canvasSpecs ?? (response.canvasSpec ? [response.canvasSpec] : []);
+      const incoming = response.canvasSpecs ?? (response.canvasSpec ? [response.canvasSpec] : []);
+      const admittedNames: string[] = [];
+      const canvases = incoming.flatMap((spec) => {
+        try {
+          const accepted = acceptCanvasSpec(spec);
+          admittedNames.push(...accepted.registered);
+          return [accepted.spec];
+        } catch {
+          return [];
+        }
+      });
       for (const spec of canvases) registerScratchCatalogObject(scopeKey, spec);
       if (canvases.length) {
+        const thread = this.threads.get(scopeKey);
+        if (thread) {
+          this.update(scopeKey, {
+            messages: thread.messages.map((item) => item.id === reply.id
+              ? { ...item, canvasSpec: canvases[0], canvasSpecs: canvases }
+              : item),
+          });
+        }
+        await this.keepRegistered(admittedNames);
         runtime.setCanvas(canvases[canvases.length - 1]);
         if (context?.mode === "ui_render") {
           for (let index = 0; index < canvases.length && stillOwned(); index++) {
@@ -276,14 +309,15 @@ export class ChatSession {
     const spec = response.canvasSpecs?.[0] ?? response.canvasSpec;
     const text = response.message.content.trim();
     if (!spec || response.historyEligible === false) throw new Error(text || "The chatbot did not return a view.");
-    const validated = remote ? validateCanvasSpec(spec) : spec;
+    const accepted = remote ? acceptCanvasSpec(spec) : { spec, registered: [] as string[] };
+    const validated = accepted.spec;
     let candidateId: string | undefined;
     if (remote?.gallery && context) {
       const candidate = await remote.gallery.saveCandidate({ spec: validated, title, prompt, mode: context.mode }).catch(() => undefined);
       requireCurrent();
       candidateId = candidate?.candidate_id;
     }
-    await this.keepRegistered(response.registered);
+    await this.keepRegistered([...(response.registered ?? []), ...accepted.registered]);
     requireCurrent();
     return { spec: validated, candidateId, ...(text && text !== "Rendered the requested interface." ? { note: text } : {}) };
   }
@@ -314,12 +348,7 @@ export class ChatSession {
     await Promise.all(names.map(async (name) => {
       const component = registeredComponent(name);
       if (!component) return;
-      await gallery.saveCandidate({
-        spec: component.spec,
-        title: component.name,
-        prompt: component.description,
-        mode: context.mode,
-      }).catch(() => undefined);
+      await submitHumanReview(gallery, component, context.mode).catch(() => undefined);
     }));
   }
 
@@ -333,6 +362,10 @@ export class ChatSession {
     const spec = message?.canvasSpecs?.[canvasIndex] ?? (canvasIndex === 0 ? message?.canvasSpec : undefined);
     if (!gallery || !spec || !message || message.savedCanvases?.includes(canvasIndex) || (canvasIndex === 0 && message.saved) || message.saving)
       return;
+    if (isValidatedApplicationSpec(message.canvasSpec)) {
+      this.update(runtime.scopeKey, { saveStatus: "Applications belong to committed chat responses, not the static gallery." });
+      return;
+    }
     const updateMessage = (
       patch: Partial<ThreadMessage>,
       saveStatus?: string,
@@ -353,13 +386,14 @@ export class ChatSession {
     };
     updateMessage({ saving: true });
     try {
+      const name = `${message.prompt ?? "Chat result"}${(message.canvasSpecs?.length ?? 0) > 1 ? ` · Block ${canvasIndex + 1}` : ""}`;
       await gallery.saveCandidate({
         spec,
-        title: `${message.prompt ?? "Chat result"}${(message.canvasSpecs?.length ?? 0) > 1 ? ` · Block ${canvasIndex + 1}` : ""}`,
+        title: reviewTitle("catalog", name),
         prompt: message.prompt,
         mode: runtime.context.mode,
       });
-      updateMessage({ saved: canvasIndex === 0 || message.saved, savedCanvases: [...(message.savedCanvases ?? []), canvasIndex], saving: false }, "Saved to candidates.");
+      updateMessage({ saved: canvasIndex === 0 || message.saved, savedCanvases: [...(message.savedCanvases ?? []), canvasIndex], saving: false }, "Saved as a catalog candidate.");
     } catch (error) {
       updateMessage(
         { saving: false },

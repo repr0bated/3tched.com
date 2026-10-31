@@ -30,6 +30,7 @@ import dashboardTopology from "../../svelte/catalog/dashboardTopology.svelte";
 import dashboardTree from "../../svelte/catalog/dashboardTree.svelte";
 import generatedRegion from "../../svelte/catalog/generatedRegion.svelte";
 import heading from "../../svelte/catalog/heading.svelte";
+import interfaceGeneration from "../../svelte/catalog/interfaceGeneration.svelte";
 import menuBar from "../../svelte/catalog/menuBar.svelte";
 import menuItem from "../../svelte/catalog/menuItem.svelte";
 import menuSection from "../../svelte/catalog/menuSection.svelte";
@@ -54,6 +55,7 @@ const components = {
   container,
   generatedRegion,
   heading,
+  interfaceGeneration,
   menuBar,
   menuItem,
   menuSection,

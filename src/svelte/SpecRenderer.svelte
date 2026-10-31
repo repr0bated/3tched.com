@@ -5,15 +5,20 @@
   import { provideSpec } from "./spec-context";
   import { pluginFeedReader } from "./plugin-feeds";
   import FeedBoundCanvas from "./FeedBoundCanvas.svelte";
+  import ApplicationRenderer from "./ApplicationRenderer.svelte";
+  import { isValidatedApplicationSpec } from "../json-render/references/application-validation";
   import "../json-render/catalog/dashboard-components.css";
   let { spec }: { spec: Spec } = $props();
   provideSpec(() => spec, chatRegistry);
   const readFeeds = pluginFeedReader();
+  const application = $derived(isValidatedApplicationSpec(spec));
 </script>
 
 {#key spec}
   <svelte:boundary>
-    {#if readFeeds}
+    {#if application}
+      <ApplicationRenderer {spec} />
+    {:else if readFeeds}
       <FeedBoundCanvas {spec} {readFeeds} />
     {:else}
       <JsonUIProvider initialState={spec.state ?? {}}

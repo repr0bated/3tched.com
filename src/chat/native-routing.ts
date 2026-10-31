@@ -1,6 +1,4 @@
 import type { DoorClient } from "../grpc/door";
-import type { RouteSelection } from "./chat-adapter";
-import type { CatalogModel } from "./model-catalog";
 
 const ROUTER_READ = "cap.software.tched-router.router.read@v1";
 const CATALOG_BINDING_READ = "cap.software.tched-router.model.binding.read@v1";
@@ -22,7 +20,7 @@ export function nativeProfilePath(reference: string, field: "model" | "uri"): st
 }
 
 export async function readRouterValue(client: DoorClient, path: string): Promise<string> {
-  const { result } = await client.call<{ value?: string | null }>("tched_router", "config_get", { path }, ROUTER_READ);
+  const { result } = await client.call<{ value?: string | null }>("chat_router", "config_get", { path }, ROUTER_READ);
   if (typeof result.value !== "string" || !result.value.trim()) throw new Error(`The router has no configured value for ${path}.`);
   return result.value;
 }
@@ -75,7 +73,7 @@ export async function resolveCatalogModelBinding(
     oauth?: unknown;
     catalog_revision?: unknown;
   }>(
-    "tched_router",
+    "chat_router",
     "resolve_catalog_model_binding",
     { provider_id: providerId, model_id: modelId },
     CATALOG_BINDING_READ,
@@ -94,7 +92,7 @@ export async function applyCatalogModelBinding(
   const { result } = await client.call<{
     provider_id?: unknown; model_id?: unknown; reference?: unknown; model?: unknown; uri?: unknown; oauth?: unknown; catalog_revision?: unknown;
   }>(
-    "tched_router",
+    "chat_router",
     "apply_catalog_model_binding",
     { provider_id: providerId, model_id: modelId },
     "cap.software.tched-router.catalog.selection.set@v1",
@@ -134,16 +132,24 @@ export function sameCatalogModelBinding(left: ResolvedCatalogBinding, right: Res
     left.uri === right.uri && left.oauth === right.oauth;
 }
 
-export async function readDedicatedRoute(client: DoorClient, role: "control_plane" | "accountability") {
-  if (client.isBoundOracle) {
+export function validateDedicatedRoute(
+  result: { mode?: unknown; reference?: unknown; model?: unknown; uri?: unknown },
+  role: "control_plane" | "accountability",
+) {
+  if (result.mode !== role) throw new Error("The door returned a different dedicated agent mode. Refresh again.");
+  if (typeof result.reference !== "string") throw new Error("The dedicated agent has no configured native profile.");
+  nativeProfilePath(result.reference, "model");
+  if (typeof result.model !== "string" || !result.model.trim() || result.model.trim() !== result.model) throw new Error("The dedicated agent has no configured model.");
+  endpoint(result.uri, "The native inference URI");
+  return { reference: result.reference, modelId: result.model, uri: result.uri as string };
+}
+
+export async function readDedicatedRoute(client: DoorClient, role: "control_plane" | "accountability", own = client.isBoundOracle) {
+  if (own) {
     const { result } = await client.call<{ mode: string; reference: string; model: string; uri: string }>(
-      "tched_router", "get_own_agent_route", {}, "cap.software.tched-router.agent.route.self.read@v1",
+      "chat_router", "get_own_agent_route", {}, "cap.software.tched-router.agent.route.self.read@v1",
     );
-    if (result.mode !== role) throw new Error("The door returned a different dedicated agent mode. Refresh again.");
-    nativeProfilePath(result.reference, "model");
-    if (typeof result.model !== "string" || !result.model.trim() || result.model.trim() !== result.model) throw new Error("The dedicated agent has no configured model.");
-    endpoint(result.uri, "The native inference URI");
-    return { reference: result.reference, modelId: result.model, uri: result.uri };
+    return validateDedicatedRoute(result, role);
   }
   const path = `agents.${role}.model_provider`;
   const reference = await readRouterValue(client, path);
@@ -159,10 +165,3 @@ export async function readDedicatedRoute(client: DoorClient, role: "control_plan
   return { reference, modelId, uri };
 }
 
-/** Accountability has an observed dedicated route, never the dashboard selection. */
-export async function verifiedAccountabilityModel(client: DoorClient, models: CatalogModel[]): Promise<RouteSelection> {
-  const observed = await readDedicatedRoute(client, "accountability");
-  const matches = models.filter(model => model.available && model.model_id === observed.modelId && inferenceEndpointMatches(observed.uri, model.inference_url_prefix));
-  if (matches.length !== 1) throw new Error("The dedicated Accountability route has no unique verified catalog model and inference endpoint binding. Configure that dedicated route before sending a message.");
-  return { providerId: matches[0].provider_id, modelId: observed.modelId };
-}

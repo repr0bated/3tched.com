@@ -1,5 +1,5 @@
 import type { Spec } from "@json-render/core";
-import { validateCanvasSpec } from "./canvas-contract";
+import { acceptCanvasSpec } from "./canvas-contract";
 
 /**
  * Governance consoles: static reference compositions for the grant trim,
@@ -46,7 +46,7 @@ function chapter(id: string, label: string, summary: string, parts: Element[]): 
   parts.forEach((part, i) => {
     elements[`section-${i}`] = part;
   });
-  return { id, label, summary, spec: validateCanvasSpec({ root: "root", elements }) };
+  return { id, label, summary, spec: acceptCanvasSpec({ root: "root", elements }).spec };
 }
 
 const proposeForm = element("dashboardFormPreview", {

@@ -1,66 +1,32 @@
 #!/bin/bash
-# Configure LLM providers in tched_router via zcall
+# AI provider routing goes through the mounted threetched passthrough.
+# Do not call tched_router. config.set takes a positional key/value pair.
+# This writes provider config, including secrets from the environment. Do not run it from an agent.
 
-source ~/.bash_secrets
+set -eu
+[ "$(id -u)" = 0 ] || { echo "provider config is root-only" >&2; exit 78; }
+FS=/usr/local/libexec/op-dbus/bin/3tched-fs
+MOUNT=/run/mounts/threetched
+CALL=plugins/threetched/operations/config.set/call
 
-echo "Configuring LLM providers in tched_router..."
+[ -x "$FS" ] || { echo "3tched-fs missing: $FS" >&2; exit 78; }
+[ -d "$MOUNT/plugins/threetched/operations/config.set" ] || { echo "threetched config.set is not mounted at $MOUNT" >&2; exit 78; }
 
-# OpenAI (GPT-4, GPT-3.5-turbo)
-echo "[openai] Configuring OpenAI provider..."
-zcall tched_router config_set \
-  --path "providers.models.openai.go_control_plane.model" \
-  --value "gpt-4-turbo" \
-  --capability "cap.software.tched-router.router.write@v1"
+set_config() {
+  local key="$1" value="$2"
+  local args
+  args=$(jq -n --arg key "$key" --arg value "$value" '{arguments:[$key,$value],"--json":true,"--no-interactive":true}')
+  "$FS" invoke --mount "$MOUNT" "$CALL" --args "$args" --confirm-side-effects
+}
 
-zcall tched_router config_set \
-  --path "providers.models.openai.go_cp_route_gpt35.model" \
-  --value "gpt-3.5-turbo" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-zcall tched_router config_set \
-  --path "providers.models.openai.openai_api_key" \
-  --value "$OPENAI_API_KEY" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-# OpenRouter (multi-model support)
-echo "[openrouter] Configuring OpenRouter provider..."
-zcall tched_router config_set \
-  --path "providers.models.openrouter.go_control_plane.model" \
-  --value "openai/gpt-4-turbo" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-zcall tched_router config_set \
-  --path "providers.models.openrouter.openrouter_api_key" \
-  --value "$OPENROUTER_API_KEY" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-# Cheaper Inference
-echo "[cheaper_inference] Configuring Cheaper Inference provider..."
-zcall tched_router config_set \
-  --path "providers.models.custom.cheaper_inference.model" \
-  --value "claude" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-zcall tched_router config_set \
-  --path "providers.models.custom.cheaper_inference_api_key" \
-  --value "$CHEAPERINFERENE_API_KEY" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-# Messaging API
-echo "[messaging] Configuring messaging API..."
-zcall tched_router config_set \
-  --path "messaging.claude_code_messaging_token" \
-  --value "$CLAUDE_CODE_MESSAGING_TOKEN" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-# Set default to GPT-4
-echo "[default] Setting default model to gpt-4..."
-zcall tched_router config_set \
-  --path "agents.control_plane.model_provider" \
-  --value "openai.go_control_plane" \
-  --capability "cap.software.tched-router.router.write@v1"
-
-echo "✓ Provider configuration complete"
-echo ""
-echo "Verify with:"
-echo "  zcall tched_router config_get --path agents.control_plane.model_provider"
+echo "Configuring LLM providers through threetched config.set..."
+set_config "providers.models.openai.go_control_plane.model" "gpt-4-turbo"
+set_config "providers.models.openai.go_cp_route_gpt35.model" "gpt-3.5-turbo"
+set_config "providers.models.openai.openai_api_key" "${OPENAI_API_KEY:?OPENAI_API_KEY is unset}"
+set_config "providers.models.openrouter.go_control_plane.model" "openai/gpt-4-turbo"
+set_config "providers.models.openrouter.openrouter_api_key" "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is unset}"
+set_config "providers.models.custom.cheaper_inference.model" "claude"
+set_config "providers.models.custom.cheaper_inference_api_key" "${CHEAPERINFERENE_API_KEY:?CHEAPERINFERENE_API_KEY is unset}"
+set_config "messaging.claude_code_messaging_token" "${CLAUDE_CODE_MESSAGING_TOKEN:?CLAUDE_CODE_MESSAGING_TOKEN is unset}"
+set_config "agents.control_plane.model_provider" "openai.go_control_plane"
+echo "Provider configuration submitted. Read it back with threetched config.get; do not use tched_router."

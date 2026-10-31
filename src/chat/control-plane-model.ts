@@ -2,11 +2,21 @@ import type { DoorClient } from "../grpc/door";
 import type { RouteSelection } from "./chat-adapter";
 import type { CatalogModel } from "./model-catalog";
 import type { Elevate } from "./elevation";
-import { inferenceEndpointMatches, nativeProfilePath, readDedicatedRoute, readRouterValue, verifiedNativeUri } from "./native-routing";
+import { assertInferenceEndpoint, inferenceEndpointMatches, nativeProfilePath, readDedicatedRoute, readRouterValue, validateDedicatedRoute, verifiedNativeUri } from "./native-routing";
 
-const TCHED_ROUTER = "tched_router";
+const TCHED_ROUTER = "chat_router";
 const WRITE = "cap.software.tched-router.router.write@v1";
 export const CONTROL_PLANE_PROVIDER_PATH = "agents.control_plane.model_provider";
+
+export type ControlPlaneModelAccess = "self" | "admin";
+
+/** chat_router no longer seals the own-route operations
+ * (`get_own_agent_route_access`/`apply_own_agent_route`), so every identity
+ * uses the protected administration path. The server still checks canonical
+ * identity, current $ROOT, mode and exact grant. */
+export async function controlPlaneModelAccess(_client: DoorClient): Promise<ControlPlaneModelAccess> {
+  return "admin";
+}
 
 export class ControlPlaneMutationUnconfirmedError extends Error {
   constructor(cause: unknown) {
@@ -16,26 +26,17 @@ export class ControlPlaneMutationUnconfirmedError extends Error {
 }
 
 /** Read the actual dedicated agent route, then resolve it to a provider key. */
-export async function currentControlPlaneModel(client: DoorClient, models: CatalogModel[]): Promise<RouteSelection> {
-  const { reference, modelId, uri } = await readDedicatedRoute(client, "control_plane");
+export async function currentControlPlaneModel(client: DoorClient, models: CatalogModel[], own?: boolean): Promise<RouteSelection> {
+  const { reference, modelId, uri } = await readDedicatedRoute(client, "control_plane", own);
   const matches = models.filter((model) => model.available && model.model_id === modelId && model.control_plane_profile === reference && inferenceEndpointMatches(uri, model.inference_url_prefix));
   // Unmapped native selections remain visible as observed, never guessed.
   return { providerId: matches.length === 1 ? matches[0].provider_id : reference, modelId };
 }
 
-/** A singleton turn cannot silently use an unmapped or differently billed route. */
-export async function verifiedControlPlaneModel(client: DoorClient, models: CatalogModel[]): Promise<RouteSelection> {
-  const { reference, modelId, uri } = await readDedicatedRoute(client, "control_plane");
-  const matches = models.filter(model => model.available && model.model_id === modelId && model.control_plane_profile === reference && inferenceEndpointMatches(uri, model.inference_url_prefix));
-  if (matches.length !== 1) throw new Error("Apply a catalog model with a verified Control Plane profile and inference endpoint before sending a message.");
-  return { providerId: matches[0].provider_id, modelId };
-}
-
 /**
- * Every mode uses the same provider-keyed Cozo catalog. Per-model profiles
- * are routing metadata, never eligibility filters. Change the dedicated
- * agent reference and actual model in one optimistic patch with an exact
- * sudo ticket. Contracts verified against sealed methods on 2026-09-30.
+ * Every mode uses the same provider-keyed Cozo catalog. The configured chatbot
+ * uses its bounded own-model operation without elevation; other identities keep
+ * the protected administration path. New methods require a matching reseal.
  */
 export async function setControlPlaneModel(
   client: DoorClient,
@@ -51,6 +52,28 @@ export async function setControlPlaneModel(
     throw new Error(`The catalog has no native routing binding for ${selection.providerId} / ${selection.modelId}.`);
   }
   const path = nativeProfilePath(reference, "model");
+  const access = await controlPlaneModelAccess(client);
+  if (access === "self") {
+    try {
+      const { result } = await client.call<{
+        mode?: unknown; reference?: unknown; model?: unknown; uri?: unknown;
+      }>(
+        TCHED_ROUTER, "apply_own_agent_route",
+        { provider_id: selection.providerId, model_id: selection.modelId },
+        "cap.software.tched-router.agent.route.self.write@v1",
+      );
+      const applied = validateDedicatedRoute(result, "control_plane");
+      if (applied.reference !== reference || applied.modelId !== selection.modelId) {
+        throw new Error("The applied Control Plane route differs from the selected catalog model.");
+      }
+      assertInferenceEndpoint(applied.uri, model.inference_url_prefix);
+      return;
+    } catch (cause) {
+      // No administrative fallback: a denial or lost response cannot turn the
+      // scoped request into an unrelated broad configuration mutation.
+      throw new ControlPlaneMutationUnconfirmedError(cause);
+    }
+  }
   const [currentReference, currentModel, uri] = await Promise.all([
     readRouterValue(client, CONTROL_PLANE_PROVIDER_PATH),
     readRouterValue(client, path),

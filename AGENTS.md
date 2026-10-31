@@ -42,9 +42,11 @@ repr0bated/operation-dbus-proto, not here.
 - Errors come from the status channel. Read gRPC status and the envelope's
   MutationError; never branch on a success boolean in a payload.
 - Method names, argument shapes, and capability ids come from the live sealed
-  schema (zcall help tched_router <Method> on the host). Do not reconstruct
-  them from Rust source. If a reseal changes them, update
-  src/chat/door-chat-adapter.ts and its test together.
+  schema (zcall help chat_response <Method> / model_registry / catalog binding
+  on the host). Do not reconstruct them from Rust source. If a reseal changes
+  them, update src/chat/door-chat-adapter.ts, chat-response-client.ts, and
+  their tests together. Chat replies are committed `chat_response` turns only —
+  never retired `tched_router.Chat` or `json_render.generate_spec`.
 - Keep backend work behind ChatAdapter. The local adapter must stay usable with
   no credentials, service, or network so UI work can proceed offline.
 - Keep src/json-render/catalog/catalog.ts as the complete reference contract.
