@@ -34,6 +34,7 @@ import type {
   ChatResponse,
   ProviderOption,
   RouteSelection,
+  UiSurfacePurposes,
 } from "./chat-adapter";
 import { DoorClient, DoorError, type DoorConfig } from "../grpc/door";
 import { PluginFeedStore } from "../grpc/plugin-feeds";
@@ -132,6 +133,8 @@ export interface DoorChatAdapter extends ChatAdapter {
   getNotebook(notebookId: string): Promise<NotebookDetail>;
   /** Saved canvas candidates and the promoted catalog (json_render). */
   readonly gallery: UiGallery;
+  /** Sealed UI surfaces and their purposes. Absent or failing means unknown: no takeover, everything else keeps working. */
+  readonly uiSurfaces: UiSurfacePurposes;
   /** Exact Control Plane selection from the same shared model catalog. */
   readonly controlPlane: {
     access(): Promise<ControlPlaneModelAccess>;
@@ -331,6 +334,23 @@ export async function connectDoorChatAdapter(
     selectNotebook: (notebookId) => selectNotebook(client, notebookId),
     getNotebook: (notebookId) => getNotebook(client, notebookId),
     gallery: uiGallery(client),
+    uiSurfaces: {
+      async purposes() {
+        const result = await client.call<{ ui_surfaces?: Array<{ path?: unknown; purpose?: unknown }> }>(
+          "chat_router",
+          "ListUiSurfaces",
+          {},
+          "cap.software.3tched-router.ui-surfaces.read@v1",
+        );
+        const map: Record<string, string> = {};
+        for (const entry of result.result.ui_surfaces ?? []) {
+          if (typeof entry.path === "string" && typeof entry.purpose === "string" && entry.purpose) {
+            map[entry.path] = entry.purpose;
+          }
+        }
+        return map;
+      },
+    },
     controlPlane: {
       access: () => controlPlaneModelAccess(client),
       current: async () => currentControlPlaneModel(client, catalog.models, await controlPlaneModelAccess(client) === "self" || client.isBoundOracle),
@@ -417,7 +437,7 @@ export async function connectDoorChatAdapter(
           conversationId,
           request.message,
           uiRender ? "application" : "text",
-          COMMITTED_REPLY_TIMEOUT_MS,
+          request.renderOptions?.maxTurnMs ?? COMMITTED_REPLY_TIMEOUT_MS,
           { signal: waitController.signal, credential: doorbellCredential },
         );
         if (generation !== selectionGeneration || context !== contextGeneration) {

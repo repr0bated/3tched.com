@@ -42,6 +42,15 @@ export interface RouteSelection {
   modelId: string;
 }
 
+export interface RenderOptions {
+  /** Max milliseconds to wait for the committed turn. Transport timeout only; the turn outcome stays unknown on expiry. */
+  maxTurnMs?: number;
+}
+
+export interface UiSurfacePurposes {
+  purposes(): Promise<Record<string, string>>;
+}
+
 export interface ChatRequest {
   message: string;
   history: ChatMessage[];
@@ -51,6 +60,8 @@ export interface ChatRequest {
   notebook?: NotebookDetail | null;
   /** Promoted catalog compositions the normal modes compose from. */
   catalog?: CatalogEntry[];
+  /** Per-render dataset and timeout options for interface generation. */
+  renderOptions?: RenderOptions;
 }
 
 export interface ChatResponse {
@@ -88,6 +99,8 @@ export interface ChatAdapter {
   readonly catalogRefreshOnMount?: boolean;
   /** Refresh providers and read committed catalog choices; absent offline. */
   refreshProviders?(): Promise<ProviderOption[]>;
+  /** Sealed UI surface purposes; absent means unknown: no takeover, everything else keeps working. */
+  uiSurfaces?: UiSurfacePurposes;
   /** Generated application action; the door revalidates the target seal and grant. */
   invokeApplicationAction?(plugin: string, method: string, capability: string, args: Record<string, unknown>, schemaHash: string): Promise<unknown>;
   selectRoute(selection: RouteSelection): Promise<RouteSelection>;

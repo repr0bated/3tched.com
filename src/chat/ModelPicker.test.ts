@@ -22,6 +22,11 @@ function pickTwo() {
   fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "two" } });
   fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "wanted" } });
 }
+function expectNoApplyButtons() {
+  expect(screen.queryByRole("button", { name: "Apply model" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Elevate and apply model" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply own model" })).not.toBeInTheDocument();
+}
 function protectedAdapter(overrides: Partial<DoorChatAdapter> = {}) {
   let current: RouteSelection = { providerId: "one", modelId: "old" };
   const mutate = vi.fn(async (selection: RouteSelection) => { current = selection; });
@@ -43,13 +48,12 @@ function protectedAdapter(overrides: Partial<DoorChatAdapter> = {}) {
 async function startProtectedChange() {
   await screen.findByText("One / Old");
   pickTwo();
-  fireEvent.click(screen.getByRole("button", { name: "Elevate and apply model" }));
   return screen.findByRole("dialog");
 }
 afterEach(cleanup);
 
 describe("the scaffold's catalog model picker", () => {
-  it("keeps an unconfirmed initial route visible and requires explicit Apply", async () => {
+  it("keeps an unconfirmed initial route visible and applies on selection", async () => {
     const adapter = remote({
       initialRouteError: "Current model unconfirmed; operation_id=fixture-operation",
       routeInitiallyApplied: false,
@@ -59,10 +63,11 @@ describe("the scaffold's catalog model picker", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("operation_id=fixture-operation");
     expect(screen.getByText("Not applied")).toBeInTheDocument();
     expect(adapter.selectRoute).not.toHaveBeenCalled();
-    pickTwo();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply model" })));
+    expectNoApplyButtons();
+    await act(async () => { pickTwo(); });
     expect(adapter.selectRoute).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
-    expect(screen.queryByText(/operation_id=fixture-operation/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("route")).toHaveTextContent("two/wanted");
+    expect(screen.getByText("Current model").parentElement).toHaveTextContent("Two / Wanted");
   });
   it.each([false, true])("shows removed models as unavailable without refreshing on focus (control=%s)", async control => {
     const refreshProviders = vi.fn().mockResolvedValue(providers);
@@ -73,86 +78,97 @@ describe("the scaffold's catalog model picker", () => {
     mount(adapter, control);
     if (control) await screen.findByText("One / Old");
     expect(screen.getByRole("option", { name: "Old (unavailable)" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: control ? "Elevate and apply model" : "Apply model" })).toBeDisabled();
+    expectNoApplyButtons();
     await act(async () => fireEvent.focus(screen.getByRole("combobox", { name: "Provider" })));
     await act(async () => fireEvent.focus(screen.getByRole("combobox", { name: "Model" })));
     expect(refreshProviders).not.toHaveBeenCalled();
     expect(adapter.selectRoute).not.toHaveBeenCalled();
     expect(adapter.controlPlane.set).not.toHaveBeenCalled();
   });
-  it("browses draft models without mutation and applies exactly one provider/model", async () => {
+  it("selects each choice immediately, ending on the final model", async () => {
     const adapter = remote(); mount(adapter);
-    pickTwo();
-    expect(adapter.selectRoute).not.toHaveBeenCalled();
-    expect(screen.getByTestId("route")).toHaveTextContent("one/old");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply model" })));
+    await act(async () => { pickTwo(); });
     expect(adapter.selectRoute).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
     expect(screen.getByTestId("route")).toHaveTextContent("two/wanted");
-    expect(screen.getByText("Last applied").parentElement).toHaveTextContent("Two / Wanted");
+    expect(screen.getByText("Current model").parentElement).toHaveTextContent("Two / Wanted");
+    expectNoApplyButtons();
+  });
+  it("commits only the model pick across separate gestures, never the provider switch", async () => {
+    const adapter = remote(); mount(adapter);
+    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "two" } });
+    await act(async () => {});
+    expect(adapter.selectRoute).not.toHaveBeenCalled();
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("");
+    fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "wanted" } });
+    await act(async () => {});
+    expect(adapter.selectRoute).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
+    expect(screen.getByTestId("route")).toHaveTextContent("two/wanted");
   });
   it("keeps the failed attempt visible and preserves the previously confirmed route", async () => {
-    const adapter = remote({ selectRoute: vi.fn().mockResolvedValueOnce({ providerId: "one", modelId: "old" }).mockRejectedValueOnce(new Error("selection denied")) });
+    const adapter = remote({ selectRoute: vi.fn().mockRejectedValue(new Error("selection denied")) });
     mount(adapter);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply model" })));
-    pickTwo();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply model" })));
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not apply Two / Wanted: selection denied");
+    await act(async () => { pickTwo(); });
+    expect(adapter.selectRoute).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not set Two / Wanted: selection denied");
     expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("two");
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("wanted");
-    expect(screen.getByText("Last applied").parentElement).toHaveTextContent("One / Old");
     expect(screen.getByTestId("route")).toHaveTextContent("one/old");
+    expect(screen.getByText("Not applied")).toBeInTheDocument();
   });
   it("ignores late route failures after mode changes", async () => {
     let reject!: (cause: Error) => void;
     const adapter = remote({ selectRoute: vi.fn(() => new Promise<RouteSelection>((_resolve, fail) => { reject = fail; })) });
-    mount(adapter); pickTwo();
-    fireEvent.click(screen.getByRole("button", { name: "Apply model" }));
+    mount(adapter);
+    await act(async () => { pickTwo(); });
     fireEvent.click(screen.getByText("Project context"));
     await act(async () => reject(new Error("old mode failure")));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply model" })).toBeEnabled();
+    expectNoApplyButtons();
     expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("one");
     fireEvent.click(screen.getByText("Personal context"));
     expect(screen.queryByText(/old mode failure/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply model" })).toBeEnabled();
+    expectNoApplyButtons();
   });
   it("ignores late success after adapter replacement", async () => {
     let finish!: (route: { providerId: string; modelId: string }) => void;
     const old = remote({ selectRoute: vi.fn(() => new Promise<RouteSelection>(resolve => { finish = resolve; })) });
-    const result = mount(old); pickTwo();
-    fireEvent.click(screen.getByRole("button", { name: "Apply model" }));
+    const result = mount(old);
+    await act(async () => { pickTwo(); });
     const replacement = remote({ providers: [{ id: "fresh", label: "Fresh", models: [{ id: "new", label: "New", detail: "" }] }] });
     result.rerender({ adapter: replacement, view: "picker" });
     fireEvent.click(screen.getByText("Personal context"));
     await act(async () => finish({ providerId: "two", modelId: "wanted" }));
     expect(screen.getByTestId("route")).toHaveTextContent("fresh/new");
     expect(screen.getByText("Not applied")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply model" })).toBeEnabled();
+    expectNoApplyButtons();
   });
   it("shows an empty refreshed catalog without inventing replacement options", async () => {
     const adapter = remote({ refreshProviders: vi.fn().mockResolvedValue([]) }); mount(adapter);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
     expect(screen.getByRole("combobox", { name: "Provider" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Apply model" })).toBeDisabled();
+    expectNoApplyButtons();
     expect(screen.getByText("No provider is configured.")).toBeInTheDocument();
     expect(adapter.selectRoute).not.toHaveBeenCalled();
   });
   it("uses identical dynamic provider and actual-model choices in ordinary and Control Plane modes", async () => {
     const { adapter } = protectedAdapter(); mount(adapter);
-    const optionValues = (name: string) => within(screen.getByRole("combobox", { name })).getAllByRole("option").map(option => ({ value: option.getAttribute("value"), label: option.textContent }));
+    const optionValues = (name: string) => within(screen.getByRole("combobox", { name })).getAllByRole("option").map(option => ({ value: option.getAttribute("value"), label: option.textContent })).filter(option => option.value !== "");
     const personalProviders = optionValues("Provider");
-    pickTwo();
+    await act(async () => { pickTwo(); });
+    expect(adapter.selectRoute).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
     const personalModels = optionValues("Model");
     fireEvent.click(screen.getByText("Control context"));
     await screen.findByText("One / Old");
     expect(optionValues("Provider")).toEqual(personalProviders);
     fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "two" } });
+    await act(async () => {});
     expect(optionValues("Model")).toEqual(personalModels);
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("");
     expect(adapter.controlPlane.set).not.toHaveBeenCalled();
-    expect(adapter.selectRoute).not.toHaveBeenCalled();
+    expect(adapter.selectRoute).toHaveBeenCalledTimes(1);
   });
   it("keeps an unmatched native current model truthful while offering real catalog choices", async () => {
-    const { adapter } = protectedAdapter();
+    const { adapter, mutate } = protectedAdapter();
     vi.mocked(adapter.controlPlane.current).mockResolvedValue({ providerId: "custom.native", modelId: "native-model" });
     mount(adapter, true);
     expect(await screen.findByText("custom.native / native-model")).toBeInTheDocument();
@@ -161,12 +177,16 @@ describe("the scaffold's catalog model picker", () => {
     expect(screen.queryByRole("option", { name: /custom.native/ })).not.toBeInTheDocument();
     expect(screen.queryByText("No models for this provider yet")).not.toBeInTheDocument();
     expect(screen.getByText(/Current route is not in the shared catalog/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeEnabled();
+    expectNoApplyButtons();
     pickTwo();
+    const dialog = await screen.findByRole("dialog");
     expect(screen.getByRole("option", { name: "Wanted" })).toBeInTheDocument();
     expect(screen.getByText("Current model").parentElement).toHaveTextContent("custom.native / native-model");
-    expect(adapter.controlPlane.set).not.toHaveBeenCalled();
+    expect(adapter.controlPlane.set).toHaveBeenCalledTimes(1);
     expect(adapter.selectRoute).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })));
+    expect(mutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Current model").parentElement).toHaveTextContent("custom.native / native-model");
   });
   it("uses a known provider's catalog model when its current native model is unlisted", async () => {
     const { adapter } = protectedAdapter();
@@ -181,7 +201,7 @@ describe("the scaffold's catalog model picker", () => {
   it.each([
     { current: { providerId: "custom.native", modelId: "native-model" }, label: "custom.native / native-model", provider: "one", model: "old" },
     { current: { providerId: "two", modelId: "native-model" }, label: "Two / native-model", provider: "two", model: "first" },
-  ])("reconciles late catalog arrivals for $current.providerId and preserves a valid draft on Refresh", async ({ current, label, provider, model }) => {
+  ])("reconciles late catalog arrivals for $current.providerId and keeps the selection applied on Refresh", async ({ current, label, provider, model }) => {
     const { adapter } = protectedAdapter({ providers: providers.map(provider => ({ ...provider, models: [] })) });
     adapter.refreshProviders = vi.fn().mockResolvedValue(providers);
     vi.mocked(adapter.controlPlane.current).mockResolvedValue(current);
@@ -193,11 +213,15 @@ describe("the scaffold's catalog model picker", () => {
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue(model);
     expect(adapter.controlPlane.current).toHaveBeenCalledTimes(2);
     pickTwo();
+    await screen.findByRole("dialog");
+    expect(adapter.controlPlane.set).toHaveBeenCalledExactlyOnceWith(
+      { providerId: "two", modelId: "wanted" },
+      expect.any(Function),
+    );
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
     expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("two");
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("wanted");
     expect(screen.getByText("Current model").parentElement).toHaveTextContent(label);
-    expect(adapter.controlPlane.set).not.toHaveBeenCalled();
   });
   it("falls back to a provider with actual models when the initial provider is empty", async () => {
     const { adapter } = protectedAdapter({ providers: [{ ...providers[0], models: [] }, providers[1]] });
@@ -206,12 +230,12 @@ describe("the scaffold's catalog model picker", () => {
     await screen.findByText("custom.native / native-model");
     expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("two");
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("first");
-    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeEnabled();
+    expectNoApplyButtons();
+    expect(adapter.controlPlane.set).not.toHaveBeenCalled();
   });
   it("routes the shared catalog provider/model through Control Plane task elevation", async () => {
     const { adapter, mutate } = protectedAdapter(); mount(adapter, true);
     await screen.findByText("One / Old");
-    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("already the current Control Plane model");
     const dialog = await startProtectedChange();
     expect(mutate).not.toHaveBeenCalled();
@@ -229,20 +253,20 @@ describe("the scaffold's catalog model picker", () => {
     vi.mocked(adapter.controlPlane.set).mockImplementation(async selection => { await mutate(selection); });
     mount(adapter, true);
     await screen.findByText("One / Old");
-    pickTwo();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply own model" })));
+    await act(async () => { pickTwo(); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(adapter.authorizeTask).not.toHaveBeenCalled();
+    expect(mutate).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
     expect(screen.getByText("Current model").parentElement).toHaveTextContent("Two / Wanted");
   });
 
-  it("does not enable either mutation lane when authoritative access fails", async () => {
+  it("does not apply when authoritative access fails", async () => {
     const { adapter } = protectedAdapter();
     vi.mocked(adapter.controlPlane.access).mockRejectedValue(new Error("access unavailable"));
     mount(adapter, true);
     await screen.findByRole("alert");
-    pickTwo();
-    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeDisabled();
+    await act(async () => { pickTwo(); });
+    expectNoApplyButtons();
     expect(adapter.controlPlane.set).not.toHaveBeenCalled();
     expect(adapter.authorizeTask).not.toHaveBeenCalled();
   });
@@ -260,19 +284,26 @@ describe("the scaffold's catalog model picker", () => {
     expect(mutate).toHaveBeenCalledExactlyOnceWith({ providerId: "two", modelId: "wanted" });
     expect(screen.getByRole("alert")).toHaveTextContent("Change sent for Two / Wanted; current model unconfirmed: readback unavailable");
     expect(screen.getByText("Current model").parentElement).toHaveTextContent("Unconfirmed");
-    const apply = screen.getByRole("button", { name: "Elevate and apply model" });
-    expect(apply).toBeDisabled();
-    fireEvent.click(apply);
-    expect(mutate).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "wanted" } });
+    });
+    expect(adapter.controlPlane.set).toHaveBeenCalledTimes(1);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
-    expect(apply).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent("current model unconfirmed: still unavailable");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("Current model").parentElement).toHaveTextContent("Two / Wanted");
     expect(mutate).toHaveBeenCalledTimes(1);
-    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "one" } });
-    expect(apply).toBeEnabled();
+    await act(async () => {
+      fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "one" } });
+    });
+    expect(adapter.controlPlane.set).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("");
+    await act(async () => {
+      fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "old" } });
+    });
+    expect(adapter.controlPlane.set).toHaveBeenCalledTimes(2);
+    expect(adapter.controlPlane.set).toHaveBeenLastCalledWith({ providerId: "one", modelId: "old" }, expect.any(Function));
   });
   it("blocks repeat mutation after a sent request loses its response until current readback reconciles", async () => {
     const { adapter, mutate } = protectedAdapter();
@@ -285,15 +316,15 @@ describe("the scaffold's catalog model picker", () => {
     fireEvent.change(within(dialog).getByLabelText("Root password"), { target: { value: "password" } });
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Authorize" })));
     expect(screen.getByRole("alert")).toHaveTextContent("Change outcome unknown for Two / Wanted; current model unconfirmed");
-    expect(screen.getByRole("alert")).not.toHaveTextContent("Could not apply");
-    const apply = screen.getByRole("button", { name: "Elevate and apply model" });
-    expect(apply).toBeDisabled();
-    fireEvent.click(apply);
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Could not set");
+    await act(async () => {
+      fireEvent.change(screen.getByRole("combobox", { name: "Model" }), { target: { value: "wanted" } });
+    });
     expect(adapter.controlPlane.set).toHaveBeenCalledTimes(1);
+    expectNoApplyButtons();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh models" })));
     expect(screen.getByText("Current model").parentElement).toHaveTextContent("One / Old");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(apply).toBeEnabled();
     expect(mutate).not.toHaveBeenCalled();
     expect(adapter.selectRoute).not.toHaveBeenCalled();
   });
@@ -336,7 +367,7 @@ describe("the scaffold's catalog model picker", () => {
       await mutate(selection);
     });
     mount(adapter, true); await screen.findByText("One / Old");
-    pickTwo(); fireEvent.click(screen.getByRole("button", { name: "Elevate and apply model" }));
+    await act(async () => { pickTwo(); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Personal context"));
     await act(async () => finishPreflight());
@@ -375,15 +406,15 @@ describe("the scaffold's catalog model picker", () => {
     expect(adapter.selectRoute).not.toHaveBeenCalled();
     expect(screen.getByRole("combobox", { name: "Provider" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Two" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Elevate and apply model" })).toBeDisabled();
+    expectNoApplyButtons();
   });
   it("supports the catalog picker offline", async () => {
     const adapter = createLocalChatAdapter(); const fetch = vi.spyOn(globalThis, "fetch");
     try {
       mount(adapter);
       expect(screen.getByRole("region", { name: "Local model routing" })).toBeInTheDocument();
-      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply model" })));
-      expect(await screen.findByText("Last applied")).toBeInTheDocument(); expect(fetch).not.toHaveBeenCalled();
+      expectNoApplyButtons();
+      expect(fetch).not.toHaveBeenCalled();
     } finally { fetch.mockRestore(); }
   });
 });

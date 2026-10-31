@@ -74,9 +74,9 @@
       elevation.dispose();
     };
   });
-  async function apply() {
+  async function apply(requested: RouteSelection = draft) {
     if (!control || !access || pending || unconfirmed || !valid || !alive) return;
-    const requested = draft;
+    if (current && sameSelection(current, requested)) return;
     attempt = requested;
     pending = true;
     accepted = false;
@@ -120,6 +120,20 @@
       if (alive) pending = false;
     }
   }
+  let queued = false;
+  function queueApply(value: RouteSelection) {
+    const providerSwitched = value.providerId !== draft.providerId;
+    selection = value;
+    edited = true;
+    if (providerSwitched) return;
+    if (queued) return;
+    queued = true;
+    void Promise.resolve().then(() => {
+      queued = false;
+      void apply();
+    });
+  }
+
   async function reload() {
     loading = !!control;
     await runtime.refreshProviders();
@@ -129,25 +143,12 @@
 
 <RouteFields
   providers={runtime.providers}
-  {draft}
-  setDraft={(value) => {
-    selection = value;
-    edited = true;
-  }}
+  draft={edited ? selection : draft}
+  setDraft={queueApply}
   disabled={loading || pending}
 />
 <div class="route-catalog model-picker__actions">
   <button
-    disabled={!control ||
-      !access ||
-      loading ||
-      pending ||
-      unconfirmed ||
-      sameSelection(current, draft) ||
-      !valid}
-    onclick={() => void apply()}
-    >{pending ? (access === "self" ? "Applying…" : "Elevating and applying…") : (access === "self" ? "Apply own model" : "Elevate and apply model")}</button
-  ><button
     disabled={loading || pending || runtime.catalogPending}
     onclick={() => void reload()}
     >{runtime.catalogPending ? "Refreshing…" : "Refresh models"}</button
@@ -169,17 +170,17 @@
     {!control
       ? "Control Plane model selection is unavailable through this identity's adapter."
       : pending
-        ? `Applying ${label(attempt ?? draft)}`
+        ? `Setting ${label(attempt ?? draft)}`
         : unconfirmed && attempt
-          ? `${accepted ? "Change sent" : "Change outcome unknown"} for ${label(attempt)}; current model unconfirmed. Refresh before applying another model.`
+          ? `${accepted ? "Change sent" : "Change outcome unknown"} for ${label(attempt)}; current model unconfirmed. Refresh before selecting another model.`
           : loading
             ? "Reading the current Control Plane model."
             : !access
               ? "Refresh to check this identity's model-change access."
               : !valid
-                ? "Choose a model from the catalog to enable Apply."
+                ? "Choose a model from the catalog."
                 : sameSelection(current, draft)
-                  ? "This is already the current Control Plane model. Choose a different model to enable Apply."
+                  ? "This is already the current Control Plane model."
                   : access === "self"
                     ? "This authenticated Control Plane identity can change its own model without a password."
                     : "Administrative Control Plane model changes require a root password for this task."}
@@ -190,7 +191,7 @@
           ? `${accepted ? "Change sent" : "Change outcome unknown"} for ${label(attempt)}; current model unconfirmed: `
           : accepted
             ? `Change sent for ${label(attempt)}; readback differs: `
-            : `Could not apply ${label(attempt)}: `
+            : `Could not set ${label(attempt)}: `
         : "Control Plane model: "}{error}
     </p>{/if}
   {#if current && !currentInCatalog && !loading && !unconfirmed}<p

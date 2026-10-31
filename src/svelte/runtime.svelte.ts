@@ -4,6 +4,7 @@ import type { Spec } from "@json-render/core";
 import type {
   ChatAdapter,
   ProviderOption,
+  RenderOptions,
   RouteSelection,
 } from "../chat/chat-adapter";
 import type { ResolvedChatContext } from "../chat/chat-mode";
@@ -14,6 +15,7 @@ import { registeredComponent } from "../json-render/references/registered-compon
 import type { UiGallery } from "../chat/ui-gallery";
 import { submitHumanReview } from "../chat/review-lanes";
 import type { ChatRuntime } from "./chat-session";
+
 
 export class Runtime {
   readonly adapter: ChatAdapter;
@@ -29,7 +31,8 @@ export class Runtime {
   catalogError = $state<string | null>(null);
   interfacePending = $state(false);
   interfaceError = $state<string | null>(null);
-  private interfaceScope: string | null = null;
+  /** Sealed surface purposes by path. Empty means unknown: no takeover, everything else keeps working. */
+  surfacePurposes = $state.raw<Record<string, string>>({});
   readonly canvases = new SvelteMap<string, Spec>();
   layout = $state<"balanced" | "conversation" | "canvas">("balanced");
   view = $state<"canvas" | "accountability" | "compliance" | "routing" | "threetched">(
@@ -82,7 +85,7 @@ export class Runtime {
     if (!this.disposed) this.canvases.set(scope, spec);
   };
   /** Generate presentation only; never submit a chat turn or change the selected mode. */
-  loadInterface = async (retry = false) => {
+  loadInterface = async (retry = false, renderOptions?: RenderOptions) => {
     const context = this.chatContext;
     const scope = this.scopeKey;
     if (
@@ -102,6 +105,7 @@ export class Runtime {
         mode: "ui_render",
         route: this.route,
         history: [],
+        renderOptions,
         message: [
           "Render yourself first. Then render the menus and the canvas.",
           "You may be the only element, in a collapsed pane, once the page is loaded.",
@@ -184,6 +188,18 @@ export class Runtime {
         this.catalogPending = false;
       });
     return this.catalogRead;
+  };
+  /** Load sealed surface purposes. Failure degrades to unknown: no takeover, picker and chat keep working. */
+  refreshSurfaces = async (): Promise<void> => {
+    if (this.disposed) return;
+    const surfaces = this.adapter.uiSurfaces;
+    if (!surfaces) return;
+    try {
+      const purposes = await surfaces.purposes();
+      if (!this.disposed) this.surfacePurposes = purposes;
+    } catch {
+      if (!this.disposed) this.surfacePurposes = {};
+    }
   };
   applyRoute = async (next: RouteSelection) => {
     if (

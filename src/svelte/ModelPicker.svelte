@@ -7,12 +7,33 @@
   import { CHAT_MODES } from "../chat/chat-mode";
   const runtime = getRuntime();
   let draft = $state.raw(untrack(() => runtime.route));
-  let valid = $derived(
+  let queued = false;
+  const keyOf = (value: typeof draft) => `${value.providerId}/${value.modelId}`;
+  const selectable = (value: typeof draft) =>
     runtime.providers
-      .find((p) => p.id === draft.providerId)
-      ?.models.some((m) => m.id === draft.modelId && m.available !== false) ?? false,
-  );
-  let changed = $derived(!sameSelection(draft, runtime.route));
+      .find((p) => p.id === value.providerId)
+      ?.models.some((m) => m.id === value.modelId && m.available !== false) ?? false;
+  async function settle() {
+    let last: string | null = null;
+    while (!sameSelection(draft, runtime.route)) {
+      if (!selectable(draft) || runtime.routePending) break;
+      const key = keyOf(draft);
+      if (key === last) break;
+      last = key;
+      await runtime.applyRoute(draft);
+    }
+  }
+  function select(value: typeof draft) {
+    const providerSwitched = value.providerId !== draft.providerId;
+    draft = value;
+    if (providerSwitched) return;
+    if (queued) return;
+    queued = true;
+    void Promise.resolve().then(() => {
+      queued = false;
+      void settle();
+    });
+  }
 </script>
 
 {#if runtime.adapter.kind === "local" || runtime.chatContext}
@@ -38,26 +59,21 @@
     </div>
     {#if runtime.adapter.kind === "remote" && runtime.chatContext?.mode === "control_plane"}<ControlPlanePicker
       />
-    {:else if runtime.adapter.kind === "remote" && runtime.chatContext?.mode === "ui_render"}
+    {:else if runtime.adapter.kind === "remote" && (runtime.chatContext?.mode === "ui_render" || runtime.chatContext?.mode === "accountability")}
       <p class="route-status">
-        UI generation uses the backend’s configured model. No model-change
-        permission or elevation is required.
+        {runtime.chatContext?.mode === "ui_render"
+          ? "UI generation uses the backend's configured model. No model-change permission or elevation is required."
+          : "No separate model selection in this mode."}
       </p>
     {:else}
       <RouteFields
         providers={runtime.providers}
         {draft}
-        setDraft={(value) => (draft = value)}
+        setDraft={select}
         disabled={runtime.routePending}
       />
       <div class="route-catalog model-picker__actions">
-        <button
-          disabled={runtime.routePending ||
-            !valid ||
-            (runtime.routeConfirmed && !changed)}
-          onclick={() => void runtime.applyRoute(draft)}
-          >{runtime.routePending ? "Applying…" : "Apply model"}</button
-        >{#if runtime.adapter.refreshProviders}<button
+        {#if runtime.adapter.refreshProviders}<button
             disabled={runtime.catalogPending}
             onclick={() => void runtime.refreshProviders()}
             >{runtime.catalogPending ? "Refreshing…" : "Refresh models"}</button
@@ -66,22 +82,20 @@
       <div class="model-picker__state">
         {#if runtime.routeReadError}<p role="alert">{runtime.routeReadError}</p>{/if}
         <p class="model-picker__current">
-          <span>{runtime.routeConfirmed ? "Last applied" : "Not applied"}</span
+          <span>{runtime.routeConfirmed ? "Current model" : "Not applied"}</span
           >{runtime.routeConfirmed
             ? selectionLabel(runtime.route, runtime.providers)
-            : "Choose a model and apply to confirm the route."}
+            : "Select a model to set the route."}
         </p>
         <p class="route-status" role="status" aria-live="polite">
           {runtime.routePending
-            ? `Applying ${selectionLabel(runtime.routeAttempt ?? draft, runtime.providers)}`
-            : changed
-              ? `Pending: ${selectionLabel(draft, runtime.providers)}`
-              : runtime.adapter.kind === "local"
-                ? "Local selection · no network calls"
-                : "Apply confirms the router selection"}
+            ? `Setting ${selectionLabel(runtime.routeAttempt ?? draft, runtime.providers)}`
+            : runtime.adapter.kind === "local"
+              ? "Local selection · no network calls"
+              : "Selection sets the router route"}
         </p>
         {#if runtime.routeError}<p role="alert">
-            Could not apply {selectionLabel(
+            Could not set {selectionLabel(
               runtime.routeAttempt ?? draft,
               runtime.providers,
             )}: {runtime.routeError}

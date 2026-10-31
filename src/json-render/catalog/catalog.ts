@@ -543,7 +543,7 @@ export const appCatalog = defineCatalog(schema, {
       props: z.object({
         className: z.string().nullable(),
       }),
-      description: "Mode-aware provider and model drafts from one shared catalog with explicit apply, confirmed state and contextual errors; Control Plane model changes require root password authorization for each task through the adapter.",
+      description: "Mode-aware provider and model selection from one shared catalog; selecting a model sets the route immediately with confirmed state and contextual errors; Control Plane model changes require root password authorization for each task through the adapter.",
     },
     chatModeSelector: {
       props: z.object({}),

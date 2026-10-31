@@ -27,6 +27,7 @@
   session.configure(untrack(() => runtime.snapshot()));
   onMount(() => {
     if (runtime.adapter.catalogRefreshOnMount) void runtime.refreshProviders();
+    void runtime.refreshSurfaces();
   });
   $effect(() => {
     session.configure(runtime.snapshot());

@@ -52,17 +52,23 @@
     {#key gate.adapter}
       <RuntimeHost adapter={gate.adapter} onCanvas={(present) => (rendered = present)}>
         {#snippet children(runtime)}
-          <header class="sc-header">
-            <SpecRenderer spec={modelSelectionSpec} />
-          </header>
-          <main class="sc-canvas" aria-label="Interface canvas">
-            {#if runtime.canvasSpec}
+          {#if runtime.surfacePurposes["/chat"] === "chat-takeover" && runtime.canvasSpec}
+            <main class="sc-canvas sc-takeover" aria-label="Chat interface">
               {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
-            {:else}
-              <p class="sc-loading-canvas">This is where the canvas will be.</p>
-              <p role="status">{runtime.interfaceError ?? "Planting the seed."}</p>
-            {/if}
-          </main>
+            </main>
+          {:else}
+            <header class="sc-header">
+              <SpecRenderer spec={modelSelectionSpec} />
+            </header>
+            <main class="sc-canvas" aria-label="Interface canvas">
+              {#if runtime.canvasSpec}
+                {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
+              {:else}
+                <p class="sc-loading-canvas">This is where the canvas will be.</p>
+                <p role="status">{runtime.interfaceError ?? "Planting the seed."}</p>
+              {/if}
+            </main>
+          {/if}
         {/snippet}
       </RuntimeHost>
     {/key}

@@ -21,8 +21,7 @@
     disabled={disabled || !providers.length}
     onchange={(e) => {
       const next = providers.find((p) => p.id === e.currentTarget.value);
-      if (next)
-        setDraft({ providerId: next.id, modelId: next.models[0]?.id ?? "" });
+      if (next) setDraft({ providerId: next.id, modelId: "" });
     }}
   >
     {#if !providers.length}<option value="">No providers available</option
@@ -40,12 +39,15 @@
     disabled={disabled || !models.length}
     onchange={(e) => setDraft({ ...draft, modelId: e.currentTarget.value })}
   >
-    {#if !models.length}<option value="">No models for this provider yet</option
-      >{:else}{#if !models.some((m) => m.id === draft.modelId)}<option
+    {#if !models.length}<option value="">No models for this provider yet</option>
+    {:else}
+      {#if !draft.modelId}<option value="" disabled>Select a model</option>
+      {:else if !models.some((m) => m.id === draft.modelId)}<option
           value={draft.modelId}
-          disabled>{draft.modelId || "Select a model"} (no longer listed)</option
+          disabled>{draft.modelId} (no longer listed)</option
         >{/if}{#each models as entry (entry.id)}<option value={entry.id} disabled={entry.available === false}
           >{entry.label}{entry.available === false ? " (unavailable)" : ""}{entry.auth ? ` (${entry.auth})` : ''}</option
-        >{/each}{/if}
+        >{/each}
+    {/if}
   </select></label
 >
