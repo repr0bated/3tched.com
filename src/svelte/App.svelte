@@ -18,6 +18,16 @@
     },
   } as Spec;
 
+  // The sealed chat_router /chat surface purpose names the chat stack; draw its
+  // chatbot from that purpose until the chatbot supplies its own canvas.
+  const CHAT_PURPOSES = ["vite, svelte-kit, json-render, ai-sdk, chat-sdk", "chat-takeover"];
+  const chatSurfaceSpec = {
+    root: "chat",
+    elements: {
+      chat: { type: "antigravityChatContainer", props: { streamId: "chat", title: null, mode: "live", placeholder: null, workspace: false, active: true, open: null } },
+    },
+  } as Spec;
+
   let gate = $state.raw<Gate>({ state: "resolving_identity" });
   let controller: AbortController | undefined;
 
@@ -44,7 +54,7 @@
     {#key gate.adapter}
       <RuntimeHost adapter={gate.adapter}>
         {#snippet children(runtime)}
-          {#if (runtime.surfacePurposes["/chat"] === "vite, svelte-kit, json-render, ai-sdk, chat-sdk" || runtime.surfacePurposes["/chat"] === "chat-takeover") && runtime.canvasSpec}
+          {#if CHAT_PURPOSES.includes(runtime.surfacePurposes["/chat"]) && runtime.canvasSpec}
             <main class="sc-canvas sc-takeover" aria-label="Chat interface">
               {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
             </main>
@@ -55,6 +65,9 @@
             <main class="sc-canvas" aria-label="Interface canvas">
               {#if runtime.canvasSpec}
                 {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
+              {:else if CHAT_PURPOSES.includes(runtime.surfacePurposes["/chat"])}
+                <SpecRenderer spec={chatSurfaceSpec} />
+                {#if runtime.interfaceError}<p class="chat-error" role="alert">{runtime.interfaceError}</p>{/if}
               {:else}
                 <p role="status">{runtime.interfaceError ?? "Planting the seed."}</p>
               {/if}

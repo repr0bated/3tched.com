@@ -194,12 +194,17 @@ export class Runtime {
     if (this.disposed) return;
     const surfaces = this.adapter.uiSurfaces;
     if (!surfaces) return;
-    try {
-      const purposes = await surfaces.purposes();
-      if (!this.disposed) this.surfacePurposes = purposes;
-    } catch {
-      if (!this.disposed) this.surfacePurposes = {};
+    // The bridge can refuse this read briefly while it restarts; retry before giving up.
+    for (let attempt = 0; attempt < 4 && !this.disposed; attempt++) {
+      try {
+        const purposes = await surfaces.purposes();
+        if (!this.disposed) this.surfacePurposes = purposes;
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+      }
     }
+    if (!this.disposed) this.surfacePurposes = {};
   };
   applyRoute = async (next: RouteSelection) => {
     if (
