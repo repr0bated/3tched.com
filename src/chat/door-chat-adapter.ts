@@ -1,5 +1,6 @@
 import { readPluginGuide, readUiAuthoringGuide, SelectionGuide } from "./plugin-guide";
 import { readMountedCatalog } from "./mounted-catalog";
+import { readCanvasResponse } from "../json-render/references/canvas-contract";
 import { referenceChatResponse } from "../json-render/references/reference-chat";
 /**
  * ChatAdapter backed by the :8090 door.
@@ -59,6 +60,8 @@ import type { AuthorizeTask, Elevate } from "./elevation";
 import { binaryMethods, type BinaryMethod } from "./threetchedfs-surface";
 
 export const TCHED_ROUTER = "chat_router";
+/** Demo chat path: the sealed chat_router.Chat capability. */
+const ROUTER_CHAT_CAPABILITY = "cap.software.3tched-router.chat@v1";
 
 /** Method → declared capability, from the sealed catalog-binding schema. */
 export const TCHED_ROUTER_METHODS = {
@@ -429,22 +432,37 @@ export async function connectDoorChatAdapter(
       activeChatWaits.add(waitController);
       if (config.signal?.aborted) waitController.abort();
       try {
-        // Authoritative selection and history live server-side; the UI sends
-        // one new human message and displays only the committed reply. A
-        // browser model-picker draft is not a prerequisite for a chat turn.
-        const { conversationId: active, response } = await submitAndAwaitCommittedReply(
-          client,
-          conversationId,
-          request.message,
-          uiRender ? "application" : "text",
-          request.renderOptions?.maxTurnMs ?? COMMITTED_REPLY_TIMEOUT_MS,
-          { signal: waitController.signal, credential: doorbellCredential },
+        // One chat_router.Chat call: the router generates the reply and returns
+        // it to the SDK; the bridge records the turn once when it completes.
+        // (Demo path; the submit_turn responder flow has no running responder.)
+        const messages = request.history
+          .filter((entry) => entry.role === "user" || entry.role === "agent")
+          .map((entry) => ({ role: entry.role === "agent" ? "assistant" : entry.role, content: entry.content }));
+        if (messages.length === 0 || messages[messages.length - 1].content !== request.message) {
+          messages.push({ role: "user", content: request.message });
+        }
+        const { result, eventHash } = await client.call<{ content: string; provider: string; model: string }>(
+          TCHED_ROUTER,
+          "Chat",
+          {
+            message: request.message,
+            messages,
+            provider: appliedRoute?.nativeProviderId ?? "",
+            model: appliedRoute?.selection.modelId ?? "",
+            ...(conversationId ? { conversation_id: conversationId } : {}),
+          },
+          ROUTER_CHAT_CAPABILITY,
+          { timeoutMs: request.renderOptions?.maxTurnMs ?? COMMITTED_REPLY_TIMEOUT_MS },
         );
         if (generation !== selectionGeneration || context !== contextGeneration) {
-          throw new Error("Chat context changed while awaiting a committed reply; outcome may have completed. Do not retry automatically.");
+          throw new Error("Chat context changed while the reply was generated; outcome may have completed. Do not retry automatically.");
         }
-        conversationId = active;
-        return response;
+        responseSequence += 1;
+        const rendered = uiRender ? readCanvasResponse(result.content) : { content: result.content };
+        return {
+          ...("canvasSpec" in rendered && rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
+          message: { id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`, role: "agent", content: rendered.content },
+        };
       } catch (error) {
         responseSequence += 1;
         const errorMsg = error instanceof Error ? error.message : "Chat service unavailable";
