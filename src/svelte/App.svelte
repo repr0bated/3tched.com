@@ -6,12 +6,13 @@
   import RuntimeHost from "./RuntimeHost.svelte";
   import SpecRenderer from "./SpecRenderer.svelte";
 
-  // Approved catalog elements. The chatbot owns the canvas spec. Header
-  // carries both session controls: mode (chatModeSelector) + model
-  // (tchedRouterPicker). Both are catalog components, no hand-rolled UI.
+  // Approved catalog elements. The chatbot owns the canvas spec. A collapsible
+  // Models overlay carries both session controls: mode (chatModeSelector) +
+  // model (tchedRouterPicker). All catalog components, no hand-rolled UI.
   const modelSelectionSpec = {
-    root: "session-controls",
+    root: "models",
     elements: {
+      models: { type: "applicationOverlay", props: { panel: "models", title: "Models", collapsed: true }, children: ["session-controls"] },
       "session-controls": { type: "container", props: { className: "sc-session-controls" }, children: ["chat-mode", "model-picker"] },
       "chat-mode": { type: "chatModeSelector", props: {} },
       "model-picker": { type: "tchedRouterPicker", props: { className: null } },
@@ -24,8 +25,9 @@
   const chatSurfaceSpec = {
     root: "chat",
     elements: {
-      chat: { type: "antigravityChatContainer", props: { streamId: "chat", title: null, mode: "live", placeholder: null, workspace: false, active: true, open: null } },
+      chat: { type: "antigravityChatContainer", props: { streamId: "chat", title: null, mode: "live", placeholder: null, workspace: false, active: false, open: { $bindState: "/chatOpen" } } },
     },
+    state: { chatOpen: true },
   } as Spec;
 
   let gate = $state.raw<Gate>({ state: "resolving_identity" });
@@ -59,9 +61,7 @@
               {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
             </main>
           {:else}
-            <header class="sc-header">
-              <SpecRenderer spec={modelSelectionSpec} />
-            </header>
+            <SpecRenderer spec={modelSelectionSpec} />
             <main class="sc-canvas" aria-label="Interface canvas">
               {#if runtime.canvasSpec}
                 {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
