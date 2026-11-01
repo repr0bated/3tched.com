@@ -30,6 +30,7 @@ export type ResponseMode = "text" | "application";
 
 export interface SubmitTurnResult {
   conversation_id: string;
+  /** The bridge-reserved answer turn the chatbot commits (not the human turn). */
   turn_id: string;
   turn_index: number;
 }
@@ -78,12 +79,16 @@ export async function submitTurn(
     conversation_id?: unknown;
     turn_id?: unknown;
     turn_index?: unknown;
+    response_turn_id?: unknown;
+    response_turn_index?: unknown;
   };
   try {
     ({ result } = await client.call<{
       conversation_id?: unknown;
       turn_id?: unknown;
       turn_index?: unknown;
+      response_turn_id?: unknown;
+      response_turn_index?: unknown;
     }>(
       CHAT_RESPONSE,
       CHAT_RESPONSE_METHODS.SubmitTurn,
@@ -107,14 +112,18 @@ export async function submitTurn(
     typeof result.turn_id !== "string" ||
     !result.turn_id ||
     typeof result.turn_index !== "number" ||
-    !Number.isSafeInteger(result.turn_index)
+    !Number.isSafeInteger(result.turn_index) ||
+    typeof result.response_turn_id !== "string" ||
+    !result.response_turn_id ||
+    result.response_turn_index !== result.turn_index + 1
   ) {
     throw new Error("method_outcome_unknown; chat_response.submit_turn returned an invalid turn receipt.");
   }
+  // Wait on the reserved answer turn; the human turn is already committed.
   return {
     conversation_id: result.conversation_id,
-    turn_id: result.turn_id,
-    turn_index: result.turn_index,
+    turn_id: result.response_turn_id as string,
+    turn_index: result.response_turn_index as number,
   };
 }
 
