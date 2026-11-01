@@ -154,7 +154,7 @@ body { margin: 0; }
 .sc-chat-toggle { flex-shrink: 0; margin: 8px; padding: 6px 8px; background: #242428; color: #e4e4e7; border: 1px solid var(--sc-line); border-radius: 6px; font-size: 12px; }
 /* The purpose-drawn chatbot docks as a left panel; its handle sits on the
    panel's right edge and collapsing leaves only the handle at the left. */
-.sc-canvas .sc-chat-layer--docked { position: absolute; top: 64px; bottom: 0; left: 0; z-index: 20; flex-direction: row-reverse; width: min(400px, 100%); border-top: 0; border-right: 1px solid var(--sc-line); }
+.sc-canvas .sc-chat-layer--docked { position: absolute; top: 0; bottom: 0; left: 0; z-index: 20; flex-direction: row-reverse; width: min(400px, 100%); border-top: 0; border-right: 1px solid var(--sc-line); }
 .sc-canvas .sc-chat-layer--docked.sc-chat-layer--collapsed { width: auto; background: transparent; border-right: 0; }
 .sc-canvas .sc-chat-layer--docked > .sc-chat-toggle { align-self: flex-start; writing-mode: vertical-rl; transform: rotate(180deg); margin: 64px 0 0; padding: 10px 5px; border-radius: 6px 0 0 6px; }
 .sc-canvas .sc-chat-layer--docked > .sc-chat-body { min-width: 0; }

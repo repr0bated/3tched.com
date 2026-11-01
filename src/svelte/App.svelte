@@ -9,6 +9,7 @@
   // Approved catalog elements. The chatbot owns the canvas spec. The top bar
   // carries both session controls: mode (chatModeSelector) + model
   // (tchedRouterPicker); its handle collapses it upward without unmounting.
+  // Unused in the demo build (picker removed); restore the header to bring it back.
   const modelSelectionSpec = {
     root: "session-controls",
     elements: {
@@ -29,7 +30,6 @@
     state: { chatOpen: true },
   } as Spec;
 
-  let pickerOpen = $state(true);
   let gate = $state.raw<Gate>({ state: "resolving_identity" });
   let controller: AbortController | undefined;
 
@@ -61,10 +61,7 @@
               {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
             </main>
           {:else}
-            <header class="sc-header" class:sc-header--collapsed={!pickerOpen}>
-              <div class="sc-header-controls" hidden={!pickerOpen}><SpecRenderer spec={modelSelectionSpec} /></div>
-              <button type="button" class="sc-header-toggle" aria-expanded={pickerOpen} onclick={() => (pickerOpen = !pickerOpen)}>{pickerOpen ? "Hide models" : "Models"}</button>
-            </header>
+            <!-- Demo build: the model picker is removed; the model is preset (control-plane model). -->
             <main class="sc-canvas" aria-label="Interface canvas">
               {#if runtime.canvasSpec}
                 {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
