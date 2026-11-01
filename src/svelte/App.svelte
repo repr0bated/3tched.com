@@ -19,14 +19,12 @@
   } as Spec;
 
   let gate = $state.raw<Gate>({ state: "resolving_identity" });
-  let rendered = $state(false);
   let controller: AbortController | undefined;
 
   function retry() {
     controller?.abort();
     controller = new AbortController();
     const current = controller;
-    rendered = false;
     gate = { state: "resolving_identity" };
     void connect(current.signal, () => {
       if (!current.signal.aborted) gate = { state: "loading_catalog" };
@@ -41,16 +39,10 @@
   });
 </script>
 
-<div class="svelte-chat-app" class:sc-loading-page={!rendered}>
-  {#if !rendered}
-    <p class="sc-loading-hello">Hi.</p>
-    <aside class="sc-loading-chat" aria-label="Chatbot">
-      <p>This is where the chatbot will be.</p>
-    </aside>
-  {/if}
+<div class="svelte-chat-app">
   {#if gate.state === "ready"}
     {#key gate.adapter}
-      <RuntimeHost adapter={gate.adapter} onCanvas={(present) => (rendered = present)}>
+      <RuntimeHost adapter={gate.adapter}>
         {#snippet children(runtime)}
           {#if (runtime.surfacePurposes["/chat"] === "vite, svelte-kit, json-render, ai-sdk, chat-sdk" || runtime.surfacePurposes["/chat"] === "chat-takeover") && runtime.canvasSpec}
             <main class="sc-canvas sc-takeover" aria-label="Chat interface">
@@ -64,7 +56,6 @@
               {#if runtime.canvasSpec}
                 {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
               {:else}
-                <p class="sc-loading-canvas">This is where the canvas will be.</p>
                 <p role="status">{runtime.interfaceError ?? "Planting the seed."}</p>
               {/if}
             </main>
@@ -77,7 +68,6 @@
       <p>Model selection</p>
     </header>
     <main class="sc-canvas" aria-label="Interface canvas">
-      <p class="sc-loading-canvas">This is where the canvas will be.</p>
       <p class="sr-only" role="status">Loading.</p>
       {#if gate.state === "connect"}
         <section class="door-connect" aria-labelledby="door-title">
