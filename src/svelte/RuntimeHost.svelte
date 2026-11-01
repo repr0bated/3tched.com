@@ -39,6 +39,12 @@
   $effect(() => {
     onCanvas?.(runtime.canvasSpec !== null);
   });
+  // Demo: every routed mode runs Muse Spark 1.3. applyRoute skips the modes with
+  // no route of their own (control_plane, ui_render); control_plane is preset.
+  const DEMO_ROUTE = { providerId: "custom", modelId: "muse-spark-1.3" };
+  $effect(() => {
+    if (runtime.chatContext) untrack(() => void runtime.applyRoute(DEMO_ROUTE));
+  });
   $effect(() => {
     if (!feeds) return;
     const write = () => {
