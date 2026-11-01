@@ -4,11 +4,18 @@
  * rings. The broker only says "something changed"; every value here came
  * from `ctl_plane_chatbot.list_knowledge` under the page's own credential.
  */
-import type { DoorClient, DoorIdentity } from "../grpc/door";
+import { sameOriginDoorUrl, type DoorClient, type DoorIdentity } from "../grpc/door";
 import { subscribeDoorbell, doorbellPassword, type Doorbell, type DoorbellStatus } from "./doorbell";
 
 export const CTL_PLANE_CHATBOT = "ctl_plane_chatbot";
 export const CHATBOT_READ = "chatbot.read";
+
+/** On the op-web page, ring through its same-origin `/mqtt` proxy (like the
+ * gRPC connector) instead of the 8090 TLS listener the browser may not trust. */
+function pageDoorbellListener(listener: string): string {
+  const origin = sameOriginDoorUrl();
+  return origin ? `${origin.replace(/^http/, "ws")}/mqtt` : listener;
+}
 
 export interface KnowledgePush {
   push_id: string;
@@ -125,7 +132,7 @@ export async function startKnowledgeFeed(options: KnowledgeFeedOptions): Promise
   };
   try {
     doorbell = subscribeDoorbell({
-      listener: bell.listener,
+      listener: pageDoorbellListener(bell.listener),
       ownerKey: bell.owner_key,
       topic: bell.topic,
       credential: currentCredential,
