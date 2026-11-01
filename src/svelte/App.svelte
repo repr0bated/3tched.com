@@ -6,13 +6,12 @@
   import RuntimeHost from "./RuntimeHost.svelte";
   import SpecRenderer from "./SpecRenderer.svelte";
 
-  // Approved catalog elements. The chatbot owns the canvas spec. A collapsible
-  // Models overlay carries both session controls: mode (chatModeSelector) +
-  // model (tchedRouterPicker). All catalog components, no hand-rolled UI.
+  // Approved catalog elements. The chatbot owns the canvas spec. The top bar
+  // carries both session controls: mode (chatModeSelector) + model
+  // (tchedRouterPicker); its handle collapses it upward without unmounting.
   const modelSelectionSpec = {
-    root: "models",
+    root: "session-controls",
     elements: {
-      models: { type: "applicationOverlay", props: { panel: "models", title: "Models", collapsed: true }, children: ["session-controls"] },
       "session-controls": { type: "container", props: { className: "sc-session-controls" }, children: ["chat-mode", "model-picker"] },
       "chat-mode": { type: "chatModeSelector", props: {} },
       "model-picker": { type: "tchedRouterPicker", props: { className: null } },
@@ -30,6 +29,7 @@
     state: { chatOpen: true },
   } as Spec;
 
+  let pickerOpen = $state(true);
   let gate = $state.raw<Gate>({ state: "resolving_identity" });
   let controller: AbortController | undefined;
 
@@ -61,7 +61,10 @@
               {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
             </main>
           {:else}
-            <SpecRenderer spec={modelSelectionSpec} />
+            <header class="sc-header" class:sc-header--collapsed={!pickerOpen}>
+              <div class="sc-header-controls" hidden={!pickerOpen}><SpecRenderer spec={modelSelectionSpec} /></div>
+              <button type="button" class="sc-header-toggle" aria-expanded={pickerOpen} onclick={() => (pickerOpen = !pickerOpen)}>{pickerOpen ? "Hide models" : "Models"}</button>
+            </header>
             <main class="sc-canvas" aria-label="Interface canvas">
               {#if runtime.canvasSpec}
                 {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
