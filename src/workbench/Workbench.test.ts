@@ -82,12 +82,14 @@ describe("identity workbench", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
   });
 
-  it("provides horizontal destinations and keeps chat draft and selected model while switching views", () => {
+  it("provides horizontal destinations and keeps chat draft and selected model while switching views", async () => {
     mount();
     const nav = screen.getByRole("navigation", { name: "Identity workspace" });
     expect(within(nav).getAllByRole("button").map(button => button.textContent)).toEqual(["Canvas", "Accountability", "Compliance", "Schema routing", "threetched"]);
-    const message = screen.getByLabelText("Message");
-    fireEvent.change(message, { target: { value: "Keep my conversation" } });
+    const message = await screen.findByLabelText("Message");
+    fireEvent.input(message, { target: { value: "Keep my conversation" } });
+    // The React chat boundary flushes asynchronously; wait until it reflects the draft.
+    await waitFor(() => expect(message).toHaveValue("Keep my conversation"));
     const model = screen.getByRole("combobox", { name: "Model" });
     const selected = (model as HTMLSelectElement).value;
     navigate("Compliance");
@@ -99,11 +101,11 @@ describe("identity workbench", () => {
     expect(screen.getByRole("region", { name: "threetched binary surface" })).toHaveTextContent("Connect to the door to call threetched methods.");
     navigate("Canvas");
     expect(screen.getByRole("heading", { name: "Interface canvas" })).toBeVisible();
-    expect(message).toHaveValue("Keep my conversation");
+    await waitFor(() => expect(screen.getByLabelText("Message")).toHaveValue("Keep my conversation"));
     expect(model).toHaveValue(selected);
   });
 
-  it("places active local controls between the conversation and canvas", () => {
+  it("places active local controls between the conversation and canvas", async () => {
     const { container } = mount();
     const controls = screen.getByRole("complementary", { name: "Chat and rendering controls" });
     expect(controls).toBeVisible();
@@ -113,8 +115,9 @@ describe("identity workbench", () => {
     expect(container.querySelector(".workbench-spec-inspector")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Render again" }));
     expect(screen.getByText("Current spec rendered again.")).toBeInTheDocument();
+    await screen.findByLabelText("Message");
     fireEvent.click(screen.getByRole("button", { name: "Back to chat" }));
-    expect(screen.getByLabelText("Message")).toHaveFocus();
+    await waitFor(() => expect(screen.getByLabelText("Message")).toHaveFocus());
   });
 
   it("keeps evidence drafts in an independent context below the control-plane chatbot", async () => {

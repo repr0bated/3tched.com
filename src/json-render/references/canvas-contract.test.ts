@@ -1,5 +1,5 @@
 import Harness from "../../test/fixtures/Harness.svelte";
-import { cleanup, fireEvent, render, screen, within } from "../../test/native";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "../../test/native";
 import { afterEach, describe, expect, it } from "vitest";
 import { createLocalChatAdapter } from "../../chat/local-chat-adapter";
 import { readCanvasResponse } from "./canvas-contract";
@@ -84,8 +84,10 @@ it("renders raw reply patches on the Antigravity canvas and keeps them out of th
     },
   };
   render(Harness, { adapter: adapter, view: "spec" });
-  fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "show status" } });
-  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  const input = await screen.findByRole("textbox", { name: "Message" });
+  fireEvent.input(input, { target: { value: "show status" } });
+  await waitFor(() => expect(input).toHaveValue("show status"));
+  fireEvent.click(await screen.findByRole("button", { name: "Send" }));
   const canvas = screen.getByRole("region", { name: "Canvas workspace" });
   expect(await within(canvas).findByText("Rendered status")).toBeVisible();
   const conversation = screen.getByRole("region", { name: "Conversation" });

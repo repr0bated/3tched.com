@@ -1,0 +1,25 @@
+advisors:
+  - name: default
+    model: litellm-fusion/typesafe/jev-1.14.0
+    tools:
+      - read
+      - security_scan
+      - bash
+      - edit
+      - ast_grep
+      - ast_edit
+      - ask
+      - debug
+      - eval
+      - github
+      - glob
+      - grep
+      - find
+      - lsp
+      - checkpoint
+      - rewind
+      - task
+      - wait
+      - todo
+      - web_search
+      - write

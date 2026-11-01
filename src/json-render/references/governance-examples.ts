@@ -18,6 +18,7 @@ const table = (caption: string, columns: string[], rows: string[][]) =>
     caption,
     columns: columns.map((label, i) => ({ id: `c${i}`, label })),
     rows: rows.map((cells, i) => ({ id: `r${i}`, cells })),
+    emptyLabel: "No reference rows.",
   });
 
 export interface GovernanceChapter {
@@ -40,7 +41,7 @@ function chapter(id: string, label: string, summary: string, parts: Element[]): 
     },
     reference: status(
       "Static reference",
-      "Illustrative data only. Proposals travel the approval path; no control here operates the host."
+      "Illustrative data only. Display only: no proposal, submission, or elevation control here, and no control here operates the host."
     ),
   };
   parts.forEach((part, i) => {
@@ -48,16 +49,6 @@ function chapter(id: string, label: string, summary: string, parts: Element[]): 
   });
   return { id, label, summary, spec: acceptCanvasSpec({ root: "root", elements }).spec };
 }
-
-const proposeForm = element("dashboardFormPreview", {
-  title: "Propose grant change",
-  fields: [
-    { id: "principal", label: "Principal", type: "text", value: "", help: "Reference control; no request is sent." },
-    { id: "capability", label: "Capability", type: "text", value: "", help: "Reference control; no request is sent." },
-    { id: "action", label: "Action", type: "select", options: ["grant", "revoke", "delegate"], help: "Reference control; no request is sent." },
-    { id: "reason", label: "Reason", type: "textarea", value: "", help: "Reference control; no request is sent." },
-  ],
-});
 
 export const GOV_INDEX_ID = "gov";
 
@@ -81,7 +72,6 @@ export const governanceReferences: GovernanceChapter[] = [
         ["cap.governance.schema-tag-registry.read@v1", "obs", "control-plane-chatbot", "proposed-add"],
       ]
     ),
-    proposeForm,
   ]),
   chapter("provenance", "Capability provenance", "Why each capability is held.", [
     table(
@@ -94,21 +84,21 @@ export const governanceReferences: GovernanceChapter[] = [
       ]
     ),
   ]),
-  chapter("org-chart", "Org chart", "Positions and reporting lines.", [
+  chapter("org-chart", "Org chart layout", "Positions and reporting lines.", [
     element("dashboardTopology", {
       title: "Reporting lines",
       nodes: [
-        { id: "secretary", label: "Secretary", x: 0, y: 20 },
-        { id: "bureau", label: "Bureau", x: 25, y: 20 },
-        { id: "audit", label: "Audit", x: 25, y: 40 },
-        { id: "division", label: "Division", x: 50, y: 20 },
-        { id: "team", label: "Team", x: 75, y: 20 },
+        { id: "secretary", label: "Secretary", detail: "secretary", x: 0, y: 20 },
+        { id: "bureau", label: "Bureau", detail: "archivist", x: 25, y: 20 },
+        { id: "audit", label: "Audit", detail: "auditor", x: 25, y: 40 },
+        { id: "division", label: "Division", detail: "field-agent", x: 50, y: 20 },
+        { id: "team", label: "Team", detail: "field-agent", x: 75, y: 20 },
       ],
       edges: [
-        { from: "secretary", to: "bureau" },
-        { from: "secretary", to: "audit" },
-        { from: "bureau", to: "division" },
-        { from: "division", to: "team" },
+        { from: "secretary", to: "bureau", label: "reporting line" },
+        { from: "secretary", to: "audit", label: "reporting line" },
+        { from: "bureau", to: "division", label: "reporting line" },
+        { from: "division", to: "team", label: "reporting line" },
       ],
     }),
     table(

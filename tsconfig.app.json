@@ -17,8 +17,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": true,
-    "types": ["$app/types", "vitest/globals", "@testing-library/jest-dom"]
+    "types": ["$app/types", "vitest/globals", "@testing-library/jest-dom"],
+    "baseUrl": "."
   },
   "include": ["src"]
 }

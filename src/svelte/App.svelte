@@ -52,7 +52,7 @@
     {#key gate.adapter}
       <RuntimeHost adapter={gate.adapter} onCanvas={(present) => (rendered = present)}>
         {#snippet children(runtime)}
-          {#if runtime.surfacePurposes["/chat"] === "chat-takeover" && runtime.canvasSpec}
+          {#if (runtime.surfacePurposes["/chat"] === "vite, svelte-kit, json-render, ai-sdk, chat-sdk" || runtime.surfacePurposes["/chat"] === "chat-takeover") && runtime.canvasSpec}
             <main class="sc-canvas sc-takeover" aria-label="Chat interface">
               {#key runtime.renderRevision}<SpecRenderer spec={runtime.canvasSpec} />{/key}
             </main>

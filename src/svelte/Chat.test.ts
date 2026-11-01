@@ -36,13 +36,15 @@ function setup() {
   return { adapter, session };
 }
 
-describe("Svelte chat interactions", () => {
+describe("AI Elements chat interactions", () => {
   it("supports Enter to send, Shift+Enter for multiline text, and IME composition", async () => {
     const { adapter } = setup();
-    const input = screen.getByRole("textbox", { name: "Message" });
+    const input = await screen.findByRole("textbox", { name: "Message" });
     await fireEvent.input(input, {
       target: { value: "First line\nSecond line" },
     });
+    // The React boundary flushes asynchronously; wait until it reflects the draft.
+    await waitFor(() => expect(input).toHaveValue("First line\nSecond line"));
     await fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
     await fireEvent.keyDown(input, { key: "Enter", isComposing: true });
     expect(adapter.submit).not.toHaveBeenCalled();
@@ -52,20 +54,22 @@ describe("Svelte chat interactions", () => {
     expect(adapter.submit.mock.calls[0][0].message).toBe(
       "First line\nSecond line",
     );
-    expect(input).toHaveValue("");
+    await waitFor(() => expect(input).toHaveValue(""));
   });
 
-  it("sends a reference suggestion and resets the transcript with focus restored", async () => {
+  it("sends a reference command and resets the transcript with focus restored", async () => {
     const { adapter } = setup();
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Storage dashboard" }),
-    );
-    await screen.findByText("Example answer");
+    const input = await screen.findByRole("textbox", { name: "Message" });
+    await fireEvent.input(input, { target: { value: "/ui-reference btrfs" } });
+    await waitFor(() => expect(input).toHaveValue("/ui-reference btrfs"));
+    await fireEvent.keyDown(input, { key: "Enter" });
     expect(adapter.submit.mock.calls[0][0].message).toBe("/ui-reference btrfs");
-    await fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Start over" }));
     await waitFor(() =>
       expect(screen.queryByText("Example answer")).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("textbox", { name: "Message" })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveFocus(),
+    );
   });
 });

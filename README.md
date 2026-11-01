@@ -8,7 +8,9 @@ routing, grants and catalog admission continue through the one door on 8090.
 
 The SvelteKit route is `src/routes/+page.svelte`; `src/svelte/App.svelte` owns
 the full-viewport canvas, floating toolbar, chat pane and optional tools panel.
-`Chat.svelte` owns the transcript, multiline composer and scrolling. Loading
+`Chat.svelte` renders the transcript with `Chat` from `@ai-sdk/svelte`. Each
+send converts the turn with the Chat SDK `toAiMessages`, then `ChatSession`
+submits it through the door. Loading
 renders a blank canvas and an empty chat pane: no headings, suggestions, copy
 or placeholder specs. All visible UI arrives through the chatbot, which
 subscribes to the rendering catalog; the chatbot's specs render on the canvas,
@@ -19,8 +21,9 @@ The model selector retains the existing identity-scoped model-change rules.
 Settings still contains mode and knowledge controls; Tools contains the existing
 workspace navigation, inspection, gallery, authorization and other panels.
 
-The design follows [Vercel's Svelte Chat example](https://github.com/vercel-labs/json-render/tree/main/examples/svelte-chat),
-adapted to the existing `ChatAdapter`. SvelteKit uses `adapter-static`, with
+The transcript and composer are Svelte. The canvas still renders through
+json-render. Adapted to the existing `ChatAdapter`: SvelteKit uses
+`adapter-static`, with
 `dist/index.html` and `dist/assets/` for op-web. There is no standalone Gateway
 server, new `/api/generate`, replacement identity path or second chat transport.
 `chat-session.ts` keeps drafts, pending requests and errors separate per

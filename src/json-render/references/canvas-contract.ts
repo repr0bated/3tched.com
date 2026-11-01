@@ -5,6 +5,7 @@ import { z } from "zod";
 import { schema } from "@json-render/svelte/schema";
 import type { NotebookDetail } from "../../chat/chat-mode";
 import { chatCatalog } from "../catalog/chat-catalog";
+import { dashboardElementSchemas } from "../catalog/dashboard-elements";
 
 /** Generated canvases allow presentation and local UI state, never chat/runtime controls or action bindings. */
 export const canvasCatalog = defineCatalog(schema, {
@@ -31,9 +32,24 @@ const MAX_ELEMENTS = 256;
 const MAX_DEPTH = 20;
 const keysAre = (value: object, allowed: string[]) => Object.keys(value).every(key => allowed.includes(key));
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+/**
+ * Retained reference vocabulary: dashboard elements have renderers in the
+ * chat registry ("renderers for specs already saved") but are deliberately
+ * not offered to generated canvases. Authored reference specs using them
+ * must reach the renderer intact, not as registered-component stubs.
+ */
+const retainedCatalog = defineCatalog(schema, {
+  components: { ...canvasCatalog.data.components, ...dashboardElementSchemas },
+  actions: {},
+});
+
+/** Validate a retained reference spec against the full renderer vocabulary. */
+export function validateRetainedSpec(value: unknown): Spec {
+  return validateCanvasSpec(value, retainedCatalog);
+}
 
 /** Validate both the catalog's prop contracts and the flat graph before the renderer sees it. */
-export function validateCanvasSpec(value: unknown): Spec {
+export function validateCanvasSpec(value: unknown, catalog: typeof canvasCatalog = canvasCatalog): Spec {
   if (!object(value) || !keysAre(value, ["root", "elements"]) || typeof value.root !== "string" || !object(value.elements)) {
     throw new Error("Canvas must contain only root and elements.");
   }
@@ -46,8 +62,8 @@ export function validateCanvasSpec(value: unknown): Spec {
     if (!object(element) || !keysAre(element, ["type", "props", "children"]) || typeof element.type !== "string" || !object(element.props)) {
       throw new Error("Canvas elements must be static presentation elements.");
     }
-    if (!Object.hasOwn(canvasCatalog.data.components, element.type)) throw new Error(`Invalid Canvas component: ${element.type}`);
-    const declaration = canvasCatalog.data.components[element.type as keyof typeof canvasCatalog.data.components];
+    if (!Object.hasOwn(catalog.data.components, element.type)) throw new Error(`Invalid Canvas component: ${element.type}`);
+    const declaration = catalog.data.components[element.type as keyof typeof catalog.data.components];
     if (!declaration || !declaration.props.safeParse(element.props).success) throw new Error(`Invalid Canvas component: ${element.type}`);
     if (element.children !== undefined && (!Array.isArray(element.children) || element.children.some(child => typeof child !== "string"))) {
       throw new Error("Canvas children must be element IDs.");
@@ -141,6 +157,11 @@ export function acceptCanvasSpec(value: unknown): { spec: Spec; registered: stri
     return { spec: validateCanvasSpec(value), registered: [] };
   } catch (error) {
     if (!value || typeof value !== "object" || !Object.hasOwn(value, "elements")) throw error;
+    // Retained dashboard references are renderable as-is; only truly
+    // unknown types fall through to registered-component admission.
+    try {
+      return { spec: validateRetainedSpec(value), registered: [] };
+    } catch { /* not a retained spec either */ }
     const admitted = admitUnregisteredElements(value as Spec, (type) => Object.hasOwn(canvasCatalog.data.components, type) || registeredComponent(type) !== undefined);
     if (!admitted.registered.length) throw error;
     return { spec: validateCanvasSpec(admitted.spec), registered: admitted.registered };
