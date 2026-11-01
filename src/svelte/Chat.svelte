@@ -2,6 +2,8 @@
   import { Chat, type UIMessage } from "@ai-sdk/svelte";
   import { ChatSession, type ChatRuntime } from "./chat-session";
   import { sessionChatTransport } from "./session-chat-transport";
+  import ModeStrip from "./ModeStrip.svelte";
+  import { getRuntime } from "./runtime.svelte";
 
   let {
     session,
@@ -11,6 +13,8 @@
     runtime: ChatRuntime;
   } = $props();
 
+  // The live runtime applies a mode change; the snapshot prop only reads it.
+  const live = getRuntime();
   let draft = $state("");
   const chat = new Chat({
     transport: sessionChatTransport(() => session),
@@ -110,7 +114,7 @@
         onkeydown={onKeydown}
       ></textarea>
       <div class="sc-composer-bottom">
-        <span>{statusLabel}</span>
+        {#if runtime.adapter.kind === "remote"}<div class="sc-composer-mode"><ModeStrip adapter={runtime.adapter} onContextChange={live.setChatContext} /></div>{:else}<span>{statusLabel}</span>{/if}
         <button
           type="submit"
           aria-label={busy ? "Sending" : "Send"}

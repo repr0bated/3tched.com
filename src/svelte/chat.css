@@ -100,6 +100,8 @@ body { margin: 0; }
 .sc-composer textarea::placeholder { color: #95959f; }
 .sc-composer-bottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
 .sc-composer-bottom > span { color: var(--sc-muted); font-size: 10px; text-transform: capitalize; }
+.sc-composer-mode { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--sc-muted); }
+.sc-composer-mode select { font-size: 11px; max-width: 160px; }
 .sc-composer-bottom button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 9px; background: #e4dcff; color: #211a35; font-size: 22px; font-weight: 600; line-height: 1; }
 .sc-composer-hint { margin: 7px 0 0; color: var(--sc-muted); font-size: 9px; text-align: center; }
 .sc-composer-hint span { margin: 0 7px; }
