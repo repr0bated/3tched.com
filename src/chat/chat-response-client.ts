@@ -18,7 +18,6 @@ export const CHAT_RESPONSE_METHODS = {
   StartConversation: "start_conversation",
   SubmitTurn: "submit_turn",
   GetTurnResponse: "get_turn_response",
-  GetDoorbell: "get_doorbell",
 } as const;
 
 export const CHAT_RESPONSE_CAPS = {
@@ -210,10 +209,10 @@ export async function waitForCommittedTurn(
       if (settled) return;
       try {
         const { result } = await client.call<DoorbellOutput>(
-          CHAT_RESPONSE,
-          CHAT_RESPONSE_METHODS.GetDoorbell,
+          "ctl_plane_chatbot",
+          "get_doorbell",
           {},
-          CHAT_RESPONSE_CAPS.Read,
+          "chatbot.read",
         );
         if (settled) return;
         doorbell = subscribeDoorbell({

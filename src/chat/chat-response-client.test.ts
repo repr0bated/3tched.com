@@ -63,8 +63,7 @@ afterEach(() => {
 
 function client(handlers: Record<string, (args: unknown) => unknown>): DoorClient {
   return {
-    call: vi.fn(async (plugin: string, method: string, args: unknown) => {
-      expect(plugin).toBe("chat_response");
+    call: vi.fn(async (_plugin: string, method: string, args: unknown) => {
       const handler = handlers[method];
       if (!handler) throw new Error(`unexpected ${method}`);
       return { result: await handler(args), eventId: "1", eventHash: `hash-${method}` };
