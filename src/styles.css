@@ -1,25 +1,28 @@
 :root {
-  color-scheme: dark;
+  /* Matches www.3tched.com: light paper background, near-black ink,
+     gold accent, IBM Plex Serif/Mono with system fallbacks. */
+  color-scheme: light;
   font-family:
     ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #08090b;
-  --panel: #0d0f12;
-  --panel-raised: #12151a;
-  --line: #252a31;
-  --line-strong: #343b45;
-  --text: #f0f4f8;
-  --muted: #9099a5;
-  --faint: #626b76;
-  --blue: #38a8ff;
-  --blue-deep: #0c5f9e;
-  --emerald: #39d499;
-  --red: #ff6b72;
-  --amber: #e8ba61;
+  --bg: #fafaf8;
+  --panel: #f2f2ee;
+  --panel-raised: #ffffff;
+  --line: #ddded8;
+  --line-strong: #c4c5bf;
+  --text: #121212;
+  --muted: #606369;
+  --faint: #6b7280;
+  --blue: #c6892f;
+  --blue-deep: #9a6c24;
+  --emerald: #1f9d66;
+  --red: #c0392b;
+  --amber: #b07e2b;
+  --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
   --mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
+    "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 * {
