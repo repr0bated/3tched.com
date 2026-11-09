@@ -47,6 +47,15 @@ body { margin: 0; }
 .sc-header-controls { flex: 1; min-width: 0; }
 .sc-header-toggle { flex-shrink: 0; margin-left: auto; padding: 4px 10px; background: #242428; color: #e4e4e7; border: 1px solid var(--sc-line); border-radius: 6px; font-size: 12px; }
 .sc-header--collapsed { left: auto; padding: 0; border: 0; background: transparent; box-shadow: none; }
+/* Menu and chatbot float on the left. Collapsed, each is only its handle, so the canvas stays the whole screen. */
+.sc-chrome { position: absolute; z-index: 30; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: min(410px, calc(100vw - 24px)); pointer-events: none; }
+.sc-chrome > * { pointer-events: auto; max-width: 100%; }
+.sc-chrome > .sc-header { position: relative; top: auto; left: auto; right: auto; width: 100%; flex-shrink: 0; max-height: 46%; overflow: auto; }
+.sc-chrome > .sc-header.sc-header--collapsed { width: auto; max-height: none; overflow: visible; }
+.sc-chrome > .sc-chat-pane, .sc-chrome > .sc-chat-layer--docked { position: relative; top: auto; left: auto; bottom: auto; width: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--sc-line); border-radius: 14px; background: #111113fa; box-shadow: 0 12px 40px #0006; }
+.sc-chrome > .sc-chat-pane.sc-chat-pane--collapsed, .sc-chrome > .sc-chat-layer--docked.sc-chat-layer--collapsed { flex: 0 0 auto; width: auto; height: auto; background: transparent; border: 0; box-shadow: none; overflow: visible; }
+.sc-chrome .sc-chat-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sc-chrome .sc-chat-body > .sc-conversation { flex: 1; min-height: 0; }
 .sc-header .routing-strip { margin: 0; min-width: 0; }
 .sc-header p { margin: 0; }
 .sc-brand, .sc-header-actions { display: flex; align-items: center; gap: 10px; }
@@ -69,6 +78,8 @@ body { margin: 0; }
 .sc-ai-chat-host > * { flex: 1; min-height: 0; }
 .sc-thread-toolbar { padding: 8px 14px; min-height: 36px; display: flex; align-items: center; justify-content: space-between; color: var(--sc-muted); font-size: 11px; gap: 8px; }
 .sc-thread-toolbar > span { overflow-wrap: anywhere; }
+.sc-model { color: var(--fg, inherit); font-size: 14px; font-weight: 650; letter-spacing: 0.01em; }
+.sc-execution { margin: 0 0 6px; font-size: 12px; font-family: ui-monospace, monospace; }
 .sc-messages { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-color: #3c3c43 transparent; }
 .sc-empty { min-height: 100%; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 24px 18px; }
 .sc-empty-mark { display: none; }
@@ -100,9 +111,11 @@ body { margin: 0; }
 .sc-composer textarea::placeholder { color: #95959f; }
 .sc-composer-bottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
 .sc-composer-bottom > span { color: var(--sc-muted); font-size: 10px; text-transform: capitalize; }
-.sc-composer-mode { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--sc-muted); }
-.sc-composer-mode select { font-size: 11px; max-width: 160px; }
-.sc-composer-bottom button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 9px; background: #e4dcff; color: #211a35; font-size: 22px; font-weight: 600; line-height: 1; }
+.sc-composer-mode { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--sc-muted); }
+.sc-composer-mode .mode-strip { margin: 0; gap: 6px; font-size: 11px; }
+.sc-composer-mode select { font-size: 11px; max-width: 140px; }
+.sc-composer-mode .mode-strip__namespace { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-composer-bottom > button { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border: 0; border-radius: 9px; background: #e4dcff; color: #211a35; font-size: 22px; font-weight: 600; line-height: 1; }
 .sc-composer-hint { margin: 7px 0 0; color: var(--sc-muted); font-size: 9px; text-align: center; }
 .sc-composer-hint span { margin: 0 7px; }
 .sc-scroll-button { position: absolute; left: calc(50% - 18px); top: -36px; width: 36px; height: 36px; border-radius: 50%; background: #25252a; border: 1px solid #52525b; color: white; }

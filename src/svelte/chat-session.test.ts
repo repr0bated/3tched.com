@@ -31,8 +31,8 @@ function setup(adapter = createLocalChatAdapter(0)) {
     adapter,
     scopeKey: "personal",
     context: personal,
-    route: { providerId: "local-lab", modelId: "atlas-compact" },
-    modelLabel: "Atlas Compact",
+    route: { providerId: "combined-plan", modelId: "grok-4.7" },
+    modelLabel: "Grok 4.7",
     setCanvas: vi.fn(),
   };
   const session = new ChatSession();

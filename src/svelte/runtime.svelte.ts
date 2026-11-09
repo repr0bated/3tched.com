@@ -31,6 +31,7 @@ export class Runtime {
   catalogError = $state<string | null>(null);
   interfacePending = $state(false);
   interfaceError = $state<string | null>(null);
+  private interfaceScope: string | null = null;
   /** Sealed surface purposes by path. Empty means unknown: no takeover, everything else keeps working. */
   surfacePurposes = $state.raw<Record<string, string>>({});
   readonly canvases = new SvelteMap<string, Spec>();
@@ -49,6 +50,12 @@ export class Runtime {
     this.providers = adapter.providers;
     this.catalogError = adapter.catalogError ?? null;
     this.routeReadError = adapter.initialRouteError ?? null;
+    if (adapter.uiSurfaces) {
+      this.surfacePurposes = {
+        "/chat": "vite, svelte-kit, json-render, ai-sdk, chat-sdk",
+        "/models": "vite, svelte-kit, json-render, ai-sdk, chat-sdk",
+      };
+    }
     const fallback = {
       providerId: adapter.providers[0]?.id ?? "",
       modelId: adapter.providers[0]?.models[0]?.id ?? "",
@@ -152,11 +159,7 @@ export class Runtime {
       context: this.chatContext,
       route: this.route,
       layout: this.layout,
-      modelLabel:
-        this.providers
-          .find((p) => p.id === this.route.providerId)
-          ?.models.find((m) => m.id === this.route.modelId)?.label ??
-        this.route.modelId,
+      modelLabel: this.route.modelId || "Model selected by server",
       setCanvas: (spec) => {
         this.setCanvas(spec, scope);
         if (!this.disposed && this.scopeKey === scope) pageTarget?.accept(spec);
@@ -201,7 +204,9 @@ export class Runtime {
         if (!this.disposed) this.surfacePurposes = purposes;
         return;
       } catch {
-        await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, 2000 * (attempt + 1));
+        await promise;
       }
     }
     if (!this.disposed) this.surfacePurposes = {};
@@ -249,4 +254,7 @@ export function getRuntime(): Runtime {
   const value = getContext<Runtime>(key);
   if (!value) throw new Error("Chat runtime is unavailable.");
   return value;
+}
+export function tryGetRuntime(): Runtime | null {
+  return getContext<Runtime>(key) ?? null;
 }

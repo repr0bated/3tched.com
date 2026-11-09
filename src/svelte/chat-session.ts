@@ -33,6 +33,8 @@ export interface ThreadMessage extends ChatMessage {
   prompt?: string;
   saved?: boolean;
   saving?: boolean;
+  /** A backend-reported execution receipt, when one is available. */
+  execution?: { id: string; tool: string; status: "completed" };
 }
 
 export interface Thread {
@@ -95,8 +97,12 @@ export class ChatSession {
     this.notify();
   }
 
+  get scopeKey(): string {
+    return this.runtime?.scopeKey ?? "";
+  }
+
   get current(): Thread {
-    return this.threads.get(this.runtime?.scopeKey ?? "") ?? emptyThread();
+    return this.threads.get(this.scopeKey) ?? emptyThread();
   }
 
   private notify() {

@@ -1,0 +1,220 @@
+<script lang="ts">
+  import { page } from '$app/stores';
+  import { Renderer, JsonUIProvider } from '@json-render/svelte';
+  import type { Spec } from '@json-render/core';
+  import { defineCatalog, type CatalogData } from '@json-render/core';
+  import { schema } from '@json-render/svelte/schema';
+  import { chatCatalog } from '../../json-render/catalog/chat-catalog';
+  import { dashboardElementSchemas } from '../../json-render/catalog/dashboard-elements';
+
+  export let data: {
+    cozoRelations: unknown[] | null;
+    cmsSpec: Spec | null;
+    error: string | null;
+    chunksUsed: number;
+    generatedAt: string;
+    published: boolean;
+  };
+
+  // Build a combined registry from the project's own components
+  const catalogData: CatalogData = {
+    components: {
+      container: chatCatalog.data.components.container,
+      pageHeader: chatCatalog.data.components.pageHeader,
+      text: dashboardElementSchemas.text,
+      badge: dashboardElementSchemas.badge,
+      row: dashboardElementSchemas.row,
+      stat: dashboardElementSchemas.stat,
+      heading: dashboardElementSchemas.heading,
+      menuBar: chatCatalog.data.components.menuBar,
+      menuSection: chatCatalog.data.components.menuSection,
+      menuItem: chatCatalog.data.components.menuItem,
+    },
+    actions: {},
+  };
+
+  const catalog = defineCatalog(schema, { components: catalogData.components, actions: {} });
+  const registry = chatCatalog;
+
+  let generating = false;
+  let error: string | null = null;
+
+  async function generate() {
+    generating = true;
+    error = null;
+    try {
+      const response = await fetch('/api/cms-generate', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Generation failed');
+      }
+      localStorage.setItem('cms-generation', JSON.stringify({
+        cozo_relations: result.cozo_relations,
+        cms_spec: result.cms_spec,
+        chunks_used: result.chunks_used,
+        generated_at: new Date().toISOString(),
+        published: false
+      }));
+      location.reload();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unknown error';
+    } finally {
+      generating = false;
+    }
+  }
+
+  async function publish() {
+    try {
+      const generation = localStorage.getItem('cms-generation');
+      if (generation) {
+        const data = JSON.parse(generation);
+        data.published = true;
+        localStorage.setItem('cms-generation', JSON.stringify(data));
+        location.reload();
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Publish failed';
+    }
+  }
+
+  async function deny() {
+    localStorage.removeItem('cms-generation');
+    location.reload();
+  }
+
+  function renderCozoTable(relations: unknown[]) {
+    return {
+      root: 'root',
+      elements: {
+        root: {
+          type: 'container',
+          props: { className: null },
+          children: ['title', 'table'],
+        },
+        title: {
+          type: 'pageHeader',
+          props: { title: 'Cozo Relations', subtitle: `${relations.length} relations · ${data.chunksUsed} Qdrant chunks` },
+        },
+        table: {
+          type: 'container',
+          props: { className: 'space-y-2 p-4 bg-gray-50 rounded-lg' },
+          children: relations.map((_, i) => `rel-${i}`).join(','),
+        },
+        ...Object.fromEntries(
+          relations.map((r, i) => [
+            `rel-${i}`,
+            {
+              type: 'row',
+              props: {
+                className: 'flex items-center gap-4 text-sm',
+                children: [
+                  { type: 'stat', props: { value: (r as Record<string, unknown>).relation_name || 'unknown', label: 'Name' } },
+                  { type: 'stat', props: { value: String(((r as Record<string, unknown>).schema as any[])?.length || 0), label: 'Fields' } },
+                  { type: 'badge', props: { content: String(((r as Record<string, unknown>).records as any[])?.length || 0), variant: 'default' } },
+                ],
+              },
+            },
+          ])
+        ),
+      },
+    } satisfies Spec;
+  }
+</script>
+
+<div class="min-h-screen bg-gray-50">
+  <!-- Header -->
+  <div class="bg-white border-b border-gray-200 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <h1 class="text-xl font-semibold text-gray-900">CMS Generator</h1>
+      <span class="text-sm text-gray-500">
+        {data.published ? '✓ Published' : data.cmsSpec ? 'Draft — review' : 'Ready'}
+      </span>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    {#if !data.cmsSpec && !error}
+      <div class="bg-white rounded-lg border border-gray-200 p-8 text-center">
+        <h2 class="text-lg font-medium text-gray-900 mb-2">Generate Compliance CMS</h2>
+        <p class="text-gray-500 mb-4">
+          Query Qdrant compliance data → Generate Cozo relations + CMS spec → Review → Publish
+        </p>
+        <button
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium"
+          on:click={generate}
+          disabled={generating}
+        >
+          {generating ? 'Generating...' : 'Generate'}
+        </button>
+      </div>
+    {:else}
+      {#if error}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-red-800 font-medium">Error: {error}</p>
+          <button
+            class="mt-2 text-red-600 hover:text-red-700 text-sm"
+            on:click={() => { error = null; location.reload(); }}
+          >
+            Try again
+          </button>
+        </div>
+      {/if}
+
+      <!-- Cozo Relations -->
+      {#if data.cozoRelations}
+        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Cozo Relations</h2>
+          </div>
+          <div class="p-4">
+            <pre class="text-xs bg-gray-50 rounded-lg p-4 overflow-x-auto max-h-96">
+{JSON.stringify(data.cozoRelations, null, 2)}
+            </pre>
+          </div>
+        </div>
+      {/if}
+
+      <!-- CMS Spec -->
+      {#if data.cmsSpec}
+        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">CMS Spec</h2>
+            <p class="text-sm text-gray-500">
+              Generated {data.generatedAt} · {data.published ? 'Published' : 'Draft — not yet published'}
+            </p>
+          </div>
+          <div class="p-4">
+            <JsonUIProvider>
+              <Renderer spec={data.cmsSpec as Spec} registry={registry} />
+            </JsonUIProvider>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Published banner -->
+      {#if data.published}
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p class="text-green-800 font-medium">✓ Published — both Cozo relations and CMS spec committed</p>
+        </div>
+      {/if}
+
+      <!-- Publish / Deny -->
+      {#if data.cmsSpec && !data.published}
+        <div class="flex items-center gap-4 bg-white rounded-lg border border-gray-200 p-4">
+          <button
+            class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md font-medium"
+            on:click={publish}
+          >
+            ✓ Publish (commit both)
+          </button>
+          <button
+            class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md font-medium"
+            on:click={deny}
+          >
+            ✗ Deny (commit neither)
+          </button>
+        </div>
+      {/if}
+    {/if}
+  </div>
+</div>

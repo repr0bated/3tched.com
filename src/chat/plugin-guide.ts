@@ -1,12 +1,13 @@
 import type { DoorClient } from "../grpc/door";
 
 /** Public guide only; never forward schema defaults, runtime state or credentials.
- * Contract verified from mounted cognitive_mcp/schema_read on 2026-10-11.
+ * Contract verified from sealed cognitive/schema_read. The catalog plugin id is
+ * cognitive and the method capability is cognitive.read.
  */
 export async function readPluginGuide(client: Pick<DoorClient, "call">, pluginId: string): Promise<string> {
   const { result } = await client.call<{
     plugin_id: string; schema_hash: string; schema: { name?: string; description?: string };
-  }>("cognitive_mcp", "schema_read", { plugin_id: pluginId }, "cognitive_mcp.read");
+  }>("cognitive", "schema_read", { plugin_id: pluginId }, "cognitive.read");
   if (result.plugin_id !== pluginId || result.schema?.name !== pluginId ||
       !/^[a-f0-9]{64}$/i.test(result.schema_hash) ||
       typeof result.schema.description !== "string" || !result.schema.description.includes("[chatbot-guide:v1]") ||
@@ -69,7 +70,7 @@ export async function readUiAuthoringGuide(client: Pick<DoorClient, "call">): Pr
     plugin_id: string;
     schema_hash: string;
     schema: { name?: string; fields?: unknown };
-  }>("cognitive_mcp", "schema_read", { plugin_id: "json_render" }, "cognitive_mcp.read");
+  }>("cognitive", "schema_read", { plugin_id: "json_render" }, "cognitive.read");
   if (result.plugin_id !== "json_render" || result.schema?.name !== "json_render" ||
       !/^[a-f0-9]{64}$/i.test(result.schema_hash) || !record(result.schema.fields)) {
     throw new Error("The sealed UI-authoring guide is unavailable or invalid.");

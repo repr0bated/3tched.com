@@ -1,7 +1,7 @@
 import { readPluginGuide, readUiAuthoringGuide, SelectionGuide } from "./plugin-guide";
 import { readMountedCatalog } from "./mounted-catalog";
-import { readCanvasResponse } from "../json-render/references/canvas-contract";
-import { referenceChatResponse } from "../json-render/references/reference-chat";
+import { readCanvasResponse, validateCanvasSpec } from "../json-render/references/canvas-contract";
+import { catalogPresentationMessage, referenceChatResponse } from "../json-render/references/reference-chat";
 /**
  * ChatAdapter backed by the :8090 door.
  *
@@ -39,7 +39,7 @@ import type {
 } from "./chat-adapter";
 import { DoorClient, DoorError, type DoorConfig } from "../grpc/door";
 import { PluginFeedStore } from "../grpc/plugin-feeds";
-import { listCatalog, refreshCatalog, type CatalogModel, type CatalogProvider } from "./model-catalog";
+import { listCatalog, refreshCatalog, type CatalogModel, type CatalogProvider, type RefreshedCatalog } from "./model-catalog";
 import { uiGallery, type UiGallery } from "./ui-gallery";
 import {
   authorizeTask,
@@ -50,6 +50,7 @@ import {
 } from "./control-plane-model";
 import { applyCatalogModelBinding, resolveCatalogModelBinding, sameCatalogModelBinding } from "./native-routing";
 import { loadCommittedCatalogRoute } from "./router-committed-route";
+import type { CommittedCatalogRoute } from "./router-committed-route";
 import {
   CHAT_RESPONSE_CAPS,
   CHAT_RESPONSE_METHODS,
@@ -152,6 +153,22 @@ export interface DoorChatAdapter extends ChatAdapter {
  * Read admitted catalog choices. Browser connections may defer the provider
  * refresh until their runtime mounts, so stored choices can render first.
  */
+/** A fenced spec stays a spec. Plain text still mounts, as one text element. */
+export function replyPresentation(content: string) {
+  const rendered = readCanvasResponse(content ?? "");
+  if (rendered.canvasSpec) return rendered;
+  const text = (rendered.content || content || "").trim().slice(0, 4000) || "The chatbot returned an empty reply.";
+  try {
+    const canvasSpec = validateCanvasSpec({
+      root: "reply",
+      elements: { reply: { type: "text", props: { text, className: null } } },
+    });
+    return { ...rendered, content: rendered.content || text, canvasSpec };
+  } catch {
+    return rendered;
+  }
+}
+
 export async function connectDoorChatAdapter(
   config: DoorConfig,
   options: { refreshOnLoad?: boolean | "background" } = {},
@@ -163,7 +180,7 @@ export async function connectDoorChatAdapter(
   let identity: DoorIdentity = config.identity;
   // CLI discovery opts out; the browser refreshes through its reactive runtime.
   let refreshOnMount = options.refreshOnLoad === "background";
-  let catalog: Awaited<ReturnType<typeof refreshCatalog>> = options.refreshOnLoad === false || refreshOnMount
+  let catalog: RefreshedCatalog = options.refreshOnLoad === false || refreshOnMount
     ? { ...await listCatalog(client), refreshError: null }
     : await refreshCatalog(client);
   const activeChatWaits = new Set<AbortController>();
@@ -213,7 +230,7 @@ export async function connectDoorChatAdapter(
     throw new DoorError("NOT_FOUND", "No provider is configured.");
   }
 
-  let committed: Awaited<ReturnType<typeof loadCommittedCatalogRoute>> = null;
+  let committed: CommittedCatalogRoute | null = null;
   let initialRouteError: string | null = null;
   try {
     committed = await loadCommittedCatalogRoute(client, catalog.providers, catalog.models);
@@ -424,55 +441,51 @@ export async function connectDoorChatAdapter(
     async submit(request: ChatRequest): Promise<ChatResponse> {
       const reference = referenceChatResponse(request.message);
       if (reference) return reference;
+
       const generation = selectionGeneration;
       const context = contextGeneration;
-      const uiRender = request.mode === "ui_render";
-
       const waitController = new AbortController();
       activeChatWaits.add(waitController);
       if (config.signal?.aborted) waitController.abort();
+
       try {
-        // One chat_router.Chat call: the router generates the reply and returns
-        // it to the SDK; the bridge records the turn once when it completes.
-        // (Demo path; the submit_turn responder flow has no running responder.)
-        const messages = request.history
-          .filter((entry) => entry.role === "user" || entry.role === "agent")
-          .map((entry) => ({ role: entry.role === "agent" ? "assistant" : entry.role, content: entry.content }));
-        if (messages.length === 0 || messages[messages.length - 1].content !== request.message) {
-          messages.push({ role: "user", content: request.message });
-        }
-        const { result, eventHash } = await client.call<{ content: string; provider: string; model: string }>(
-          TCHED_ROUTER,
-          "Chat",
-          {
-            message: request.message,
-            messages,
-            provider: appliedRoute?.nativeProviderId ?? "",
-            model: appliedRoute?.selection.modelId ?? "",
-            ...(conversationId ? { conversation_id: conversationId } : {}),
-          },
-          ROUTER_CHAT_CAPABILITY,
-          { timeoutMs: request.renderOptions?.maxTurnMs ?? COMMITTED_REPLY_TIMEOUT_MS },
-        );
+        // Use the committed chat_response flow: start → submit_turn → wait → get_turn_response
+        const mode: "text" | "application" =
+          request.mode === "ui_render" || request.mode === "accountability" ? "application" : "text";
+        const { conversationId: newConvId, response: chatResp } =
+          await submitAndAwaitCommittedReply(
+            client,
+            conversationId,
+            catalogPresentationMessage(request.message, request.mode),
+            mode,
+            COMMITTED_REPLY_TIMEOUT_MS,
+            { signal: waitController.signal, credential: doorbellCredential },
+          );
+
         if (generation !== selectionGeneration || context !== contextGeneration) {
           throw new Error("Chat context changed while the reply was generated; outcome may have completed. Do not retry automatically.");
         }
-        responseSequence += 1;
-        const rendered = uiRender ? readCanvasResponse(result.content) : { content: result.content };
+        if (newConvId) {
+          conversationId = newConvId;
+          invalidateConversation();
+        }
+
+        if (chatResp.canvasSpec) return chatResp;
+        const presented = replyPresentation(chatResp.message.content);
         return {
-          ...("canvasSpec" in rendered && rendered.canvasSpec ? { canvasSpec: rendered.canvasSpec } : {}),
-          message: { id: eventHash ? `door-${eventHash}` : `door-${responseSequence}`, role: "agent", content: rendered.content },
+          ...chatResp,
+          message: { ...chatResp.message, content: presented.content || chatResp.message.content },
+          ...(presented.canvasSpec ? { canvasSpec: presented.canvasSpec } : {}),
+          ...(presented.canvasSpecs ? { canvasSpecs: presented.canvasSpecs } : {}),
         };
       } catch (error) {
         responseSequence += 1;
         const errorMsg = error instanceof Error ? error.message : "Chat service unavailable";
-        const outcomeUnknown = errorMsg.startsWith("method_outcome_unknown;") || /outcome (?:is unknown|may have completed)/i.test(errorMsg);
+        const outcomeUnknown = errorMsg.startsWith("method_outcome_unknown;") ||
+          /outcome (?:is unknown|may have completed)/i.test(errorMsg);
+        const content = `⚠️ Chat ${outcomeUnknown ? "outcome unknown" : "unavailable"}: ${errorMsg}`;
         return {
-          message: {
-            id: `door-error-${responseSequence}`,
-            role: "agent",
-            content: `⚠️ Chat ${outcomeUnknown ? "outcome unknown" : "unavailable"}: ${errorMsg}`,
-          },
+          message: { id: `door-error-${responseSequence}`, role: "agent", content },
           historyEligible: false,
         };
       } finally {

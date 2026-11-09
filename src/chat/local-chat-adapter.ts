@@ -239,6 +239,14 @@ export function createLocalChatAdapter(delayMilliseconds = 420): ChatAdapter {
   return {
     kind: "local",
     providers: LOCAL_PROVIDERS,
+    uiSurfaces: {
+      async purposes() {
+        return {
+          "/chat": "vite, svelte-kit, json-render, ai-sdk, chat-sdk",
+          "/models": "vite, svelte-kit, json-render, ai-sdk, chat-sdk",
+        };
+      },
+    },
     async selectRoute(selection) {
       await wait(90);
       return assertSelection(selection);

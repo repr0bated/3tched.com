@@ -32,18 +32,16 @@
   $effect(() => {
     session.configure(runtime.snapshot());
   });
+  let loadedScope = "";
   $effect(() => {
-    // Track only the verified context, not state changed by the generation request.
-    if (runtime.chatContext) untrack(() => void runtime.loadInterface());
+    // One startup render per verified scope. Replacing the same context must not ask again.
+    const scope = runtime.scopeKey;
+    if (!runtime.chatContext || scope === loadedScope) return;
+    loadedScope = scope;
+    untrack(() => void runtime.loadInterface());
   });
   $effect(() => {
     onCanvas?.(runtime.canvasSpec !== null);
-  });
-  // Demo: every routed mode runs Meta Muse Spark 1.3 (openrouter meta/). applyRoute skips the modes with
-  // no route of their own (control_plane, ui_render); control_plane is preset.
-  const DEMO_ROUTE = { providerId: "openrouter", modelId: "meta/muse-spark-1.3" };
-  $effect(() => {
-    if (runtime.chatContext) untrack(() => void runtime.applyRoute(DEMO_ROUTE));
   });
   $effect(() => {
     if (!feeds) return;

@@ -27,6 +27,8 @@
   class="sc-chat-layer"
   class:sc-chat-layer--docked={docked}
   class:sc-chat-layer--collapsed={collapsed}
+  role={docked ? "complementary" : undefined}
+  aria-label={docked ? (props.title ?? "Chatbot") : undefined}
 >
   {#if docked}<button
       type="button"
@@ -37,6 +39,7 @@
       >{collapsed ? "Chat" : "Collapse chat"}</button
     >{/if}
   <div id={bodyId} class="sc-chat-body" hidden={collapsed}>
+    {#if docked && runtime.interfaceError}<p class="chat-error" role="alert">{runtime.interfaceError}</p>{/if}
     <Chat
       {session}
       runtime={runtime.snapshot()}

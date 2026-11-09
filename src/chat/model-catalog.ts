@@ -64,6 +64,12 @@ interface RefreshOutput {
   revision: number;
   providers: { provider_id: string; status: string; error?: string | null }[];
 }
+/** The catalog after one refresh or read, including any error. */
+export interface RefreshedCatalog {
+  providers: CatalogProvider[];
+  models: CatalogModel[];
+  refreshError: string | null;
+}
 
 /** Refresh once through the admitted plugin, then read its committed catalog.
  * A provider failure or refused refresh can leave readable stored choices.

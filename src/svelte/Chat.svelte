@@ -1,23 +1,63 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { Chat, type UIMessage } from "@ai-sdk/svelte";
-  import { ChatSession, type ChatRuntime } from "./chat-session";
+  import { ChatSession, type ChatRuntime, type ThreadMessage } from "./chat-session";
   import { sessionChatTransport } from "./session-chat-transport";
   import ModeStrip from "./ModeStrip.svelte";
-  import { getRuntime } from "./runtime.svelte";
+  import SpecRenderer from "./SpecRenderer.svelte";
+  import { tryGetRuntime } from "./runtime.svelte";
 
   let {
     session,
     runtime,
+    showModes = true,
   }: {
     session: ChatSession;
     runtime: ChatRuntime;
+    showModes?: boolean;
   } = $props();
 
   // The live runtime applies a mode change; the snapshot prop only reads it.
-  const live = getRuntime();
+  const live = tryGetRuntime();
   let draft = $state("");
+  let shownScope = "";
+  let threadError = $state<string | null>(null);
+  let thread = $state.raw(untrack(() => session.current));
   const chat = new Chat({
     transport: sessionChatTransport(() => session),
+  });
+
+  function toUi(message: ThreadMessage): UIMessage {
+    return {
+      id: message.id,
+      role: message.role === "user" ? "user" : "assistant",
+      parts: [{ type: "text", text: message.content }],
+    };
+  }
+
+  $effect(() => {
+    thread = session.current;
+    threadError = thread.error;
+    return session.subscribe(() => {
+      thread = session.current;
+      threadError = thread.error;
+    });
+  });
+  $effect(() => {
+    if (!live) return;
+    const scope = live.scopeKey;
+    const apply = () => {
+      if (session.scopeKey !== scope || scope === shownScope) return;
+      shownScope = scope;
+      threadError = session.current.error;
+      untrack(() => {
+        chat.clearError();
+        if (chat.status === "submitted" || chat.status === "streaming") void chat.stop();
+        chat.messages = session.current.messages.map(toUi);
+      });
+    };
+    apply();
+    return session.subscribe(apply);
   });
 
   const ready = $derived(runtime.adapter.kind === "local" || !!runtime.context);
@@ -29,7 +69,7 @@
       : (runtime.context?.mode.replaceAll("_", " ") ?? ""),
   );
   const showsCanvas = $derived(
-    session.current.messages.some(
+    thread.messages.some(
       (message) => message.canvasSpec || message.canvasSpecs?.length,
     ),
   );
@@ -66,7 +106,7 @@
 
 <section class="sc-conversation" aria-label="Conversation">
   <div class="sc-thread-toolbar">
-    {#if runtime.modelLabel}<span>{runtime.modelLabel}</span>{:else}<span></span>{/if}
+    <span class="sc-model">Model selected by server</span>
     {#if chat.messages.length > 0}
       <button
         type="button"
@@ -77,18 +117,25 @@
     {/if}
   </div>
   <div class="sc-messages">
-    {#if chat.messages.length === 0 && !busy}
+    {#if thread.messages.length === 0 && !busy}
       <div class="sc-empty">
         <h2>Start a conversation</h2>
         <p>Type a message below to begin chatting</p>
       </div>
     {:else}
       <div class="sc-thread">
-        {#each chat.messages as message, index (message.id)}
+        {#each thread.messages as message, index (message.id)}
           <article class="sc-message" class:sc-message--user={message.role === "user"}>
-            <p class="sc-message-text">{textOf(message)}</p>
-            {#if showsCanvas && message.role === "assistant" && index === chat.messages.length - 1}
-              <p class="sc-canvas-note">Interface rendered on the canvas</p>
+            {#if message.role === "user"}
+              <p class="sc-message-text">{message.content}</p>
+            {:else}
+              {#if message.execution}
+                <p class="sc-execution">Tracked {message.execution.tool} · {message.execution.status} · {message.execution.id}</p>
+              {/if}
+              {#if message.canvasSpec}
+                <SpecRenderer spec={message.canvasSpec} />
+              {/if}
+              <p class="sc-message-text">{message.content}</p>
             {/if}
           </article>
         {/each}
@@ -103,7 +150,7 @@
       void send();
     }}
   >
-    {#if chat.error}<p class="sc-error" role="alert">{chat.error.message}</p>{/if}
+    {#if threadError}<p class="sc-error" role="alert">{threadError}</p>{/if}
     <div class="sc-composer">
       <textarea
         id="svelte-chat-message"
@@ -114,7 +161,13 @@
         onkeydown={onKeydown}
       ></textarea>
       <div class="sc-composer-bottom">
-        {#if runtime.adapter.kind === "remote"}<div class="sc-composer-mode"><ModeStrip adapter={runtime.adapter} onContextChange={live.setChatContext} /></div>{:else}<span>{statusLabel}</span>{/if}
+        {#if showModes && runtime.adapter.kind === "remote" && live?.chatContext}
+          <div class="sc-composer-mode">
+            <ModeStrip adapter={runtime.adapter} initialContext={live.chatContext} onContextChange={live.setChatContext} />
+          </div>
+        {:else}
+          <span>{statusLabel}</span>
+        {/if}
         <button
           type="submit"
           aria-label={busy ? "Sending" : "Send"}

@@ -20,7 +20,7 @@ it("binds a remote startup result into the existing page canvas after context re
   } };
   const adapter = {
     ...createLocalChatAdapter(0), kind: "remote",
-    committedRoute: { providerId: "local-lab", modelId: "atlas-compact" },
+    committedRoute: { providerId: "combined-plan", modelId: "grok-4.7" },
     routeInitiallyApplied: true,
     getChatContext: vi.fn().mockResolvedValue(context),
     selectChatMode: vi.fn().mockResolvedValue(context),
@@ -37,5 +37,8 @@ it("binds a remote startup result into the existing page canvas after context re
   const canvas = await screen.findByRole("main", { name: "Interface canvas" });
   expect(await within(canvas).findByText("Remote fixture view loaded")).toBeVisible();
   expect(screen.queryByRole("menubar", { name: "Main" })).not.toBeInTheDocument();
+  expect(within(canvas).queryByRole("combobox", { name: "Mode" })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("banner", { name: "Model" })).queryByRole("combobox", { name: "Mode" })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("complementary", { name: "Chatbot" })).getByRole("combobox", { name: "Mode" })).toBeVisible();
   expect(adapter.getChatContext).toHaveBeenCalledTimes(1);
 });

@@ -165,7 +165,9 @@ export function decodePublish(flags: number, body: Uint8Array): IncomingPublish 
 /** `{"seq": n}` → n; anything else is not a wake. */
 export function wakeSequence(payload: string): number | null {
   try {
-    const parsed = JSON.parse(payload) as { seq?: unknown };
+    const parsed = JSON.parse(payload);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    if (!("seq" in parsed)) return null;
     return typeof parsed?.seq === "number" && Number.isFinite(parsed.seq) ? parsed.seq : null;
   } catch {
     return null;

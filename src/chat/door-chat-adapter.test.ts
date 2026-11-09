@@ -28,7 +28,6 @@ function envelope(method: string, result: unknown, pluginId = "chat_router"): Ca
   };
 }
 
-<<<<<<< Updated upstream
 const fixtureUiAuthoring = {
   format: "threetched-ui-authoring-v1",
   instructions: "Use the implemented Svelte catalog and registry. A visual does not grant tool access.",
@@ -50,11 +49,6 @@ const fixtureUiAuthoring = {
   prompt_document_paths: ["references/upstream/json-render/svelte-guide.md"],
 };
 
-function mockDoor(
-  handlers: Record<string, (args: unknown) => CallMethodResponse | Promise<CallMethodResponse>>,
-  contextMode: ChatMode | (() => ChatMode) = "personal",
-) {
-=======
 /** Committed chatbot reply: start → submit_turn → get_turn_response. */
 function chatResponseHandlers(message = "answer", extras: Record<string, unknown> = {}) {
   const conversationId = "11111111-1111-7111-8111-111111111111";
@@ -64,8 +58,8 @@ function chatResponseHandlers(message = "answer", extras: Record<string, unknown
     start_conversation: () => envelope("start_conversation", { conversation_id: conversationId, started_at: "2026-10-24T00:00:00Z" }, "chat_response"),
     submit_turn: (args: unknown) => {
       const input = args as { conversation_id: string; message: string; response_mode: string };
-      pending = { conversation_id: input.conversation_id, turn_id: turnId, turn_index: 1 };
-      return envelope("submit_turn", pending, "chat_response");
+      pending = { conversation_id: input.conversation_id, turn_id: turnId, turn_index: 2 };
+      return envelope("submit_turn", { conversation_id: input.conversation_id, turn_id: "44444444-4444-7444-8444-444444444444", turn_index: 1, response_turn_id: turnId, response_turn_index: 2 }, "chat_response");
     },
     get_turn_response: () => {
       if (!pending) return envelope("get_turn_response", { turn: null }, "chat_response");
@@ -94,8 +88,7 @@ function chatResponseHandlers(message = "answer", extras: Record<string, unknown
   };
 }
 
-function mockDoor(handlers: Record<string, (args: unknown) => CallMethodResponse | Promise<CallMethodResponse>>) {
->>>>>>> Stashed changes
+function mockDoor(handlers: Record<string, (args: unknown) => CallMethodResponse | Promise<CallMethodResponse>>, contextMode: ChatMode | (() => ChatMode) = "personal") {
   const calls: Recorded[] = [];
   vi.spyOn(PluginServiceClient.prototype, "callMethod").mockImplementation(
     (request: CallMethodRequest, options?: RpcOptions) => {
@@ -131,7 +124,6 @@ const config = {
 
 function catalog(providers: unknown[] = [], models: unknown[] = [], more = false) {
   return {
-<<<<<<< Updated upstream
     refresh: () => envelope("refresh", {
       refreshed_at: "2026-10-11T14:36:00Z", revision: 1,
       providers: providers.map(provider => ({
@@ -139,9 +131,7 @@ function catalog(providers: unknown[] = [], models: unknown[] = [], more = false
         status: "ok", available_models: 0, added: 0, dropped: 0,
       })),
     }),
-=======
     get_own_agent_route_access: () => envelope("get_own_agent_route_access", { can_apply: false }),
->>>>>>> Stashed changes
     GetState: () =>
       envelope("GetState", {
         state: { status: "active", selected_provider: "", selected_model: "", providers: [], model_routes: [] },
@@ -253,20 +243,11 @@ function nativeReads(values: Record<string, string>): Record<string, (args: unkn
     return envelope("config_get", { value: values[path] });
   } };
 }
-<<<<<<< Updated upstream
-async function expectNoGeneration(response: Promise<ChatResponse>, calls: Recorded[]) {
-  const previous = calls.filter(call => call.request.methodName === "Chat").length;
-  const refused = await response;
-  expect(refused.message.content).toMatch(/Apply|binding|context changed/);
-  expect(refused.historyEligible).toBe(false);
-  expect(calls.filter(call => call.request.methodName === "Chat")).toHaveLength(previous);
-=======
 async function expectCommittedResponse(submit: () => Promise<ChatResponse>, calls: Recorded[]) {
   const previous = calls.filter(call => call.request.methodName === "submit_turn").length;
   expect((await submit()).message.content).toMatch(/answer/);
   expect(calls.filter(call => call.request.methodName === "submit_turn")).toHaveLength(previous + 1);
   expect(calls.some(call => call.request.methodName === "Chat" || call.request.methodName === "generate_spec")).toBe(false);
->>>>>>> Stashed changes
 }
 
 describe("ordinary catalog/native routing", () => {
@@ -294,97 +275,8 @@ describe("ordinary catalog/native routing", () => {
     });
   };
   const chatReply = chatResponseHandlers("answer");
+  const reply = () => envelope("Chat", { content: "answer", provider: "", model: "" });
   const applyResult = (reference = "dynamic-family.exact_alias", model = selection.modelId) => ({ provider_id: selection.providerId, model_id: selection.modelId, reference, model, uri: inferenceUri, catalog_revision: 17 });
-<<<<<<< Updated upstream
-  type ChatWire = { message: string; messages: { role: string; content: string }[]; provider?: string; model?: string };
-  const wire = (calls: Recorded[]) => Value.toJson(calls.filter(call => call.request.methodName === "Chat").at(-1)!.request.arguments[0]) as ChatWire;
-
-  it.each(["personal", "project", "control_plane", "accountability", "notebook_lm", "ui_render"] as const)("consumes the selected provider guide in %s", async mode => {
-    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
-      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply }, mode);
-    const adapter = await connectDoorChatAdapter(config);
-    if (mode !== "control_plane" && mode !== "accountability") await adapter.selectRoute(selection);
-    await adapter.submit({ message: "hello", history: [], route: selection, mode });
-    expect(wire(calls)).toMatchObject({ message: expect.stringContaining("fixture provider guide") });
-    expect(wire(calls).message).toContain("Use the implemented Svelte catalog and registry.");
-    expect(wire(calls).message).toContain("Svelte reference fixture content.");
-    expect(wire(calls).message).not.toContain("unselected-document-secret");
-    expect(wire(calls).message).not.toContain("private-session-fixture");
-    expect(wire(calls).message).toContain("do not provide model tools");
-    expect(wire(calls).message).toContain(`mode=${mode}`);
-    expect(calls.filter(call => call.request.methodName === "schema_read")).toHaveLength(2);
-    expect(calls.filter(call => call.request.methodName === "get_context")).toHaveLength(1);
-  });
-
-  it.each([false, true])("does not carry a locally rejected render prompt into the next Personal Chat (prior exchange: %s)", async priorExchange => {
-    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
-      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply });
-    const adapter = await connectDoorChatAdapter(config);
-    const session = new ChatSession();
-    const runtime: ChatRuntime = {
-      adapter, scopeKey: "personal", route: selection, modelLabel: "Chosen model", setCanvas: vi.fn(),
-      context: {
-        session_id: "session", mode: "personal", project_id: null,
-        memory_namespace: "session/session/personal/main", read_only: false,
-        effective_capabilities: [], allowed_agents: [], selected_agent: null,
-      },
-    };
-    session.configure(runtime);
-    if (priorExchange) {
-      await adapter.selectRoute(selection);
-      await session.submit("Earlier question");
-      await expect(adapter.selectRoute({ ...selection, modelId: "missing" })).rejects.toThrow("not available");
-    }
-    const before = calls.filter(call => call.request.methodName === "Chat").length;
-    const rejected = "rerender page with ui elements from catalog";
-    await session.submit(rejected);
-    expect(calls.filter(call => call.request.methodName === "Chat")).toHaveLength(before);
-    expect(session.current.messages.at(-2)?.content).toBe(rejected);
-    expect(session.current.messages.at(-1)?.content).toBe("Apply an available catalog model with a confirmed threetched routing binding before sending a chat message.");
-    expect(session.current.draft).toBe(rejected);
-    await adapter.selectRoute(selection);
-    await session.submit("hi");
-    expect(wire(calls)).toMatchObject({
-      message: expect.stringMatching(/\n\nUser request:\nhi$/), provider: record.native_provider_id, model: selection.modelId,
-      messages: [
-        ...(priorExchange ? [{ role: "user", content: "Earlier question" }, { role: "assistant", content: "answer" }] : []),
-        { role: "user", content: expect.stringMatching(/\n\nUser request:\nhi$/) },
-      ],
-    });
-    expect(calls.filter(call => call.request.methodName === "Chat")).toHaveLength(before + 1);
-    expect(calls.filter(call => call.request.methodName === "Chat").at(-1)?.request.capabilityId).toBe(TCHED_ROUTER_METHODS.Chat);
-    session.dispose();
-  });
-
-  it("keeps an unknown Chat outcome visible without forwarding it or retrying on the next turn", async () => {
-    const detail = "method_outcome_unknown; operation_id=12b52490-a40c-480a-9769-5bee2b4af58c; do not retry automatically";
-    let generations = 0;
-    const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
-      apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()),
-      Chat: () => ++generations === 1
-        ? { success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.VALIDATION_FAILED, message: detail } }
-        : reply(),
-    });
-    const adapter = await connectDoorChatAdapter(config);
-    await adapter.selectRoute(selection);
-    const session = new ChatSession();
-    session.configure({
-      adapter, scopeKey: "personal", route: selection, modelLabel: "Chosen model", setCanvas: vi.fn(),
-      context: {
-        session_id: "session", mode: "personal", project_id: null,
-        memory_namespace: "session/session/personal/main", read_only: false,
-        effective_capabilities: [], allowed_agents: [], selected_agent: null,
-      },
-    });
-    await session.submit("Uncertain request");
-    expect(session.current.messages.at(-1)?.content).toBe(`⚠️ Chat outcome unknown: ${detail}`);
-    expect(session.current.draft).toBe("Uncertain request");
-    expect(generations).toBe(1);
-    await session.submit("hi");
-    expect(wire(calls)).toMatchObject({ message: expect.stringMatching(/\n\nUser request:\nhi$/), messages: [{ role: "user", content: expect.stringMatching(/\n\nUser request:\nhi$/) }] });
-    expect(generations).toBe(2);
-    session.dispose();
-=======
   const submitted = (calls: Recorded[]) => Value.toJson(calls.filter(call => call.request.methodName === "submit_turn").at(-1)!.request.arguments[0]);
 
   it.each(["personal", "project", "notebook_lm", "control_plane", "accountability", "ui_render"] as const)(
@@ -438,7 +330,6 @@ describe("ordinary catalog/native routing", () => {
     finish!();
     expect((await pending).message.content).toContain("Chat context changed while awaiting a committed reply");
     expect(calls.filter(call => call.request.methodName === "submit_turn")).toHaveLength(1);
->>>>>>> Stashed changes
   });
 
   it("applies a receiver-verified OpenAI subscription binding without an API endpoint", async () => {
@@ -481,13 +372,8 @@ describe("ordinary catalog/native routing", () => {
       apply_catalog_model_binding: args => {
         expect(args).toEqual({ provider_id: selection.providerId, model_id: selection.modelId });
         return envelope("apply_catalog_model_binding", applyResult(selected_provider));
-<<<<<<< Updated upstream
-      }, Chat: reply,
-    }, () => currentMode);
-=======
       }, ...chatReply,
     });
->>>>>>> Stashed changes
     const adapter = await connectDoorChatAdapter(config);
     expect(adapter.providers[0].id).toBe(selection.providerId);
     await expectCommittedResponse(() => adapter.submit({ message: "before apply", history: [], route: selection, mode: "personal" }), calls);
@@ -504,12 +390,7 @@ describe("ordinary catalog/native routing", () => {
       expect(submitted(calls)).not.toHaveProperty("provider");
       expect(submitted(calls)).not.toHaveProperty("model");
     }
-<<<<<<< Updated upstream
-    currentMode = "personal";
-    await expectNoGeneration(adapter.submit({ message: "different draft", history: [], route: { ...selection, modelId: "another" }, mode: "personal" }), calls);
-=======
     await expectCommittedResponse(() => adapter.submit({ message: "different draft", history: [], route: { ...selection, modelId: "another" }, mode: "personal" }), calls);
->>>>>>> Stashed changes
   });
 
   it("resolves an exact runtime profile when the catalog static binding is absent", async () => {
@@ -613,7 +494,6 @@ describe("ordinary catalog/native routing", () => {
     await expectCommittedResponse(() => adapter.submit({ message: "failed attempt cleared assertion", history: [], route: selection, mode: "personal" }), calls);
   });
 
-<<<<<<< Updated upstream
   it("stops provider selection at a schema-read denial without applying or logging in", async () => {
     const calls = mockDoor({ ...catalog([provider], [record]), ...reads,
       schema_read: () => ({ success: false, eventId: "0", eventHash: "", error: { code: ErrorCode.PERMISSION_DENIED, message: "guide capability denied" } }),
@@ -623,12 +503,8 @@ describe("ordinary catalog/native routing", () => {
     expect(calls.some(call => ["apply_catalog_model_binding", "Chat", "auth_login"].includes(call.request.methodName))).toBe(false);
   });
 
-  it("invalidates a successful capture on identity replacement", async () => {
-    const calls = mockDoor({ ...catalog([provider], [record]), ...reads, apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), Chat: reply });
-=======
   it("submits with the new identity without carrying a previous model binding", async () => {
     const calls = mockDoor({ ...catalog([provider], [record]), ...reads, apply_catalog_model_binding: () => envelope("apply_catalog_model_binding", applyResult()), ...chatReply });
->>>>>>> Stashed changes
     const adapter = await connectDoorChatAdapter(config);
     await adapter.selectRoute(selection);
     adapter.setIdentity({ kind: "oia1", assertion: "RUZHSA==" });
@@ -665,7 +541,7 @@ describe("ordinary catalog/native routing", () => {
     expect(response.message.content).toBe("⚠️ Chat unavailable: This identity does not hold the capability for that operation.");
     expect(calls.some(call => call.request.methodName === "Chat")).toBe(false);
     const docsRead = calls.find(call => call.request.methodName === "schema_read" && (Value.toJson(call.request.arguments[0]) as { plugin_id: string }).plugin_id === "json_render");
-    expect(docsRead?.meta["x-opdbus-capability"]).toBe("cognitive_mcp.read");
+    expect(docsRead?.meta["x-opdbus-capability"]).toBe("cognitive.read");
   });
 
   it("stops before Chat when the authoritative context read is denied", async () => {
@@ -768,13 +644,8 @@ describe("ordinary catalog/native routing", () => {
     await adapter.selectRoute(selection);
     const response = await adapter.submit({ message: "hi", history: [], route: selection, mode: "personal" });
     expect(response.message.content).toBe(`⚠️ Chat outcome unknown: ${detail}`);
-<<<<<<< Updated upstream
-    expect(response.historyEligible).toBe(false);
-    expect(calls.filter((call) => call.request.methodName === "Chat")).toHaveLength(1);
-=======
     expect(calls.filter((call) => call.request.methodName === "submit_turn")).toHaveLength(1);
     expect(calls.some((call) => call.request.methodName === "Chat")).toBe(false);
->>>>>>> Stashed changes
   });
 });
 
@@ -1011,13 +882,8 @@ describe("connectDoorChatAdapter", () => {
         nativeModel = operations[3].value;
         return envelope("config_patch", {});
       },
-<<<<<<< Updated upstream
-      Chat: () => envelope("Chat", { content: "native route answer", provider: "custom", model: nativeModel, finish_reason: "stop", usage: {} }),
-    }, () => currentMode);
-=======
       ...chatResponseHandlers("native route answer"),
     });
->>>>>>> Stashed changes
     const adapter = await connectDoorChatAdapter(config);
     expect(adapter.providers[0].models.map(model => model.id)).toEqual(["a-old", "b-unbound"]);
     expect(await adapter.controlPlane.current()).toEqual({ providerId: "dynamic_vendor", modelId: "a-old" });
@@ -1043,20 +909,12 @@ describe("connectDoorChatAdapter", () => {
 
     const ordinaryRoute = { providerId: "ordinary-provider", modelId: "ordinary-model" };
     await adapter.submit({ message: "control answer", history: [], route: ordinaryRoute, mode: "control_plane" });
-<<<<<<< Updated upstream
-    const cpChat = calls.filter(call => call.request.methodName === "Chat").at(-1)!;
-    expect(Value.toJson(cpChat.request.arguments[0])).not.toHaveProperty("provider");
-    expect(Value.toJson(cpChat.request.arguments[0])).not.toHaveProperty("model");
-    currentMode = "personal";
-    await expectNoGeneration(adapter.submit({ message: "personal answer", history: [], route: ordinaryRoute, mode: "personal" }), calls);
-=======
     const turn = calls.filter(call => call.request.methodName === "submit_turn").at(-1)!;
     expect(turn.request.pluginId).toBe("chat_response");
     expect(turn.request.capabilityId).toBe(CHAT_RESPONSE_CAPS.Submit);
     expect(Value.toJson(turn.request.arguments[0])).not.toHaveProperty("provider");
     expect(Value.toJson(turn.request.arguments[0])).not.toHaveProperty("model");
     await expectCommittedResponse(() => adapter.submit({ message: "personal answer", history: [], route: ordinaryRoute, mode: "personal" }), calls);
->>>>>>> Stashed changes
   });
 
   it("preserves the authenticated caller when applying its own model without administration", async () => {
@@ -1125,18 +983,6 @@ describe("connectDoorChatAdapter", () => {
     expect(response.message).toEqual({ id: "door-33333333-3333-7333-8333-333333333333", role: "agent", content: "hello from the chatbot" });
     expect(response.canvasSpec).toBeUndefined();
 
-<<<<<<< Updated upstream
-    const chat = calls.find((call) => call.request.methodName === "Chat")!;
-    expect(chat.request.capabilityId).toBe(TCHED_ROUTER_METHODS.Chat);
-    const args = Value.toJson(chat.request.arguments[0]) as { message: string; messages: { role: string; content: string }[]; provider: string; model: string };
-    expect(args.message).toContain("fixture provider guide");
-    expect(args.message).toMatch(/\n\nUser request:\nhi$/);
-    expect(args.messages).toEqual([
-      { role: "assistant", content: "earlier reply" },
-      { role: "user", content: args.message },
-    ]);
-    expect({ provider: args.provider, model: args.model }).toEqual({ provider: "local.demo_route", model: "gemma" });
-=======
     expect(calls.some((call) => call.request.methodName === "Chat" || call.request.methodName === "generate_spec")).toBe(false);
     const start = calls.find((call) => call.request.methodName === "start_conversation")!;
     expect(start.request).toMatchObject({ pluginId: "chat_response", capabilityId: CHAT_RESPONSE_CAPS.Read, methodName: CHAT_RESPONSE_METHODS.StartConversation });
@@ -1152,7 +998,6 @@ describe("connectDoorChatAdapter", () => {
     expect(args.provider).toBeUndefined();
     expect(args.model).toBeUndefined();
     expect(calls.some((call) => call.request.methodName === "get_turn_response")).toBe(true);
->>>>>>> Stashed changes
   });
 
   it("does not send the personal provider or model in Control Plane mode", async () => {
@@ -1162,18 +1007,6 @@ describe("connectDoorChatAdapter", () => {
       ], [{ provider_id: "openrouter", model_id: "gemma", available: true, control_plane_profile: "custom.cp_route", inference_url_prefix: inferencePrefix }]),
       ...nativeReads({ "agents.control_plane.model_provider": "custom.cp_route", "providers.models.custom.cp_route.model": "gemma", "providers.models.custom.cp_route.uri": inferenceUri }),
       GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "gemma", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "gemma", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
-<<<<<<< Updated upstream
-      Chat: () => envelope("Chat", { content: "control plane reply", provider: "", model: "", finish_reason: "stop", usage: {} }),
-    }, "control_plane");
-    const adapter = await connectDoorChatAdapter(config);
-    await adapter.submit({ message: "status", history: [], route: { providerId: "local", modelId: "gemma" }, mode: "control_plane" });
-    const chat = calls.find((call) => call.request.methodName === "Chat")!;
-    const args = Value.toJson(chat.request.arguments[0]) as { message: string; messages: { role: string; content: string }[]; provider?: string; model?: string };
-    expect(args.message).toContain("Answer the user's request normally");
-    expect(args.message).toContain("catalogComponent");
-    expect(args.message).not.toContain("dashboardTable");
-    expect(args.messages).toEqual([{ role: "user", content: args.message }]);
-=======
       ...chatResponseHandlers("control plane reply"),
     });
     const adapter = await connectDoorChatAdapter(config);
@@ -1182,7 +1015,6 @@ describe("connectDoorChatAdapter", () => {
     const args = Value.toJson(chat.request.arguments[0]) as { message: string; response_mode: string; provider?: string; model?: string; messages?: unknown };
     expect(args).toMatchObject({ message: "status", response_mode: "text" });
     expect(args.messages).toBeUndefined();
->>>>>>> Stashed changes
     expect(args.provider).toBeUndefined();
     expect(args.model).toBeUndefined();
     expect(calls.some((call) => call.request.methodName === "SetSelection" || call.request.methodName === "Chat")).toBe(false);
@@ -1326,66 +1158,6 @@ describe("connectDoorChatAdapter", () => {
 });
 
 describe("UI reference and rendering transport", () => {
-<<<<<<< Updated upstream
-  it.each((["personal", undefined, "control_plane", "accountability"] as const).flatMap(mode =>
-    (["json-render", "spec", "raw-json", "raw-jsonl"] as const).map(format => ({ mode, format })),
-  ))("offers validated catalog presentation in $mode mode from $format", async ({ mode, format }) => {
-    const spec = { root: "status", elements: { status: { type: "heading", props: { text: "Example only", level: 2 } } } };
-    const patches = [
-      { op: "add", path: "/root", value: spec.root },
-      { op: "add", path: "/elements/status", value: spec.elements.status },
-    ].map(patch => JSON.stringify(patch)).join("\n");
-    const reply = format === "raw-json" ? JSON.stringify(spec) : format === "raw-jsonl" ? patches
-      : `Status\n\`\`\`${format}\n${format === "spec" ? patches : JSON.stringify(spec)}\n\`\`\``;
-    const calls = mockDoor({
-      ...catalog([
-        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
-      ], [{ provider_id: "openrouter", model_id: "demo", available: true, native_provider_id: "custom.demo", control_plane_profile: "custom.cp_route", inference_url_prefix: inferencePrefix }]),
-      resolve_catalog_model_binding: args => envelope("resolve_catalog_model_binding", { ...(args as object), reference: "custom.demo", model: "demo", uri: inferenceUri, catalog_revision: 1 }),
-      ...nativeReads({ "providers.models.custom.demo.uri": inferenceUri, "agents.control_plane.model_provider": "custom.cp_route", "providers.models.custom.cp_route.model": "demo", "providers.models.custom.cp_route.uri": inferenceUri, "agents.accountability.model_provider": "custom.audit_route", "providers.models.custom.audit_route.model": "demo", "providers.models.custom.audit_route.uri": inferenceUri }),
-      apply_catalog_model_binding: args => envelope("apply_catalog_model_binding", { ...(args as object), reference: "custom.demo", model: "demo", uri: inferenceUri, catalog_revision: 1 }),
-      GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "demo", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "demo", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
-      Chat: () => envelope("Chat", { content: reply, provider: "local", model: "demo" }),
-    }, mode ?? "personal");
-    const adapter = await connectDoorChatAdapter(config);
-    const route = { providerId: "openrouter", modelId: "demo" };
-    const personal = mode === undefined || mode === "personal";
-    if (personal) await adapter.selectRoute(route);
-    const response = await adapter.submit({ message: "show status", history: [], route, mode });
-    expect(response.canvasSpec).toMatchObject(spec);
-    expect(response.message.content).toBe(format.startsWith("raw-") ? "Rendered the requested interface." : "Status");
-    const chat = calls.find(call => call.request.methodName === "Chat")!;
-    const args = Value.toJson(chat.request.arguments[0]) as { message: string; messages: { content: string }[]; provider?: string; model?: string };
-    if (personal) {
-      expect(args.message).toMatch(/User request:\nshow status$/);
-      expect(args.messages).toEqual([{ role: "user", content: args.message }]);
-    } else {
-      expect(args.message).toContain("optionally include one fenced spec block per distinct interface");
-      expect(args.message).toContain("catalogComponent");
-      expect(args.message).not.toContain("dashboardStatus");
-    }
-    expect(args.message).toContain("Use the implemented Svelte catalog and registry.");
-    expect(args.message).not.toContain("unselected-document-secret");
-    expect(args.message).toContain("fixture provider guide");
-    expect(calls.filter(call => call.request.methodName === "schema_read")).toHaveLength(2);
-    expect(args.messages.at(-1)?.content).toBe(args.message);
-    expect(args.provider).toBe(personal ? "custom.demo" : undefined);
-    expect(args.model).toBe(personal ? "demo" : undefined);
-  });
-
-  it("supplies the implemented catalog in UI render mode and validates the returned canvas", async () => {
-    const spec = { root: "status", elements: { status: { type: "heading", props: { text: "Example only", level: 2 } } } };
-    const calls = mockDoor({
-      ...catalog([
-        { provider_id: "openrouter", name: "OpenRouter", configured: true, enabled: true, status: "ok", control_plane_profiles: [] },
-      ], [{ provider_id: "openrouter", model_id: "demo", available: true, native_provider_id: "custom.demo", inference_url_prefix: inferencePrefix }]),
-      resolve_catalog_model_binding: args => envelope("resolve_catalog_model_binding", { ...(args as object), reference: "custom.demo", model: "demo", uri: inferenceUri, catalog_revision: 1 }),
-      ...nativeReads({ "providers.models.custom.demo.uri": inferenceUri }),
-      apply_catalog_model_binding: args => envelope("apply_catalog_model_binding", { ...(args as object), reference: "custom.demo", model: "demo", uri: inferenceUri, catalog_revision: 1 }),
-      GetState: () => envelope("GetState", { state: { status: "active", selected_provider: "local", selected_model: "demo", providers: [{ id: "local", kind: "local", description: "", aliases: [] }], model_routes: [{ provider: "local", model: "demo", hint: "", kind: "chat", available: true, status: "", status_reason: "" }] } }),
-      Chat: () => envelope("Chat", { content: `Preview\n\`\`\`json-render\n${JSON.stringify(spec)}\n\`\`\``, provider: "local", model: "demo" }),
-    }, "ui_render");
-=======
   it.each(["personal", "control_plane", "accountability"] as const)(
     "displays a committed presentation canvas in $mode mode without Chat or generate_spec",
     async (mode) => {
@@ -1419,7 +1191,6 @@ describe("UI reference and rendering transport", () => {
       ...catalog([{ provider_id: "openrouter", configured: true, enabled: true }]),
       ...chatResponseHandlers("Preview", { canvas: spec }),
     });
->>>>>>> Stashed changes
     const adapter = await connectDoorChatAdapter(config);
     const route = { providerId: "not-applied", modelId: "not-applied" };
     const response = await adapter.submit({
@@ -1433,16 +1204,6 @@ describe("UI reference and rendering transport", () => {
     });
     expect(response.canvasSpec).toEqual(spec);
     expect(response.message.content).toBe("Preview");
-<<<<<<< Updated upstream
-    const call = calls.find(call => call.request.methodName === "Chat")!;
-    const args = Value.toJson(call.request.arguments[0]) as { message: string; messages: { content: string }[] };
-    expect(args.message).not.toContain("Relevant static reference");
-    expect(args.message).toContain("gallery for proposing possible interfaces");
-    expect(args.message).toContain("Do not claim any proposal has been promoted into the main catalog");
-    expect(args.message).toContain("catalogComponent");
-    expect(args.message).not.toContain("dashboardTable");
-    expect(args.messages.at(-1)?.content).toBe(args.message);
-=======
     const call = calls.find(call => call.request.methodName === "submit_turn")!;
     expect(call.request.pluginId).toBe("chat_response");
     expect(call.request.capabilityId).toBe(CHAT_RESPONSE_CAPS.Submit);
@@ -1453,7 +1214,6 @@ describe("UI reference and rendering transport", () => {
       response_mode: "application",
     });
     expect(calls.some(call => ["Chat", "generate_spec", "apply_catalog_model_binding", "config_patch", "authorize_task", "promote_candidate"].includes(call.request.methodName))).toBe(false);
->>>>>>> Stashed changes
     const before = calls.length;
     const reference = await adapter.submit({ message: "/ui-reference btrfs", history: [], route });
     expect(reference.canvasSpec).toBeDefined();

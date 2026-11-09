@@ -60,7 +60,7 @@ describe("post-login interface lifecycle", () => {
     const runtime = setup(submit);
     await runtime.loadInterface();
     expect(runtime.interfaceError).toBe("The identity lacks this capability.");
-    expect(runtime.canvasSpec.elements[runtime.canvasSpec.root].type).toBe("interfaceGeneration");
+    expect(runtime.canvasSpec).toBeNull();
     await runtime.loadInterface();
     expect(submit).toHaveBeenCalledTimes(1);
     await runtime.loadInterface(true);

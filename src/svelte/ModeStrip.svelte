@@ -16,9 +16,11 @@
   let {
     adapter,
     onContextChange,
+    initialContext = null,
   }: {
     adapter: ChatAdapter;
     onContextChange?: (context: ResolvedChatContext) => void;
+    initialContext?: ResolvedChatContext | null;
   } = $props();
   let remote = $derived(
     adapter.kind === "remote" && "selectChatMode" in adapter
@@ -172,7 +174,8 @@
   }
   onMount(() => {
     namespaces = stored();
-    void loadContext();
+    if (initialContext) accept(initialContext);
+    else void loadContext();
     void loadProjects();
     void loadNotebooks();
     return () => {

@@ -58,7 +58,7 @@
         <p role="status">{runtime.catalogError}</p>
       {:else if view === "interface"}
         <button onclick={() => runtime.setChatContext(personal)}>Authenticated context</button>
-        <SpecRenderer spec={runtime.canvasSpec} />
+        <SpecRenderer spec={runtime.canvasSpec ?? { root: "gen", elements: { gen: { type: "interfaceGeneration", props: {} } } }} />
       {:else}
         <button
           onclick={() =>

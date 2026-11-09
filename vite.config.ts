@@ -16,7 +16,8 @@ export default defineConfig({
       : sveltekit(svelteKitVitePluginOptions),
   ],
   resolve: {
-    ...(process.env.VITEST ? { conditions: ["browser"] } : {}),
+    ...((process.env.VITEST ? { conditions: ["browser"] } : {})),
+    extensions: [".ts", ".js", ".svelte", ".svelte.ts", ".mjs", ".cjs"],
   },
   test: {
     environment: "jsdom",

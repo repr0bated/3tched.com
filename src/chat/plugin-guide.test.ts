@@ -40,7 +40,7 @@ describe("sealed selection guide", () => {
       methods: { run: { description: "method text is not the guide" } },
     } } });
     const guide = await readPluginGuide({ call } as unknown as Pick<DoorClient, "call">, "example");
-    expect(call).toHaveBeenCalledWith("cognitive_mcp", "schema_read", { plugin_id: "example" }, "cognitive_mcp.read");
+    expect(call).toHaveBeenCalledWith("cognitive", "schema_read", { plugin_id: "example" }, "cognitive.read");
     expect(guide).toContain("public guidance");
     expect(guide).not.toContain("private-fixture");
     expect(guide).not.toContain("method text");
@@ -75,7 +75,7 @@ describe("sealed UI-authoring guide", () => {
   it("attaches only selected documents with their sealed provenance", async () => {
     const call = vi.fn().mockResolvedValue({ result: authoringSchema() });
     const guide = await readUiAuthoringGuide({ call } as unknown as Pick<DoorClient, "call">);
-    expect(call).toHaveBeenCalledWith("cognitive_mcp", "schema_read", { plugin_id: "json_render" }, "cognitive_mcp.read");
+    expect(call).toHaveBeenCalledWith("cognitive", "schema_read", { plugin_id: "json_render" }, "cognitive.read");
     expect(guide).toContain("Use only the registered Svelte catalog and registry.");
     expect(guide).toContain("Selected reference content.");
     expect(guide).toContain("Repository: https://github.com/example/docs");
