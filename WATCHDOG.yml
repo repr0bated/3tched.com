@@ -1,6 +1,6 @@
 advisors:
   - name: default
-    model: cursor/grok-4.7:high
+    model: typesafe/jev-1.14.0
     tools:
       - read
       - security_scan
