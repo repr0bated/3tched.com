@@ -168,3 +168,80 @@ binding, secret guard, confirmation gate, tool execution, and chain
 verification. Do not start a container and do not deploy as part of this
 draft. Do not name the container under test. Tests run only after an
 explicit owner request.
+## Runtime reference
+
+> The container-chat spec is instance-agnostic: it names no Incus instance, no
+> container name, no disk, and no boot command.  The items below are the runtime
+> details of the *current* container only — they capture what the deployment chain
+> actually does and what the container requires at boot.  They are NOT spec
+> requirements.  A different container that satisfies the spec may use different
+> volumes, a different init system, or a different Incus profile.
+
+The current container is built on top of base 3tched inside an unprivileged
+Incus container.  The deployment chain is a self-extracting bundle
+(`deploy-3tchedchatbot-bundle.sh`) that drops `opdbus-3tchedchatbot-bundle/`
+with:
+
+- `incus-profile.yaml` — full Incus profile (4 CPU, 8 GiB RAM, NIC-less,
+  syscall deny list, raw.lxc caps drop)
+- `container-provision.sh` — creates seed/delta/upgrade images, formats and
+  mounts them, creates the Incus btrfs-sprout pool, imports the base image,
+  creates and starts the container
+- `host-boot-ovs.sh` — prepares the Lungs and egress-socket directories
+- `instance-config.yaml` — instance-level config overrides
+- `runit/opdbus-egress-proxyd/run` — egress-proxy runit service file
+- `DEPLOY-SYSTEM.md` — the full six-phase runbook
+
+### Host-side steps (deployment only)
+
+1. **Install host packages:** incus, btrfs-progs, e2fsprogs, lvm2,
+   openvswitch-switch, wireguard-tools, b3sum, fuse3, socat,
+   systemd-container, dbus, libglib2.0-bin.
+2. **Set up UID/GID delegation:** `root:1000000:65536` in `/etc/subuid` and
+   `/etc/subgid` matching the container idmap.
+3. **Create LVM volume group and seed LV:** 40 GiB LV mounted at
+   `/run/mounts/seed-3tched`.
+4. **Create disk images on the LV:**
+   - `seed.img` — 16 GiB Btrfs, immutable (`btrfstune -S 1`), read-only
+   - `cozo_delta.img` — 20 GiB sparse Btrfs, writable
+   - `cozo_rocksdb.img` — 50 GiB flat ext4, compression stripped
+   - `cozo_upgrade_base.img` — 20 GiB Btrfs, read-only
+5. **Attach images to rootfs via btrfs device-add,** then send to Incus.
+6. **Create Incus storage pool** `opdbus-btrfs-sprout` (btrfs driver, 30 GiB
+   backing from the LV image).
+7. **Import Incus image** from the seed (labelled `opdbus-seed-base`).
+8. **Prepare UDS directories:** `/run/opdbus/lungs.sock` and
+   `/run/opdbus-egress/http.sock` (socket dirs, not sockets themselves — the
+   bridge creates the egress socket later).
+
+### Container-side requirements (spec boundary)
+
+These are what the container *must* provide at runtime.  The specific
+implementation (Incus profile, image, LVM, boot scripts) may vary.
+
+| Requirement | Rationale |
+|---|---|
+| Devuan / Debian guest OS with **runit** (not systemd) | The container image ships runit; init is PID 1. |
+| **NIC-less** container — `lxc.net.0.type = empty`, all network caps dropped (`net_admin`, `net_raw`, `sys_module`, `sys_rawio`, `sys_time`) | Network is not needed inside the container; the container calls 3tched through the Lungs socket, not through TCP. |
+| Outbound HTTP/S via **socat egress proxy** on `127.0.0.1:3128` → host socket at `/run/opdbus-egress/http.sock` | The container has no direct network path; egress is the only way out. |
+| **CozoDB RocksDB** at `/var/lib/rocksdb` on persistent writable storage | Session state, identity sled, vector state. |
+| **3tchedFS** mount at `/opt/run-mounts/3tched` via UDS socket | The container's "lungs" — the kernel-bound caller identity. |
+| Identity subvolumes mounted at `/agent/` | `soul` (RO), `rules` (RO), `user` (RW), `memory` (RW), `skills` (RW), `shared` (RO) |
+| runit service for **egress proxy** installed under `/etc/sv/opdbus-egress-proxyd/` | `socat` listening on loopback 3128. |
+| CPU/memory limits enforced as `hard` | 4 CPU, 8 GiB RAM, memory enforcement. |
+| Security policy: syscalls denied (socket AF_PACKET, bpf, perf, kexec, module), nested=false, privileged=false | Container is not privileged. |
+
+### What stays deployment-only (NOT spec requirements)
+
+The following are specifics of the *current* container's deployment and must
+not be elevated to spec requirements.  A future deployment may differ:
+
+- Incus instance name (`3tchedChatbot`), profile name
+- LVM volume group name (`3tched-vg`), LV name (`3tched-seed`)
+- Image labels (`opdbus-seed-base`), image serial
+- Exact image sizes (16 GiB seed, 20 GiB delta, 50 GiB rocksdb, 20 GiB upgrade)
+- `btrfs device add` chain and `btrfs send/receive` transport
+- Devuan release name (`excalibur`)
+- Principal/session UUIDs (these are runtime values, not spec constants)
+- Incus storage pool name (`opdbus-btrfs-sprout`)
+- The `runit` service name (`opdbus-egress-proxyd`)
