@@ -2,7 +2,8 @@
 
 Status: draft. Authorizes no file move, container start, or deploy. Chat is
 the part that changes. The 3tched base and the network host bridge stay
-where they are.
+where they are. This design names no Incus instance and no disk. It does
+not adopt the loop-backed container layout checked into odbus-verified.
 
 ## Overview
 
@@ -61,11 +62,23 @@ The Chat_Route is a Rust process inside the container. It owns:
 - The chain verifier that links Receipts to Execution_Records.
 - The turn loop that runs model steps until tools are exhausted or the
   Session_Mode limit is reached.
-- The tool registry derived from the Bound_Identity's mounted schemas.
+- Offered methods read from the Bound_Identity's mount. A tool is a plugin
+  method. There is no tool registry.
 
-The Chat_Route does not spawn `3tched-fs`. It does not open a listening socket.
-It does not connect to Door_8090 directly. It reaches the 3tched base only
-through the Lungs_Socket.
+The Chat_Route is Rust. The modules already implemented for this contract
+are `errors`, `guard`, `profile`, `validation`, `gate`, `state`, `status`,
+`chain`, and `types`. They move with the container install. The browser
+stays Svelte in this repo. This design does not add a TypeScript server.
+
+The existing `chat-route` binary in `/srv/git/odbus-verified` still binds
+`10.0.0.2:50051`. That bind is the old host placement. This design does
+not keep it and does not edit that binary.
+
+The Chat_Route does not spawn `3tched-fs`. It does not bind a host listener,
+including port 8080. It does not connect to Door_8090 directly. It reaches
+the 3tched base only through the Lungs_Socket. How the rendered spec leaves
+the container for the user's browser is still open. That open question does
+not add a host listener.
 
 ### Chat_UI
 
@@ -152,5 +165,6 @@ Prove the caller that passes the gate is inside the container. Prove a host
 caller and a host :8080 listener do not pass. Prove model selection goes to
 the threetched binary and the gate stays a call into 3tched. Prove identity
 binding, secret guard, confirmation gate, tool execution, and chain
-verification. Do not start the stopped container and do not deploy as part
-of this draft.
+verification. Do not start a container and do not deploy as part of this
+draft. Do not name the container under test. Tests run only after an
+explicit owner request.

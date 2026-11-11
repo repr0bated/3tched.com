@@ -32,6 +32,11 @@ Vocabulary:
   the Chat_Interface runs under.
 - **Pass-through render** — the container passes the UI spec as the container
   identity. The end user's browser renders it.
+- **Instance** — whichever container is the identity. This spec names no
+  Incus instance and no container name.
+- **Offered method** — a plugin method on the Bound_Identity's mount whose
+  required capability that identity holds. A tool is that method. There is
+  no tool registry.
 
 ## Requirement 1: The container owns chat
 
@@ -50,6 +55,11 @@ so that a host process cannot impersonate the container identity.
 5. THE Container_repo SHALL own the whole chat service range — the browser
    interface, the Chat_Route server, the turn loop, and all supporting
    modules — not only a frontend.
+6. THIS spec SHALL name no Incus instance, no container name, and no disk.
+   Any container that is the identity satisfies it.
+7. THE Chat_Interface SHALL NOT specify a loop device, a loop-backed root,
+   or a per-container disk image. Storage is not this spec. The loop-backed
+   container design in `/srv/git/odbus-verified` is not adopted.
 
 ## Requirement 2: Identity binding through 3tchedFS
 
@@ -147,7 +157,7 @@ to map to exactly one validated operation-file call in my mount.
 1. THE Tool_Executor SHALL execute each Tool_Call as exactly one
    Operation_File call `operations/<plugin>/<method>/call` in the
    Bound_Identity's mounted namespace, with the plugin and method taken from
-   the Tool_Registry entry, and SHALL send no other Operation_File call for
+   the sealed method on that mount, and SHALL send no other Operation_File call for
    that Tool_Call except the identity re-check and the read-back.
 2. WHEN the Chat_Route receives a Tool_Call from the Model_Provider response
    THEN it SHALL apply the Offered_Tool check, the Schema_Validator check,
@@ -156,8 +166,8 @@ to map to exactly one validated operation-file call in my mount.
    reject the call, the Model_Context_Builder SHALL return the error to the
    model, the Confirmation_Gate SHALL hold nothing, and the Tool_Executor
    SHALL send no Operation_File call.
-4. IF a Tool_Call names a tool that is absent from the Chat_Session's
-   Tool_Registry THEN the Tool_Executor SHALL reject the call, the
+4. IF a Tool_Call names a plugin method that is not an offered method on
+   the mount THEN the Tool_Executor SHALL reject the call, the
    Model_Context_Builder SHALL return a "not offered" result, and the
    Tool_Executor SHALL send no Operation_File call.
 5. WHEN the Tool_Executor receives a Receipt THEN it SHALL read back the
@@ -291,7 +301,7 @@ credential handling recorded and enforced.
 1. THE Chat_Route SHALL select the model through the threetched binary, not
    through 3tched. Model selection is a threetched responsibility.
 2. THE Model_Context_Builder SHALL build each context only from: the system
-   prompt, the Offered_Tool definitions of the current Tool_Registry, the
+   prompt, the offered methods read from the mount, the
    Public_Identity_Fields of the Chat_Session's Bound_Identity, and the
    operator messages and tool results of that session, with
    Credential_Material excluded.
@@ -357,10 +367,9 @@ grants only, never widening what the Bound_Identity is allowed.
 3. WHEN a Tool_Call receives a Denial THEN the Tool_Executor SHALL end that
    call, send no further Operation_File call, and make no attempt through
    another Operation_File, transport, identity, or database.
-4. WHEN an Offered_Tool receives a Denial THEN the Tool_Registry SHALL mark
-   it as Unavailable_Tool for the rest of the session, even after a
-   re-derivation, and the Confirmation_Gate SHALL discard every pending
-   call naming that tool.
+4. WHEN an offered method receives a Denial THEN the Chat_Route SHALL
+   refuse that plugin and method for the rest of the session, and the
+   Confirmation_Gate SHALL discard every pending call naming that method.
 5. THE Model_Context_Builder SHALL add a denial to the Model_Context only
    as the tool result of that call, containing a denial indication, the
    plugin, method, missing capability, and redacted error text.
@@ -418,11 +427,12 @@ the container chat is verified.
 
 ### Acceptance Criteria
 
-1. WHEN the container chat is verified to run and pass the gate THEN the
-   host Chat_Route and its 2026-11-09 VPS placement SHALL be retired.
+1. WHEN the container chat passes the gate THEN a host Chat_Route SHALL
+   NOT be treated as a pass. Retiring that host route is a later removal.
+   It is not a precondition for this spec.
 2. A listener on host port 8080 SHALL NOT pass the gate.
-3. THE Chat_Interface SHALL not start until the legacy route is retired or
-   confirmed as not passing the gate.
+3. THE Chat_Interface SHALL start inside the container without waiting for
+   the host route to be deleted.
 
 ## Requirement 15: Plugin feeds over the chat link
 
@@ -431,8 +441,8 @@ the chat link, not through a separate broker.
 
 ### Acceptance Criteria
 
-1. THE Chat_Route SHALL read the Bound_Identity's mounted views to build the
-   Tool_Registry and feed the Chat_Link.
+1. THE Chat_Route SHALL read the Bound_Identity's mounted views to learn
+   which methods are offered, and SHALL feed the Chat_Link from those reads.
 2. THE Feed_Credential_Check SHALL run in the Chat_Route before any feed
    byte is written to a Chat_Link frame.
 3. THE Chat_UI SHALL never open an EMQX, MQTT, or direct connection.
