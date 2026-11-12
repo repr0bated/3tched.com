@@ -5,7 +5,7 @@
 # Principle: "The container is the identity; 3tchedFS is its lungs."
 # =============================================================================
 name: opdbus-3tched-3tchedchatbot
-description: "SID1 Identity Container Profile for 3tchedChatbot on Devuan GNU/Linux (runit, D-Bus Control) (b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201). eth0 is an OVS port on ovsbr0."
+description: "SID1 Identity Container Profile for 3tchedChatbot on Devuan GNU/Linux (runit, D-Bus Control) (b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201). No network interface; lungs at /run/opdbus, egress at /run/opdbus-egress."
 config:
   limits.cpu: "4"
   limits.memory: "8GiB"
@@ -30,7 +30,10 @@ config:
   environment.OPDBUS_SESSION_UUID: "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
   environment.OPDBUS_PRINCIPAL_ID: "princ_blake3_7f9a2c41e80b3d19a65e0c21"
   environment.OPDBUS_SID_VERSION: "SID1"
-  environment.OPDBUS_LUNGS_SOCK: "/opt/run-mounts/ghostbridge/lungs.sock"
+  environment.OPDBUS_LUNGS_SOCK: "/run/opdbus/lungs.sock"
+  # NextDNS assignment sealed into sealed_id at minting (shared profile).
+  # Read once by the container's op-grpc-bridge before it mints SID1.
+  environment.OP_IDENTITY_NEXTDNS_BINDINGS: '[{"wireguard_pubkey":"wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=","profile_id":"689ec7","device_name":"Ghostbridge-Incus"}]'
   environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
   environment.COGNITIVE_COZO_DB_PATH: "/var/lib/rocksdb/cozo"
@@ -41,15 +44,13 @@ config:
   environment.https_proxy: "http://127.0.0.1:3128"
   environment.HTTP_PROXY: "http://127.0.0.1:3128"
   environment.HTTPS_PROXY: "http://127.0.0.1:3128"
-  environment.no_proxy: "localhost,127.0.0.1,/opt/run-mounts/ghostbridge/lungs.sock"
+  environment.no_proxy: "localhost,127.0.0.1,/run/opdbus/lungs.sock"
   user.opdbus.seed: "/dev/sda4 sealed Btrfs, Ubuntu 26.04 (ro lower)"
   user.opdbus.upgrade: "/dev/sda5 @ (ro lower, above seed)"
 
 devices:
-  eth0:
-    name: eth0
-    network: ovsbr0
-    type: nic
+  # No nic device: the container has only lo. Lungs and egress are its only
+  # paths out.
 
   # Root: Incus filesystem volume on 3tched-pool (150G sparse loop, Incus-owned).
   # Per-container mounts (RocksDB ext4, snowball ledger, seed/upgrade lowers,
@@ -62,13 +63,14 @@ devices:
     size: "20GiB"
 
   # ---------------------------------------------------------------------------
-  # 4. 3tchedFS Lungs Control Socket (Host op-grpc-bridge -> Container)
+  # 4. Lungs socket directory, same path on host and guest
   # ---------------------------------------------------------------------------
   opdbus-lungs-socket:
-    path: /opt/run-mounts/ghostbridge
+    path: /run/opdbus
     source: /run/opdbus
     type: disk
     readonly: false
+    shift: true
 
   # ---------------------------------------------------------------------------
   # 5. 3tchedFS Typed Operation Hierarchy
@@ -80,7 +82,7 @@ devices:
     readonly: false
 
   # ---------------------------------------------------------------------------
-  # 6. Outbound Egress UNIX Domain Socket (runit socat -> Xray/WARP)
+  # 6. Outbound Egress UNIX Domain Socket (runit socat -> host egress)
   # ---------------------------------------------------------------------------
   opdbus-egress-socket:
     path: /run/opdbus-egress
