@@ -21,9 +21,12 @@ readonly ROOTFS="${DATA_DIR}/rootfs"
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
 readonly DELTA_SIZE="20G"
 readonly STAGE="/run/3tched-sprout/${CONTAINER_NAME}"
-# The seed's @ is a read-only subvolume. Each sprout gets one writable
-# snapshot @root of it at creation; @ stays as the pristine upgrade baseline.
-readonly ROOT_SUBVOL="@root"
+# Persistence is the sprout itself: btrfs device add of cozo_delta.img to the
+# seed sends every write to the delta device. The root is the seed's own @,
+# shared by every container; no snapshot is taken. The seed's @ carries
+# ro=true, so the sprout clears that flag once at creation. That is a
+# metadata write on the delta device; the seed device is never written.
+readonly ROOT_SUBVOL="@"
 readonly MOUNT_OPTS="rw,noatime,compress=zstd:3,space_cache=v2,subvol=${ROOT_SUBVOL}"
 
 die() { echo "FATAL: $*" >&2; exit 1; }
@@ -54,25 +57,15 @@ create_once() {
     die "btrfs device add failed; sprout image removed"
   fi
   mount -o remount,rw "${STAGE}"
-  btrfs subvolume snapshot "${STAGE}/@" "${STAGE}/${ROOT_SUBVOL}"
+  btrfs property set -f "${STAGE}/${ROOT_SUBVOL}" ro false
   umount "${STAGE}"
   echo "sprout created: ${DELTA_IMG} on ${loop} (seed $(seed_fsid))"
-}
-
-ensure_root_subvol() { # one-time for a sprout created before @root existed
-  local loop; loop="$(delta_loop)"
-  btrfs device scan "$(readlink -f "${SEED_DEV}")" "${loop}" >/dev/null
-  mkdir -p "${STAGE}"
-  mount -t btrfs -o rw,noatime "${loop}" "${STAGE}"
-  [ -d "${STAGE}/${ROOT_SUBVOL}" ] || btrfs subvolume snapshot "${STAGE}/@" "${STAGE}/${ROOT_SUBVOL}"
-  umount "${STAGE}"
 }
 
 do_mount() {
   [ -d "${ROOTFS}" ] || die "${ROOTFS} missing (incus init first)"
   if mountpoint -q "${ROOTFS}"; then echo "root already mounted"; return; fi
   [ -e "${DELTA_IMG}" ] || create_once
-  ensure_root_subvol
   local loop; loop="$(delta_loop)"
   btrfs device scan "$(readlink -f "${SEED_DEV}")" "${loop}" >/dev/null
   mount -t btrfs -o "${MOUNT_OPTS}" "${loop}" "${ROOTFS}"
