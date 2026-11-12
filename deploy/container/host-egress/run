@@ -1,0 +1,15 @@
+#!/bin/sh
+# Host Xray client for NIC-less containers. One Unix socket, no TCP listener:
+#   /run/opdbus-egress/http.sock (HTTP proxy) -> VLESS/XHTTP/REALITY -> decoy 129.80.64.127:9443 -> WARP
+# nft table ct_egress lets the ct-egress user reach only that server.
+exec 2>&1
+CONFIG=/etc/ct-egress/xray.json
+NFT=/etc/ct-egress/ct_egress.nft
+SOCK_DIR=/run/opdbus-egress
+nft -f "$NFT" || { echo "nft $NFT failed; refusing to start"; sleep 30; exit 1; }
+install -d -o ct-egress -g ct-egress -m 0755 "$SOCK_DIR"
+rm -f "$SOCK_DIR/http.sock" "$SOCK_DIR/http.sock.lock"
+export XRAY_LOCATION_ASSET=/usr/local/share/xray
+chpst -u ct-egress:ct-egress /usr/local/bin/xray run -test -config "$CONFIG" >/dev/null || { echo "xray config test failed"; sleep 30; exit 1; }
+echo "starting egress client on $SOCK_DIR/http.sock"
+exec chpst -u ct-egress:ct-egress /usr/local/bin/xray run -config "$CONFIG"

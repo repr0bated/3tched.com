@@ -1,0 +1,13 @@
+# ct-egress (host Xray client) may dial only the decoy Reality server.
+table inet ct_egress
+delete table inet ct_egress
+table inet ct_egress {
+	chain out {
+		type filter hook output priority filter; policy accept;
+		meta skuid != "ct-egress" accept
+		oifname "lo" accept
+		ip daddr 129.80.64.127 tcp dport 9443 accept
+		ip daddr 129.80.64.127 udp dport 53 reject
+		reject
+	}
+}
