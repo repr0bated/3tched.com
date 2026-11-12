@@ -18,7 +18,6 @@ config:
   security.syscalls.deny_default: "true"
   security.syscalls.deny: |
     socket(AF_PACKET)
-    bpf
     perf_event_open
     kexec_load
     init_module

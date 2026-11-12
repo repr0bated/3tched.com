@@ -1,0 +1,19 @@
+#!/bin/sh
+# Host boot: mount each 3tched container root (sealed seed + its sprout) after
+# Incus has mounted 3tched-pool, then start the container. No member changes.
+exec 2>&1
+BUNDLE=/srv/git/3tched.com/deploy/container
+POOL_MNT=/var/lib/incus/storage-pools/3tched-pool
+for i in $(seq 1 120); do
+  mountpoint -q "$POOL_MNT" && incus info >/dev/null 2>&1 && break
+  sleep 2
+done
+mountpoint -q "$POOL_MNT" || { echo "pool $POOL_MNT not mounted"; exit 1; }
+mount /run/mounts/upgrade-3tched 2>/dev/null || true
+mountpoint -q "$POOL_MNT/containers/3tchedChatbot/mnt/rocksdb" || \
+  mount "$POOL_MNT/containers/3tchedChatbot/mnt/rocksdb" || exit 1
+CONTAINER_NAME=3tchedChatbot "$BUNDLE/container-root.sh" mount || exit 1
+CONTAINER_NAME=3tchedChatbot "$BUNDLE/container-root.sh" verify || exit 1
+[ "$(incus list 3tchedChatbot -c s -f csv)" = RUNNING ] || incus start 3tchedChatbot || exit 1
+echo "3tchedChatbot root mounted and started"
+exec sleep infinity
