@@ -8,13 +8,14 @@ handled.
 ## Boot chain (host, runit)
 
 ```
-kernel rootflags=subvol=@trial
+kernel rootflags=subvol=@rootfs
  └─ runit
      ├─ lxcfs
      ├─ incus            (sv start lxcfs; incusd)
      │   └─ 3tched-pool  btrfs loop of /var/lib/incus/disks/3tched-pool.img (150 GiB)
      ├─ 3tched-container-root   (waits for pool, then:)
-     │   ├─ mount /run/mounts/upgrade-3tched      sda5 @ ro
+     │   ├─ mount /run/mounts/upgrade-3tched      sda5 @ ro (skipped if mounted)
+     │   ├─ install -d /run/opdbus/lungs /run/opdbus-egress
      │   ├─ mount .../3tchedChatbot/mnt/rocksdb   cozo_rocksdb.img ext4 (fstab line)
      │   ├─ container-root.sh mount|verify        sda4 seed + cozo_delta.img sprout, subvol @root
      │   ├─ incus start 3tchedChatbot
@@ -29,11 +30,11 @@ kernel rootflags=subvol=@trial
 |---|---|---|---|
 | Root OS | sda4 sealed seed (Ubuntu 26.04.1) + sprout `@root` in `cozo_delta.img` | yes | seed is immutable; sprout holds all guest changes |
 | Upgrade lower | sda5 `@`, ro | yes | fstab + run script |
-| Incus pool image | `/var/lib/incus/disks/3tched-pool.img` on host subvolume **`@trial`** | only while the host boots `@trial` | host |
+| Incus pool image | `/var/lib/incus/disks/3tched-pool.img` on host root subvolume `@rootfs` | yes | host |
 | Cozo / sled / snowball / chat-history | `cozo_rocksdb.img` ext4 at `/var/lib/rocksdb` | yes | fstab line |
 | Identity sled | `subvolumes/user` at `/agent/user`; `sealed_id` ro bind | yes | minted by the container door |
 | NextDNS context | sealed into `sealed_id` at minting from `OP_IDENTITY_NEXTDNS_BINDINGS` (profile `689ec7`) | yes, once minted | profile env |
-| Lungs | `/run/opdbus/lungs/lungs.sock`, host tmpfs, same path in guest | **no**: directory and socket are recreated each boot | socket bound by the container door |
+| Lungs | `/run/opdbus/lungs/lungs.sock`, host tmpfs, same path in guest | directory recreated by `3tched-container-root`; socket rebound each boot | socket bound by the container door |
 | Egress | `/run/opdbus-egress/http.sock`, host tmpfs | recreated by `ct-egress` | host Xray client |
 | Egress upstream | decoy `129.80.64.127`, `xray-egress` on 9443, then WARP | remote | VPS |
 | SHM catalog | `/dev/shm/opdbus/plugin-blobs` in the guest | **no** (tmpfs) | not yet identified |
@@ -41,10 +42,13 @@ kernel rootflags=subvol=@trial
 
 ## Gaps
 
-1. **Pool on `@trial`.** The host boots `rootflags=subvol=@trial`; the pool
-   image and Incus state live inside it. Booting `@rootfs`, `@release-a` or
-   `@release-b` would start without this container. `@incus` exists but is not
-   mounted.
+1. **Resolved 2026-11-12: root adopted as `@rootfs`.** The former `@trial`
+   (ID 579) is now `@rootfs`; the old Ubuntu root (ID 256) is
+   `@rootfs-ubuntu-20261013` and stays the second GRUB entry. `/etc/fstab` and
+   `grub.cfg` use the new names; backups are `*.before-rootfs-20261112T1818`.
+   The pool image and Incus state live inside `@rootfs`, so booting
+   `@release-a`/`@release-b` still starts without this container. `@incus`
+   exists but is not mounted.
 2. **Boot runs from a git working tree.** `3tched-container-root` executes
    `container-root.sh` from `/srv/git/3tched.com`. A branch switch or edit
    changes boot behaviour. An installed copy (e.g. `/usr/local/lib/3tched/`)
@@ -53,12 +57,11 @@ kernel rootflags=subvol=@trial
    If the container stops, nothing restarts it; `boot.autostart` is `false`.
    The run script should wait on the container and exit when it stops so runsv
    restarts it.
-4. **Lungs directory not created at boot.** `host-boot-ovs.sh` is not installed
-   as a service; `/run/opdbus/lungs` was created by hand and is lost on reboot.
-   `3tched-container-root` should create it before `incus start`.
-5. **Repeated upgrade mount.** `/run/mounts/upgrade-3tched` is mounted three
-   times (fstab plus one `mount` per service restart). The run script should
-   skip it when it is already a mountpoint.
+4. **Resolved: lungs directory.** `3tched-container-root` creates
+   `/run/opdbus/lungs` and `/run/opdbus-egress` before `incus start`.
+5. **Resolved: repeated upgrade mount.** The run script skips the mount when
+   `/run/mounts/upgrade-3tched` is already a mountpoint. The three stacked
+   mounts from earlier restarts clear at the next reboot.
 6. **Door not running in the container.** `op-grpc-bridge` is present in the
    guest but has no service; it must bind lungs and mint `sealed_id`. Until
    then `3tchedfs-control` and `3tchedfs-upstream` fail every 5 s.
