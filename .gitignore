@@ -23,3 +23,4 @@ coverage/
 /ai/
 /operation-dashboard-ui-07/
 /pages/
+crates/*/target/

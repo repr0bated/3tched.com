@@ -1,0 +1,30 @@
+[package]
+name = "op-chat-interface"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Container chat Chat_Route (Rust). Installs on top of base 3tched; the browser UI is the Svelte app in this repo."
+
+# Standalone: this crate is not a member of the odbus-verified workspace.
+[workspace]
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+thiserror = "=1.0.69"
+base64 = "=0.21.7"
+jsonschema = { version = "=0.29.1", default-features = false }
+sha2 = "=0.10.9"
+tokio = { version = "=1.53.1", features = ["full"] }
+tonic = "=0.12.3"
+tonic-web = "=0.12.3"
+tokio-stream = "=0.1.18"
+uuid = { version = "=1.24.0", features = ["v4", "v7", "serde"] }
+chrono = { version = "=0.4.45", features = ["serde"] }
+tracing = "=0.1.44"
+async-trait = "=0.1.91"
+prost = "=0.13.5"
+prost-types = "=0.13.5"
+
+[build-dependencies]
+tonic-build = "=0.12.3"
