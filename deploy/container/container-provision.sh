@@ -46,7 +46,6 @@ readonly WG_PUBKEY="wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE="
 readonly POOL="3tched-pool"
 readonly POOL_SIZE="150GiB"
 readonly PROFILE="opdbus-3tched-3tchedchatbot"
-readonly IMAGE="opdbus-seed-base"
 
 readonly SEED_DEV_UUID="dcfbc0a6-442d-474f-b636-fe17d25eaaf1"     # /dev/sda4
 readonly UPGRADE_DEV_UUID="04f6a708-1e92-4468-ba94-e2e7c2cbce7d"  # /dev/sda5
@@ -95,7 +94,6 @@ fi
 
 # --- 3. Profile ----------------------------------------------------------------
 step 3/8 "Profile ${PROFILE}"
-incus image info "${IMAGE}" >/dev/null 2>&1 || die "Incus image ${IMAGE} is not imported"
 incus profile show "${PROFILE}" >/dev/null 2>&1 || incus profile create "${PROFILE}"
 incus profile edit "${PROFILE}" < ./incus-profile.yaml
 
@@ -104,7 +102,9 @@ step 4/8 "Instance ${CONTAINER_NAME} on ${POOL}"
 # Profile host-path sources must exist before Incus validates the devices.
 mkdir -p /run/opdbus/lungs /run/opdbus-egress /run/mounts/3tched/"${CONTAINER_NAME}"
 if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
-  incus init "${IMAGE}" "${CONTAINER_NAME}" --profile "${PROFILE}" --storage "${POOL}"
+  # --empty: Incus unpacks no image. The rootfs directory stays empty and the
+  # sprout (shared seed @ + this container's cozo_delta.img) is mounted on it.
+  incus init --empty "${CONTAINER_NAME}" --profile "${PROFILE}" --storage "${POOL}"
 fi
 incus config set "${CONTAINER_NAME}" \
   user.opdbus.session_uuid="${SESSION_UUID}" \
