@@ -99,14 +99,15 @@ merged.
 
 ## Identity (2026-11-12)
 
-The instance name is `derive_session_id(wireguard_pubkey)`; `3tchedChatbot` is
-only the display name and hostname. The boot service reads the name from
+Chatbot instances are named `ID-1`, `ID-2`, ... (a label). The identity is
+`derive_session_id(wireguard_pubkey)`, bound by `user.opdbus.session_id` and
+`user.opdbus.wireguard_public_key` on the instance. The boot service reads the name from
 `/etc/opdbus/3tched-container-name`, written by provisioning. Provisioning has
 the decoy issue the identity (`op-decoy-issuer-iid1 issue-identity`, IID1) into
 `/agent/user/issued_identity.iid1`; on first start the container runs
 `op-identity-accept`, which verifies it against `/etc/opdbus/decoy-trust.json`
 and installs `/agent/user/sealed_id` once.
 
-Open: the container's `op-grpc-bridge` does not yet commit that `sealed_id`
-into its identity sled at startup; provisioning needs `CATALOG_HASH`, and no
-sealed catalog is staged on the host yet.
+Open: the genesis catalog hash comes from the
+sealed blobs in `/dev/shm/opdbus/plugin-blobs` (`catalog-hash.sh`), which are
+not staged on the host yet.

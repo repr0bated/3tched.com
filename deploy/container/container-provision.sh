@@ -38,18 +38,31 @@ cd "$(dirname "$0")"
 # The one identity input. Owner: the chatbot uses the same key as the
 # WireGuard server on 10.0.0.1 (decoy wg-opdbus interface public key).
 readonly WG_PUBKEY="${WG_PUBKEY:-wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=}"
-# The container is the identity: its instance name is the session id derived
-# from the key. DISPLAY_NAME is only the hostname and a label.
-readonly DISPLAY_NAME="3tchedChatbot"
+# The identity is the session id derived from the key; the bridge binds the
+# container by user.opdbus.session_id + user.opdbus.wireguard_public_key, so
+# the instance name is only a label. Chatbots are named ID-1, ID-2, ...: an
+# existing container for this key keeps its name, otherwise the next free N.
 command -v op-identity-accept >/dev/null || { echo "FATAL: op-identity-accept missing" >&2; exit 1; }
-CONTAINER_NAME="$(op-identity-accept derive --pubkey "${WG_PUBKEY}" | cut -d' ' -f1)"
+SESSION_ID="$(op-identity-accept derive --pubkey "${WG_PUBKEY}" | cut -d' ' -f1)"
+readonly SESSION_ID
+CONTAINER_NAME="${CONTAINER_NAME:-$(incus list --format json | jq -r --arg sid "${SESSION_ID}" \
+  '[.[] | select(.config["user.opdbus.session_id"] == $sid) | .name] | first // empty')}"
+if [ -z "${CONTAINER_NAME}" ]; then
+  n=1
+  while incus info "ID-${n}" >/dev/null 2>&1; do n=$((n + 1)); done
+  CONTAINER_NAME="ID-${n}"
+fi
 readonly CONTAINER_NAME
+readonly DISPLAY_NAME="${CONTAINER_NAME}"
 # The decoy terminates WireGuard and issues the identity (IID1).
 readonly DECOY="${DECOY:-ubuntu@129.80.64.127}"
 readonly DECOY_SSH_KEY="${DECOY_SSH_KEY:-/home/jeremy/.ssh/decoy_key}"
 readonly DECOY_ISSUER="/usr/local/bin/op-decoy-issuer-iid1"
-# Sealed-catalog hash anchored into the genesis (64 hex). Required.
-readonly CATALOG_HASH="${CATALOG_HASH:-}"
+# Sealed-catalog hash anchored into the genesis: the hash of the sealed
+# plugin blobs in SHM, checked against their manifest.
+readonly CATALOG_DIR="${CATALOG_DIR:-/dev/shm/opdbus/plugin-blobs}"
+CATALOG_HASH="${CATALOG_HASH:-$(./catalog-hash.sh "${CATALOG_DIR}" 2>/dev/null || true)}"
+readonly CATALOG_HASH
 readonly NEXTDNS_PROFILE="689ec7"            # shared profile
 readonly NEXTDNS_DEVICE="Ghostbridge-Incus"
 
@@ -114,8 +127,8 @@ if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
   incus init --empty "${CONTAINER_NAME}" --profile "${PROFILE}" --storage "${POOL}"
 fi
 incus config set "${CONTAINER_NAME}" \
-  user.opdbus.display_name="${DISPLAY_NAME}" \
-  user.opdbus.wireguard_pubkey="${WG_PUBKEY}" \
+  user.opdbus.session_id="${SESSION_ID}" \
+  user.opdbus.wireguard_public_key="${WG_PUBKEY}" \
   user.opdbus.cozo_root="${DATA_DIR}" \
   boot.autostart=false
 [ -d "${DATA_DIR}" ] || die "${DATA_DIR} missing after incus init"
@@ -151,7 +164,7 @@ fi
 # Issued once per container. The container verifies it on first start.
 readonly ISSUED="${SUBVOL_DIR}/user/issued_identity.iid1"
 if [ ! -e "${SUBVOL_DIR}/user/sealed_id" ] && [ ! -s "${ISSUED}" ]; then
-  [[ "${CATALOG_HASH}" =~ ^[0-9a-f]{64}$ ]] || die "CATALOG_HASH (64 hex) is required to issue the identity"
+  [[ "${CATALOG_HASH}" =~ ^[0-9a-f]{64}$ ]] || die "no sealed catalog in ${CATALOG_DIR}; stage it (opblob stage-shm) or set CATALOG_HASH"
   ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" \
     "sudo -n ${DECOY_ISSUER} issue-identity --pubkey '${WG_PUBKEY}' --catalog-hash '${CATALOG_HASH}' \
      --nextdns-profile '${NEXTDNS_PROFILE}' --nextdns-device '${NEXTDNS_DEVICE}'" > "${ISSUED}.tmp"
@@ -235,6 +248,6 @@ if incus exec "${CONTAINER_NAME}" -- test -s /agent/user/issued_identity.iid1; t
   accepted="$(incus exec "${CONTAINER_NAME}" -- op-identity-accept \
     --issued /agent/user/issued_identity.iid1 --pubkey "${WG_PUBKEY}" \
     --trust-store /etc/opdbus/decoy-trust.json --out /agent/user/sealed_id)"
-  [ "${accepted}" = "${CONTAINER_NAME}" ] || die "accepted identity ${accepted} is not ${CONTAINER_NAME}"
+  [ "${accepted}" = "${SESSION_ID}" ] || die "accepted identity ${accepted} is not ${SESSION_ID}"
 fi
 echo "Container ${CONTAINER_NAME} (${DISPLAY_NAME}) started on ${POOL}; Cozo root ${DATA_DIR}."
