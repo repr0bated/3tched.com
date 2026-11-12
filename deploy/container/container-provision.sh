@@ -172,9 +172,15 @@ if [ ! -e "${SUBVOL_DIR}/user/sealed_id" ] && [ ! -s "${ISSUED}" ]; then
   mv "${ISSUED}.tmp" "${ISSUED}"
 fi
 # Public decoy key for the container's trust store (shared with the bridge).
-key_id="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" 'sudo -n cat /etc/opdbus/decoy-key-id')"
-verifying="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" "sudo -n ${DECOY_ISSUER} verifying-key")"
-TRUST_JSON="$(printf '{"decoy_keys":{"%s":"%s"}}' "${key_id}" "${verifying}")"
+# Fetched once; an existing trust store in the sprout is kept.
+TRUST_FILE="${DATA_DIR}/rootfs/etc/opdbus/decoy-trust.json"
+if [ -s "${TRUST_FILE}" ]; then
+  TRUST_JSON="$(cat "${TRUST_FILE}")"
+else
+  key_id="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" 'sudo -n cat /etc/opdbus/decoy-key-id')"
+  verifying="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" "sudo -n ${DECOY_ISSUER} verifying-key")"
+  TRUST_JSON="$(printf '{"decoy_keys":{"%s":"%s"}}' "${key_id}" "${verifying}")"
+fi
 
 # --- 7. Per-instance host-path devices (paths are under DATA_DIR) ------------
 step 7/8 "Instance devices"
@@ -272,6 +278,8 @@ cat > "${R}/etc/systemd/system/op-grpc-bridge.service" <<'UNIT'
 Description=Identity owner door (op-grpc-bridge): lungs + loopback TLS
 RequiresMountsFor=/var/lib/op-dbus /var/lib/rocksdb /opt/run-mounts/plugin-blobs
 After=local-fs.target systemd-tmpfiles-setup.service
+After=opdbus-grants.service
+Wants=opdbus-grants.service
 Before=3tchedfs-control.service 3tchedfs-upstream.service
 [Service]
 Type=simple
@@ -280,6 +288,31 @@ RuntimeDirectory=op-grpc-bridge
 ExecStart=/usr/local/bin/op-grpc-bridge
 Restart=on-failure
 RestartSec=5
+[Install]
+WantedBy=multi-user.target
+UNIT
+# Grants: the base document plus the chatbot entry keyed by its derived
+# principal, projected into the guest SHM by op-grants-materializer.
+PRINCIPAL_ID="$(op-identity-accept derive --pubkey "${WG_PUBKEY}" | cut -d' ' -f2)"
+install -d -m 0755 "${R}/etc/opdbus"
+jq --arg p "${PRINCIPAL_ID}" --slurpfile e ./grants/control-plane-chatbot.entry.json \
+  '.[$p] = $e[0]' ./grants/capability-grants.base.json > "${R}/etc/opdbus/capability-grants.json"
+chmod 0600 "${R}/etc/opdbus/capability-grants.json"
+"${GRANTS_BIN:-/srv/git/odbus-verified/target/release/op-grants-materializer}" \
+  validate "${R}/etc/opdbus/capability-grants.json" >/dev/null || die "grant document is invalid"
+install -m 0755 "${GRANTS_BIN:-/srv/git/odbus-verified/target/release/op-grants-materializer}" \
+  "${R}/usr/local/bin/op-grants-materializer"
+cat > "${R}/etc/systemd/system/opdbus-grants.service" <<'UNIT'
+[Unit]
+Description=Capability grants: /etc/opdbus -> /dev/shm/opdbus projection
+After=local-fs.target systemd-tmpfiles-setup.service
+Before=op-grpc-bridge.service
+[Service]
+Environment=OP_GRANTS_READY=/run/opdbus-grants/ready
+RuntimeDirectory=opdbus-grants
+ExecStart=/usr/local/bin/op-grants-materializer run
+Restart=always
+RestartSec=3
 [Install]
 WantedBy=multi-user.target
 UNIT
@@ -297,6 +330,7 @@ WantedBy=multi-user.target
 UNIT
 install -d "${R}/etc/systemd/system/multi-user.target.wants"
 ln -sfn ../op-grpc-bridge.service "${R}/etc/systemd/system/multi-user.target.wants/op-grpc-bridge.service"
+ln -sfn ../opdbus-grants.service "${R}/etc/systemd/system/multi-user.target.wants/opdbus-grants.service"
 ln -sfn ../opdbus-egress-proxy.service "${R}/etc/systemd/system/multi-user.target.wants/opdbus-egress-proxy.service"
 
 # Guest systemd mounts a fresh /run over pre-start mounts; host devices are
