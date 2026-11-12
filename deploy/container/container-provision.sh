@@ -88,6 +88,8 @@ incus profile edit "${PROFILE}" < ./incus-profile.yaml
 
 # --- 4. Instance (one time). Its directory is the Cozo store root. -----------
 step 4/8 "Instance ${CONTAINER_NAME} on ${POOL}"
+# Profile host-path sources must exist before Incus validates the devices.
+mkdir -p /run/opdbus /run/opdbus-egress /run/mounts/3tched/"${CONTAINER_NAME}"
 if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
   incus init "${IMAGE}" "${CONTAINER_NAME}" --profile "${PROFILE}" --storage "${POOL}"
 fi
@@ -157,7 +159,6 @@ done
 
 # --- 8. Start -------------------------------------------------------------------
 step 8/8 "Start ${CONTAINER_NAME}"
-mkdir -p /run/opdbus /run/opdbus-egress /run/mounts/3tched/"${CONTAINER_NAME}"
 incus start "${CONTAINER_NAME}"
 
 # In-container runit service: socat 127.0.0.1:3128 -> host egress socket.
