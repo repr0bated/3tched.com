@@ -37,10 +37,10 @@ config:
   environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
   # Btrfs is OS persistence (seed + sprout); RocksDB is user persistence.
-  # Snowball is captured by vectorization and does not persist: it lives on the
-  # guest's /run tmpfs and is not part of RocksDB.
+  # The sled (snowball and its identity-cozo fork) is captured by vectorization
+  # and does not persist: it lives on the guest's /run tmpfs, not in RocksDB.
   environment.COGNITIVE_COZO_DB_PATH: "/var/lib/rocksdb/cozo"
-  environment.IDENTITY_SLED_COZO_DB_PATH: "/var/lib/rocksdb/sled"
+  environment.IDENTITY_SLED_COZO_DB_PATH: "/run/opdbus-snowball/identity-cozo"
   environment.OPDBUS_SNOWBALL_PATH: "/run/opdbus-snowball"
   environment.http_proxy: "http://127.0.0.1:3128"
   environment.https_proxy: "http://127.0.0.1:3128"

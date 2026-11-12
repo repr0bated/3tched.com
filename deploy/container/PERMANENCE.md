@@ -79,11 +79,12 @@ kernel rootflags=subvol=@rootfs
 - **Btrfs: OS persistence.** Shared sda4 seed plus this container's sprout
   (`cozo_delta.img`, copied from `/var/lib/incus/disks/`).
 - **RocksDB: user persistence.** Incus volume `3tchedChatbot-rocksdb` at
-  `/var/lib/rocksdb`: private memory Cozo (`cozo/`) and the identity sled
-  (`sled/`).
-- **Snowball: not persisted.** It is captured by vectorization and cleared, so
-  it is kept out of RocksDB and lives on the guest's `/run/opdbus-snowball`
-  tmpfs (`OPDBUS_SNOWBALL_PATH`). Without a Btrfs sink the chain records to RAM.
+  `/var/lib/rocksdb`: the private memory Cozo (`cozo/`) only.
+- **Sled: not persisted.** Snowball and its identity-cozo fork are captured by
+  vectorization and cleared, so both are kept out of RocksDB on the guest's
+  `/run/opdbus-snowball` tmpfs (`OPDBUS_SNOWBALL_PATH`,
+  `IDENTITY_SLED_COZO_DB_PATH=/run/opdbus-snowball/identity-cozo`). Without a
+  Btrfs sink the chain records to RAM.
 - `/agent/user` holds `sealed_id`; the host has read-write access.
 
 **Code drift.** `odbus-verified` forked one ledger into two stores: the
