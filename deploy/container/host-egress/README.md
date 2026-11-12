@@ -19,3 +19,17 @@ Xray 26.3.27 (same version as the decoy) is at `/usr/local/bin/xray`, assets in
 Open: the REALITY handshake fails with EOF while the decoy resolver
 (`127.0.2.2`, `127.0.2.3`) refuses connections; the decoy cannot resolve its
 cover site.
+
+## Decoy changes made 2026-11-12 (record)
+
+- `xray-egress.service` enabled (was disabled), `/etc/xray/egress-server.json` unchanged
+  (backup `egress-server.json.before-show-20261112`).
+- `/etc/resolv.conf`: a cloudflare-warp-generated file pointed at dead `127.0.2.2/.3`.
+  Replaced by a pinned `nameserver 127.0.0.53` file, `chattr +i` (warp-svc in cf-mesh
+  rewrote it otherwise); backup `/etc/resolv.conf.before-stub-20261112`.
+- REALITY target (`www.cloudflarestatus.com`) is unreachable over the fail-closed
+  physical egress. Last change: `/usr/local/sbin/xray-egress-cover-route` (routes the
+  target's addresses via `wgcf-ingress`) as `ExecStartPre` in
+  `/etc/systemd/system/xray-egress.service.d/warp-mark.conf`. The decoy stopped
+  answering on all ports during that change; to undo, remove that drop-in and script,
+  `systemctl daemon-reload`, and delete any `/32`/`/128` routes on `wgcf-ingress`.

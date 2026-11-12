@@ -22,7 +22,7 @@ jq --arg addr "$ADDR" '{
   {tag: "decoy-reality", protocol: "vless",
    settings: {vnext: [{address: $addr, port: 9443, users: [{id: .id, encryption: "none"}]}]},
    streamSettings: {network: "xhttp", security: "reality",
-     xhttpSettings: {path: .path, mode: "packet-up"},
+     xhttpSettings: {path: .path, mode: "packet-up", extra: {xPaddingBytes: "100-1000"}},
      realitySettings: {serverName: .sni, fingerprint: "chrome", password: .pub, shortId: .sid, mldsa65Verify: .ver}},
    mux: {enabled: false}},
   {tag: "deny", protocol: "blackhole", settings: {response: {type: "http"}}}],

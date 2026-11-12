@@ -121,7 +121,7 @@ incus profile edit "${PROFILE}" < ./incus-profile.yaml
 # --- 4. Instance (one time). Its directory is the Cozo store root. -----------
 step 4/8 "Instance ${CONTAINER_NAME} on ${POOL}"
 # Profile host-path sources must exist before Incus validates the devices.
-mkdir -p /run/opdbus/lungs /run/opdbus-egress "${SLED_DIR}"
+mkdir -p /run/opdbus/lungs /run/opdbus-egress "${SLED_DIR}" /dev/shm/opdbus/plugin-blobs
 if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
   # --empty: Incus unpacks no image. The rootfs directory stays empty and the
   # sprout (shared seed @ + this container's cozo_delta.img) is mounted on it.
@@ -192,6 +192,8 @@ incus config device add "${CONTAINER_NAME}" rocksdb-storage disk \
 incus config device remove "${CONTAINER_NAME}" snowball-ledger >/dev/null 2>&1 || true
 # Sled: read-write, host-writable, not durable (host /run tmpfs).
 add_disk sled "${SLED_DIR}" /opt/run-mounts/opdbus-sled false
+# Sealed catalog: the host's SHM blobs, read-only; 3tchedFS mirrors them.
+add_disk plugin-blobs /dev/shm/opdbus/plugin-blobs /opt/run-mounts/plugin-blobs true
 incus config device remove "${CONTAINER_NAME}" seed-lower >/dev/null 2>&1 || true
 add_disk upgrade-lower   "${UPGRADE_MNT}"      /opt/run-mounts/upgrade-3tched true
 for d in user memory skills; do
@@ -224,6 +226,79 @@ echo "127.0.1.1 ${DISPLAY_NAME}" >> "${DATA_DIR}/rootfs/etc/hosts"
 install -d -m 0755 "${DATA_DIR}/rootfs/etc/opdbus"
 printf '%s\n' "${TRUST_JSON}" > "${DATA_DIR}/rootfs/etc/opdbus/decoy-trust.json"
 install -m 0755 "$(command -v op-identity-accept)" "${DATA_DIR}/rootfs/usr/local/bin/op-identity-accept"
+# The door: the identity owner runs inside its own container. It binds lungs
+# in the host-shared /run/opdbus/lungs and a TLS door plus ExHook on guest
+# loopback. Paths are the real /opt/run-mounts paths: the stores and protected
+# files refuse symlinks. TLS is container-local (door-tls.sh).
+readonly BRIDGE_BIN="${BRIDGE_BIN:-/srv/git/odbus-verified/target/release/op-grpc-bridge}"
+R="${DATA_DIR}/rootfs"
+install -m 0755 "${BRIDGE_BIN}" "${R}/usr/local/bin/op-grpc-bridge"
+./door-tls.sh "${R}" "${CONTAINER_NAME}"
+grep -q '^secrets:' "${R}/etc/group" || \
+  chroot "${R}" groupadd --system secrets
+# Durable bridge stores (/var/lib/op-dbus) live on the RocksDB volume.
+grep -q ' /var/lib/op-dbus ' "${R}/etc/fstab" || echo \
+  '/var/lib/rocksdb/op-dbus /var/lib/op-dbus none bind,x-systemd.requires-mounts-for=/var/lib/rocksdb 0 0' \
+  >> "${R}/etc/fstab"
+install -d -m 0755 "${R}/var/lib/op-dbus"
+cat > "${R}/etc/tmpfiles.d/opdbus-stores.conf" <<'TMPF'
+d /var/lib/rocksdb/op-dbus 0700 root root -
+d /opt/run-mounts/opdbus-sled/identity-cozo 0700 root root -
+TMPF
+T=/etc/op-dbus/tls
+cat > "${R}/etc/op-dbus/bridge.env" <<BENV
+OP_GRPC_BRIDGE_LISTEN=127.0.0.1:8090
+OPDBUS_LUNGS_SOCKET=/opt/run-mounts/opdbus/lungs/lungs.sock
+OPDBUS_READY_PATH=/run/op-grpc-bridge/ready
+OP_BLOB_CATALOG_DIR=/opt/run-mounts/plugin-blobs
+COGNITIVE_COZO_DB_PATH=/var/lib/rocksdb/cozo
+IDENTITY_SLED_COZO_DB_PATH=/opt/run-mounts/opdbus-sled/identity-cozo
+OPDBUS_SNOWBALL_PATH=/opt/run-mounts/opdbus-sled
+THREETCHED_TLS_CERT_FILE=${T}/door.crt
+THREETCHED_TLS_KEY_FILE=${T}/door.key
+OP_EMQX_EXHOOK_SERVER_CERT_FILE=${T}/door.crt
+OP_EMQX_EXHOOK_SERVER_KEY_FILE=${T}/door.key
+OP_EMQX_EXHOOK_CLIENT_CA_FILE=${T}/ca.crt
+OP_EMQX_EXHOOK_CLIENT_CERT_FILE=${T}/exhook-client.crt
+OP_DECOY_TRUST_STORE=/etc/opdbus/decoy-trust.json
+OP_ISSUED_IDENTITY_PATH=/agent/user/issued_identity.iid1
+OP_CONTROL_PLANE_CHATBOT_WIREGUARD_PUBKEY=${WG_PUBKEY}
+OP_CONTROL_PLANE_CHATBOT_SESSION_ID=${SESSION_ID}
+OP_CONTROL_PLANE_CHATBOT_PRINCIPAL_ID=$(op-identity-accept derive --pubkey "${WG_PUBKEY}" | cut -d' ' -f2)
+BENV
+chmod 0600 "${R}/etc/op-dbus/bridge.env"
+cat > "${R}/etc/systemd/system/op-grpc-bridge.service" <<'UNIT'
+[Unit]
+Description=Identity owner door (op-grpc-bridge): lungs + loopback TLS
+RequiresMountsFor=/var/lib/op-dbus /var/lib/rocksdb /opt/run-mounts/plugin-blobs
+After=local-fs.target systemd-tmpfiles-setup.service
+Before=3tchedfs-control.service 3tchedfs-upstream.service
+[Service]
+Type=simple
+EnvironmentFile=/etc/op-dbus/bridge.env
+RuntimeDirectory=op-grpc-bridge
+ExecStart=/usr/local/bin/op-grpc-bridge
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+UNIT
+# Egress: guest loopback HTTP proxy port -> host Xray client socket.
+cat > "${R}/etc/systemd/system/opdbus-egress-proxy.service" <<'UNIT'
+[Unit]
+Description=Egress: 127.0.0.1:3128 -> host /run/opdbus-egress/http.sock
+After=network.target
+[Service]
+ExecStart=/usr/bin/socat TCP-LISTEN:3128,bind=127.0.0.1,fork,reuseaddr UNIX-CONNECT:/opt/run-mounts/opdbus-egress/http.sock
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target
+UNIT
+install -d "${R}/etc/systemd/system/multi-user.target.wants"
+ln -sfn ../op-grpc-bridge.service "${R}/etc/systemd/system/multi-user.target.wants/op-grpc-bridge.service"
+ln -sfn ../opdbus-egress-proxy.service "${R}/etc/systemd/system/multi-user.target.wants/opdbus-egress-proxy.service"
+
 # Guest systemd mounts a fresh /run over pre-start mounts; host devices are
 # under /opt/run-mounts and these links restore the /run paths the seed uses.
 install -d -m 0755 "${DATA_DIR}/rootfs/etc/tmpfiles.d"
@@ -233,6 +308,8 @@ L+ /run/opdbus               -    -    -    - /opt/run-mounts/opdbus
 L+ /run/opdbus-egress        -    -    -    - /opt/run-mounts/opdbus-egress
 L+ /run/opdbus-sled          -    -    -    - /opt/run-mounts/opdbus-sled
 L+ /run/mounts/upgrade-3tched -   -    -    - /opt/run-mounts/upgrade-3tched
+d  /dev/shm/opdbus           0755 root root -
+L+ /dev/shm/opdbus/plugin-blobs - - -  - /opt/run-mounts/plugin-blobs
 TMPF
 # Boot service name for this container's root.
 install -d -m 0755 /etc/opdbus
@@ -243,6 +320,8 @@ step 8/8 "Start ${CONTAINER_NAME}"
 if [ "$(incus list "${CONTAINER_NAME}" -c s -f csv)" != "RUNNING" ]; then
   incus start "${CONTAINER_NAME}"
 fi
+# The guest has no CAP_NET_ADMIN; the host raises its loopback.
+nsenter -t "$(incus query "/1.0/instances/${CONTAINER_NAME}/state" | jq -r .pid)" -n ip link set lo up
 
 # The Devuan image ran runit; the Ubuntu seed runs systemd. Install the runit
 # egress shim only when the guest actually has runsvdir.

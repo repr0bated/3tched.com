@@ -1,8 +1,10 @@
 #!/bin/sh
-# Host boot: mount each 3tched container root (sealed seed + its sprout) after
-# Incus has mounted 3tched-pool, then start the container. No member changes.
+# Host boot: mount the 3tched container root (shared sealed seed + its sprout)
+# after Incus has mounted 3tched-pool, start the container, bring up its
+# loopback, and stay attached while it runs. When the container stops this
+# exits, so runsv starts it again. No member changes.
 exec 2>&1
-# Instance name = session id derived from the WireGuard key (provisioning).
+# Instance name = the ID-N label written by provisioning.
 CT=$(cat /etc/opdbus/3tched-container-name) || { echo "no /etc/opdbus/3tched-container-name"; exit 1; }
 BUNDLE=/srv/git/3tched.com/deploy/container
 POOL_MNT=/var/lib/incus/storage-pools/3tched-pool
@@ -12,13 +14,19 @@ for i in $(seq 1 120); do
 done
 mountpoint -q "$POOL_MNT" || { echo "pool $POOL_MNT not mounted"; exit 1; }
 mountpoint -q /run/mounts/upgrade-3tched || mount /run/mounts/upgrade-3tched 2>/dev/null || true
-# Lungs socket directory (host tmpfs, same path in the guest). The socket path
-# /run/opdbus/lungs/lungs.sock is fixed by the sealed seed's 3tchedfs-guest.
+# Host sources of the container's devices (host /run is tmpfs).
 install -d -m 0755 /run/opdbus/lungs /run/opdbus-egress
-# Sled: host tmpfs, rw in the guest at /run/opdbus-sled; reset with the host.
-install -d -m 0700 /run/opdbus-sled/$CT
+install -d -m 0700 "/run/opdbus-sled/$CT"
+install -d -m 0755 /dev/shm/opdbus/plugin-blobs
+[ -f /dev/shm/opdbus/plugin-blobs/.manifest.json ] || \
+  /usr/local/bin/opblob seal-shm >/dev/null || echo "warning: SHM catalog not sealed"
 CONTAINER_NAME=$CT "$BUNDLE/container-root.sh" mount || exit 1
 CONTAINER_NAME=$CT "$BUNDLE/container-root.sh" verify || exit 1
 [ "$(incus list "$CT" -c s -f csv)" = RUNNING ] || incus start "$CT" || exit 1
-echo "$CT root mounted and started"
-exec sleep infinity
+# The guest has no CAP_NET_ADMIN; the host raises its loopback.
+pid=$(incus query "/1.0/instances/$CT/state" | jq -r .pid)
+nsenter -t "$pid" -n ip link set lo up || exit 1
+echo "$CT root mounted, started, lo up (pid $pid)"
+while [ "$(incus list "$CT" -c s -f csv)" = RUNNING ]; do sleep 15; done
+echo "$CT stopped; restarting"
+exit 1
