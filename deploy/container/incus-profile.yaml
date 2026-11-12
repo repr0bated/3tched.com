@@ -28,7 +28,6 @@ config:
   environment.OPDBUS_HOST_OS: "Devuan GNU/Linux (runit, D-Bus Control)"
   environment.OPDBUS_SID_VERSION: "SID1"
   environment.OPDBUS_LUNGS_SOCK: "/run/opdbus/lungs/lungs.sock"
-  environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
   # Btrfs is OS persistence (seed + sprout). /var/lib/rocksdb is the durable
   # store for any code that keeps user state.
@@ -69,15 +68,6 @@ devices:
     type: disk
     readonly: false
     shift: true
-
-  # ---------------------------------------------------------------------------
-  # 5. 3tchedFS Typed Operation Hierarchy
-  # ---------------------------------------------------------------------------
-  etched-fs-tree:
-    path: /opt/run-mounts/3tched
-    source: /run/mounts/3tched/3tchedChatbot
-    type: disk
-    readonly: false
 
   # ---------------------------------------------------------------------------
   # 6. Outbound Egress UNIX Domain Socket (runit socat -> host egress)
