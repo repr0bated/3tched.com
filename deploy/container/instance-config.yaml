@@ -15,7 +15,7 @@ config:
   user.opdbus.envelope_version: "SID1"
   user.opdbus.session_uuid: "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
   user.opdbus.principal_id: "princ_blake3_7f9a2c41e80b3d19a65e0c21"
-  user.opdbus.wireguard_pubkey: "wg1_K9xV3mP8qR2tL5nW7jY4hF6dS0aG1cB9vZ8uE3rT2wI="
+  user.opdbus.wireguard_pubkey: "wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE="
   user.opdbus.kdf_domain: "opdbus.3tched.v1.session_kdf"
   user.opdbus.host_bridge: "ovsbr0"
   user.opdbus.dbus_authority: "org.opdbus.v1.Rovs"
@@ -46,6 +46,7 @@ user.opdbus.hooks: |
     fail_policy: retry
     timeout_sec: 10
     command: 'op-grpc-bridge --bind-tonic 10.0.0.2:8090 --lungs-sock /run/opdbus/lungs.sock --mutation-engine-dbus org.opdbus.v1.MutationEngine'
+  # SUPERSEDED 2026-11-12: storage is set by container-provision.sh (no seed.img, no device add at start).
   - name: hybrid-btrfs-ext4-mount
     phase: storage-mount
     trigger: incus.hook.pre-start

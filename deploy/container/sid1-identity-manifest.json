@@ -6,7 +6,7 @@
     "name": "3tchedChatbot",
     "session_id": "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201",
     "principal_id": "princ_blake3_7f9a2c41e80b3d19a65e0c21",
-    "wireguard_pubkey": "wg1_K9xV3mP8qR2tL5nW7jY4hF6dS0aG1cB9vZ8uE3rT2wI=",
+    "wireguard_pubkey": "wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=",
     "kdf": {
       "algorithm": "BLAKE3-KDF",
       "domain_context": "opdbus.3tched.v1.session_kdf",
@@ -21,7 +21,7 @@
       "fs": "ext4"
     },
     "base_seed": {
-      "image": "seed.img",
+      "image": "/dev/sda4 (UUID dcfbc0a6-442d-474f-b636-fe17d25eaaf1)",
       "size_gib": 16,
       "btrfstune_seed": true
     },

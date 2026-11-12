@@ -1,3 +1,10 @@
+> **Superseded 2026-11-12.** `container-provision.sh` and `incus-profile.yaml`
+> carry the owner's 2026-11-11 decisions: seed `/dev/sda4` (ro), upgrade
+> `/dev/sda5` `@` (ro), pool `3tched-pool` (150G sparse), Cozo root
+> `/var/lib/incus/storage-pools/3tched-pool/containers/<container>/`, RocksDB
+> ext4 image in that directory, snowball ledger mount. The seed.img, 40G LV,
+> cozo_delta.img and opdbus-btrfs-sprout steps below are historical.
+
 # OP-DBUS / 3tched Full System Deployment Runbook
 
 > **Principle:** "The container is the identity; 3tchedFS is its lungs."
