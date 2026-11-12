@@ -102,7 +102,7 @@ incus profile edit "${PROFILE}" < ./incus-profile.yaml
 # --- 4. Instance (one time). Its directory is the Cozo store root. -----------
 step 4/8 "Instance ${CONTAINER_NAME} on ${POOL}"
 # Profile host-path sources must exist before Incus validates the devices.
-mkdir -p /run/opdbus /run/opdbus-egress /run/mounts/3tched/"${CONTAINER_NAME}"
+mkdir -p /run/opdbus/lungs /run/opdbus-egress /run/mounts/3tched/"${CONTAINER_NAME}"
 if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
   incus init "${IMAGE}" "${CONTAINER_NAME}" --profile "${PROFILE}" --storage "${POOL}"
 fi
@@ -155,7 +155,7 @@ if [ ! -e "${SUBVOL_DIR}/user/session.json" ]; then
   "session_id": "${SESSION_UUID}",
   "principal_id": "${PRINCIPAL_ID}",
   "wireguard_pubkey": "${WG_PUBKEY}",
-  "lungs_socket": "/opt/run-mounts/ghostbridge/lungs.sock",
+  "lungs_socket": "/run/opdbus/lungs/lungs.sock",
   "cozo_rocksdb_mount": "/var/lib/rocksdb",
   "sealed_id": "/agent/user/sealed_id",
   "egress_proxy": "http://127.0.0.1:3128"

@@ -9,7 +9,7 @@
 # =============================================================================
 set -euo pipefail
 
-readonly LUNGS_SOCK="/run/opdbus/lungs.sock"
+readonly LUNGS_SOCK="/run/opdbus/lungs/lungs.sock"
 readonly EGRESS_SOCK="/run/opdbus-egress/http.sock"
 
 log() {

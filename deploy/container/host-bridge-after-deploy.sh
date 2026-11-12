@@ -16,7 +16,7 @@ readonly SVC_CIDR="10.0.0.2/24"
 readonly SVC_IP="10.0.0.2"
 readonly TONIC_PORT="8090"
 readonly DECOY_TUN="tun5"
-readonly LUNGS_SOCK="/run/opdbus/lungs.sock"
+readonly LUNGS_SOCK="/run/opdbus/lungs/lungs.sock"
 readonly EGRESS_SOCK="/run/opdbus-egress/http.sock"
 
 log() {

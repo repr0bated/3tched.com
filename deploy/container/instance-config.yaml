@@ -42,10 +42,10 @@ user.opdbus.hooks: |
   - name: op-grpc-bridge-start
     phase: host-boot
     trigger: runit /etc/sv/op-grpc-bridge/run
-    target: 10.0.0.2:8090 + /run/opdbus/lungs.sock
+    target: 10.0.0.2:8090 + /run/opdbus/lungs/lungs.sock
     fail_policy: retry
     timeout_sec: 10
-    command: 'op-grpc-bridge --bind-tonic 10.0.0.2:8090 --lungs-sock /run/opdbus/lungs.sock --mutation-engine-dbus org.opdbus.v1.MutationEngine'
+    command: 'op-grpc-bridge --bind-tonic 10.0.0.2:8090 --lungs-sock /run/opdbus/lungs/lungs.sock --mutation-engine-dbus org.opdbus.v1.MutationEngine'
   # SUPERSEDED 2026-11-12: storage is set by container-provision.sh (no seed.img, no device add at start).
   - name: hybrid-btrfs-ext4-mount
     phase: storage-mount
@@ -64,8 +64,8 @@ user.opdbus.hooks: |
   - name: 3tchedfs-lungs-breath-dispatch
     phase: runtime-ipc
     trigger: write(/opt/run-mounts/3tched/<op>/call)
-    target: /run/opdbus/lungs.sock -> op-grpc-bridge
+    target: /run/opdbus/lungs/lungs.sock -> op-grpc-bridge
     fail_policy: quarantine
     timeout_sec: 12
-    command: '3tchedfs-daemon --mount /opt/run-mounts/3tched --schemas /agent/shared/3tched_types.schema.json --socket /opt/run-mounts/ghostbridge/lungs.sock'
+    command: '3tchedfs-daemon --mount /opt/run-mounts/3tched --schemas /agent/shared/3tched_types.schema.json --socket /run/opdbus/lungs/lungs.sock'
 

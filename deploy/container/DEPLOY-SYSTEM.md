@@ -14,7 +14,7 @@
 - **Principal ID (BLAKE3):** `princ_blake3_7f9a2c41e80b3d19a65e0c21`
 - **Host Control Plane:** Debian GNU/Linux (systemd, D-Bus Control) (`org.opdbus.v1.Rovs`)
 - **Tonic gRPC Service Door:** `svc0` (`10.0.0.2/24` on port `8090`)
-- **3tchedFS Lungs UDS:** `/run/opdbus/lungs.sock` -> `/opt/run-mounts/ghostbridge`
+- **3tchedFS Lungs UDS:** `/run/opdbus/lungs/lungs.sock`, same path on host and guest (fixed by the sealed seed)
 - **Refinements Applied:** 1
 
 ## Quick Single-Command Bundle Deployment
@@ -64,7 +64,7 @@ interface org.opdbus.v1.Rovs { methods: EnsureBridge, AttachPhysicalUplink, Ensu
 
 ## Phase 02: Host Network Fabric (ovsbr0) & Tonic gRPC Door (:8090)
 
-Install and start the host-boot-ovs.sh systemd service (/etc/systemd/system/ovsbr0-network.service) on Debian GNU/Linux (systemd, D-Bus Control) to configure ovsbr0, enslave eth0, bind pub0 and svc0 (10.0.0.2/24), and open /run/opdbus/lungs.sock.
+Install and start the host-boot-ovs.sh systemd service (/etc/systemd/system/ovsbr0-network.service) on Debian GNU/Linux (systemd, D-Bus Control) to configure ovsbr0, enslave eth0, bind pub0 and svc0 (10.0.0.2/24), and open /run/opdbus/lungs/lungs.sock.
 
 ### Commands
 ```bash
@@ -90,10 +90,10 @@ systemctl enable --now ovsbr0-network.service
 
 ### Verification
 ```bash
-$ ip -br addr show svc0 && ss -tlpn | grep ":8090" && ls -l /run/opdbus/lungs.sock
+$ ip -br addr show svc0 && ss -tlpn | grep ":8090" && ls -l /run/opdbus/lungs/lungs.sock
 svc0 UNKNOWN 10.0.0.2/24
 LISTEN 0 128 10.0.0.2:8090 0.0.0.0:* users:(("op-grpc-bridge",pid=912,fd=7))
-srwxr-x--- 1 root opdbus 0 /run/opdbus/lungs.sock
+srwxr-x--- 1 root opdbus 0 /run/opdbus/lungs/lungs.sock
 ```
 
 - Physical interface eth0 carries raw L2 frames with zero host IP assigned.
@@ -165,7 +165,7 @@ cat > /var/lib/opdbus/containers/3tchedChatbot/subvolumes/user/session.json <<'E
   "session_id": "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201",
   "principal_id": "princ_blake3_7f9a2c41e80b3d19a65e0c21",
   "kdf_domain": "opdbus.3tched.v1.session_kdf",
-  "lungs_socket": "/opt/run-mounts/ghostbridge/lungs.sock",
+  "lungs_socket": "/run/opdbus/lungs/lungs.sock",
   "cozo_rocksdb_mount": "/var/lib/rocksdb"
 }
 EOF
@@ -192,7 +192,7 @@ install -d -m 0755 /run/mounts/3tched/3tchedChatbot
 3tchedfs-daemon \
   --spec ./3tchedfs-protocol.yaml \
   --mount /run/mounts/3tched/3tchedChatbot \
-  --lungs-sock /run/opdbus/lungs.sock &
+  --lungs-sock /run/opdbus/lungs/lungs.sock &
 
 # 2. Import hardened Incus profile and launch NIC-less instance
 incus profile create opdbus-3tched-3tchedchatbot 2>/dev/null || true
@@ -221,7 +221,7 @@ Verify that 3tchedChatbot can breathe an operation call through /opt/run-mounts/
 
 ### Commands
 ```bash
-# 1. Test 3tchedFS Lungs breath across /opt/run-mounts/ghostbridge/lungs.sock
+# 1. Test 3tchedFS Lungs breath across /run/opdbus/lungs/lungs.sock
 incus exec 3tchedChatbot -- sh -c '
   echo "{"bridge":"ovsbr0"}" > /opt/run-mounts/3tched/host.network.rovs/inspect_fabric/call &&
   cat /opt/run-mounts/3tched/host.network.rovs/inspect_fabric/status &&

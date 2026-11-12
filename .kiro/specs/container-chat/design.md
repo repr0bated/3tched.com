@@ -210,7 +210,7 @@ with:
 6. **Create Incus storage pool** `opdbus-btrfs-sprout` (btrfs driver, 30 GiB
    backing from the LV image).
 7. **Import Incus image** from the seed (labelled `opdbus-seed-base`).
-8. **Prepare UDS directories:** `/run/opdbus/lungs.sock` and
+8. **Prepare UDS directories:** `/run/opdbus/lungs/lungs.sock` and
    `/run/opdbus-egress/http.sock` (socket dirs, not sockets themselves — the
    bridge creates the egress socket later).
 

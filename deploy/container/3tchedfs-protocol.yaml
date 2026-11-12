@@ -6,8 +6,8 @@
 version: "opdbus.3tched.v1"
 lungs_virtual_fs:
   mountpoint: "/opt/run-mounts/3tched"
-  transport_socket_host: "/run/opdbus/lungs.sock"
-  transport_socket_guest: "/opt/run-mounts/ghostbridge/lungs.sock"
+  transport_socket_host: "/run/opdbus/lungs/lungs.sock"
+  transport_socket_guest: "/run/opdbus/lungs/lungs.sock"
   bridge_listener: "10.0.0.2:8090"
   authority_dbus: "org.opdbus.v1.MutationEngine"
 
@@ -30,8 +30,8 @@ protocols:
     name: "3tchedFS Lungs UDS Framing Protocol"
     layer: "3tchedFS Lungs UDS"
     direction: "Container -> Host"
-    transport: "AF_UNIX SEQPACKET / STREAM (/run/opdbus/lungs.sock)"
-    endpoint: "/opt/run-mounts/ghostbridge/lungs.sock"
+    transport: "AF_UNIX SEQPACKET / STREAM (/run/opdbus/lungs/lungs.sock)"
+    endpoint: "/run/opdbus/lungs/lungs.sock"
     auth: "Kernel SCM_CREDENTIALS + Container Session UUID Lookup"
   - id: proto-egress-proxy
     name: "Loopback-to-UDS Egress Tunnel"
