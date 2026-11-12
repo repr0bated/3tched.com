@@ -24,8 +24,9 @@
 #     template volume rocksdb-template and attached as a filesystem at
 #     /var/lib/rocksdb (a container cannot take custom block volumes).
 #   - Btrfs is OS persistence; RocksDB is user persistence (private memory
-#     Cozo only). The sled is the session ledger: /agent/user, a Btrfs
-#     subvolume holding sealed_id, vectorized and cleared, written by the host.
+#     Cozo and the identity sled). Snowball is captured by vectorization, does
+#     not persist, and is not stored in RocksDB (guest /run tmpfs).
+#   - /agent/user holds sealed_id; the host has read-write access to it.
 #   - The WireGuard key is the same as the wg-opdbus server on 10.0.0.1.
 #
 # One-time steps (image creation, fstab line, incus init) are skipped when
@@ -53,7 +54,7 @@ readonly UPGRADE_MNT="/run/mounts/upgrade-3tched"
 readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_NAME}"
 readonly ROCKSDB_TEMPLATE_VOL="rocksdb-template"
 readonly ROCKSDB_VOL="${CONTAINER_NAME}-rocksdb"
-readonly ROCKSDB_STORES="cozo"
+readonly ROCKSDB_STORES="cozo sled"
 readonly SUBVOL_DIR="${DATA_DIR}/subvolumes"
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
 

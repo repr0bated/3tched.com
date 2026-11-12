@@ -79,13 +79,14 @@ kernel rootflags=subvol=@rootfs
 - **Btrfs: OS persistence.** Shared sda4 seed plus this container's sprout
   (`cozo_delta.img`, copied from `/var/lib/incus/disks/`).
 - **RocksDB: user persistence.** Incus volume `3tchedChatbot-rocksdb` at
-  `/var/lib/rocksdb`, holding only the private memory Cozo
-  (`COGNITIVE_COZO_DB_PATH`).
-- **Sled: session ledger.** `/agent/user` Btrfs subvolume with `sealed_id`.
-  Vectorized and cleared; the host has read-write access to the whole sled.
-  It needs no RocksDB store.
+  `/var/lib/rocksdb`: private memory Cozo (`cozo/`) and the identity sled
+  (`sled/`).
+- **Snowball: not persisted.** It is captured by vectorization and cleared, so
+  it is kept out of RocksDB and lives on the guest's `/run/opdbus-snowball`
+  tmpfs (`OPDBUS_SNOWBALL_PATH`). Without a Btrfs sink the chain records to RAM.
+- `/agent/user` holds `sealed_id`; the host has read-write access.
 
-**Code drift.** `odbus-verified` still has two stores for the sled: a
-RocksDB-engine Cozo identity store (`IDENTITY_SLED_COZO_DB_PATH`, op-grpc-bridge)
-and the snowball chain (`OPDBUS_SNOWBALL_PATH`, op-snowball/op-cognitive). The
-profile points both at `/agent/user` until the code is merged into one sled.
+**Code drift.** `odbus-verified` forked one ledger into two stores: the
+identity sled Cozo (`IDENTITY_SLED_COZO_DB_PATH`) and the snowball chain
+(`OPDBUS_SNOWBALL_PATH`). The deploy config keeps them apart until the code is
+merged.
