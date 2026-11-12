@@ -23,8 +23,8 @@
 #   - RocksDB is an Incus custom volume in 3tched-pool, copied from the
 #     template volume rocksdb-template and attached as a filesystem at
 #     /var/lib/rocksdb (a container cannot take custom block volumes).
-#   - Btrfs is OS persistence; RocksDB is user persistence (private memory
-#     Cozo only). The sled (snowball and its identity-cozo fork) is captured by
+#   - Btrfs is OS persistence. RocksDB (/var/lib/rocksdb) is the durable
+#     store for any code that keeps user state; no per-store layout is imposed. The sled (snowball and its identity-cozo fork) is captured by
 #     vectorization, does not persist, and lives on the guest /run tmpfs.
 #   - /agent/user holds sealed_id; the host has read-write access to it.
 #   - The WireGuard key is the same as the wg-opdbus server on 10.0.0.1.
@@ -54,7 +54,6 @@ readonly UPGRADE_MNT="/run/mounts/upgrade-3tched"
 readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_NAME}"
 readonly ROCKSDB_TEMPLATE_VOL="rocksdb-template"
 readonly ROCKSDB_VOL="${CONTAINER_NAME}-rocksdb"
-readonly ROCKSDB_STORES="cozo"
 readonly SUBVOL_DIR="${DATA_DIR}/subvolumes"
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
 
@@ -116,7 +115,6 @@ if ! incus storage volume show "${POOL}" "${ROCKSDB_TEMPLATE_VOL}" >/dev/null 2>
   incus storage volume create "${POOL}" "${ROCKSDB_TEMPLATE_VOL}"
   tpl="/var/lib/incus/storage-pools/${POOL}/custom/default_${ROCKSDB_TEMPLATE_VOL}"
   chattr +C "${tpl}"   # No-CoW for RocksDB; inherited by new files and copies
-  for d in ${ROCKSDB_STORES}; do install -d -m 0700 "${tpl}/$d"; done
 fi
 incus storage volume show "${POOL}" "${ROCKSDB_VOL}" >/dev/null 2>&1 || \
   incus storage volume copy "${POOL}/${ROCKSDB_TEMPLATE_VOL}" "${POOL}/${ROCKSDB_VOL}"

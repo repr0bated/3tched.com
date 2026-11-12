@@ -36,7 +36,8 @@ config:
   environment.OP_IDENTITY_NEXTDNS_BINDINGS: '[{"wireguard_pubkey":"wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=","profile_id":"689ec7","device_name":"Ghostbridge-Incus"}]'
   environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
-  # Btrfs is OS persistence (seed + sprout); RocksDB is user persistence.
+  # Btrfs is OS persistence (seed + sprout). /var/lib/rocksdb is the durable
+  # store for any code that keeps user state.
   # The sled (snowball and its identity-cozo fork) is captured by vectorization
   # and does not persist: it lives on the guest's /run tmpfs, not in RocksDB.
   environment.COGNITIVE_COZO_DB_PATH: "/var/lib/rocksdb/cozo"
