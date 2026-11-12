@@ -38,11 +38,11 @@ config:
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
   # Btrfs is OS persistence (seed + sprout). /var/lib/rocksdb is the durable
   # store for any code that keeps user state.
-  # The sled (snowball and its identity-cozo fork) is captured by vectorization
-  # and does not persist: it lives on the guest's /run tmpfs, not in RocksDB.
+  # The sled (snowball and its identity-cozo fork) is a rw mount from the
+  # host's /run tmpfs: not durable; it is mutated at vectorization and reset.
   environment.COGNITIVE_COZO_DB_PATH: "/var/lib/rocksdb/cozo"
-  environment.IDENTITY_SLED_COZO_DB_PATH: "/run/opdbus-snowball/identity-cozo"
-  environment.OPDBUS_SNOWBALL_PATH: "/run/opdbus-snowball"
+  environment.IDENTITY_SLED_COZO_DB_PATH: "/run/opdbus-sled/identity-cozo"
+  environment.OPDBUS_SNOWBALL_PATH: "/run/opdbus-sled"
   environment.http_proxy: "http://127.0.0.1:3128"
   environment.https_proxy: "http://127.0.0.1:3128"
   environment.HTTP_PROXY: "http://127.0.0.1:3128"

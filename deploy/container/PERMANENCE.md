@@ -82,11 +82,11 @@ kernel rootflags=subvol=@rootfs
   `/var/lib/rocksdb`: the durable store for any code that keeps user state.
   No layout is imposed; the private memory Cozo uses `cozo/`
   (`COGNITIVE_COZO_DB_PATH`).
-- **Sled: not persisted.** Snowball and its identity-cozo fork are captured by
-  vectorization and cleared, so both are kept out of RocksDB on the guest's
-  `/run/opdbus-snowball` tmpfs (`OPDBUS_SNOWBALL_PATH`,
-  `IDENTITY_SLED_COZO_DB_PATH=/run/opdbus-snowball/identity-cozo`). Without a
-  Btrfs sink the chain records to RAM.
+- **Sled: mounted rw, not durable.** Snowball and its identity-cozo fork live
+  on host tmpfs `/run/opdbus-sled/<container>`, bound read-write at
+  `/run/opdbus-sled` (`OPDBUS_SNOWBALL_PATH`, `IDENTITY_SLED_COZO_DB_PATH`).
+  The host writes it; it is mutated at vectorization and reset, and a host
+  reboot clears it. Without a Btrfs sink the chain records to RAM.
 - `/agent/user` holds `sealed_id`; the host has read-write access.
 
 **Code drift.** `odbus-verified` forked one ledger into two stores: the

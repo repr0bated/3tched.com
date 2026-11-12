@@ -55,6 +55,7 @@ readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_N
 readonly ROCKSDB_TEMPLATE_VOL="rocksdb-template"
 readonly ROCKSDB_VOL="${CONTAINER_NAME}-rocksdb"
 readonly SUBVOL_DIR="${DATA_DIR}/subvolumes"
+readonly SLED_DIR="/run/opdbus-sled/${CONTAINER_NAME}"   # host tmpfs, not durable
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
 
 die() { echo "FATAL: $*" >&2; exit 1; }
@@ -95,7 +96,7 @@ incus profile edit "${PROFILE}" < ./incus-profile.yaml
 # --- 4. Instance (one time). Its directory is the Cozo store root. -----------
 step 4/8 "Instance ${CONTAINER_NAME} on ${POOL}"
 # Profile host-path sources must exist before Incus validates the devices.
-mkdir -p /run/opdbus/lungs /run/opdbus-egress /run/mounts/3tched/"${CONTAINER_NAME}"
+mkdir -p /run/opdbus/lungs /run/opdbus-egress "${SLED_DIR}" /run/mounts/3tched/"${CONTAINER_NAME}"
 if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
   # --empty: Incus unpacks no image. The rootfs directory stays empty and the
   # sprout (shared seed @ + this container's cozo_delta.img) is mounted on it.
@@ -165,6 +166,8 @@ incus config device remove "${CONTAINER_NAME}" rocksdb-storage >/dev/null 2>&1 |
 incus config device add "${CONTAINER_NAME}" rocksdb-storage disk \
   pool="${POOL}" source="${ROCKSDB_VOL}" path=/var/lib/rocksdb
 incus config device remove "${CONTAINER_NAME}" snowball-ledger >/dev/null 2>&1 || true
+# Sled: read-write, host-writable, not durable (host /run tmpfs).
+add_disk sled "${SLED_DIR}" /run/opdbus-sled false
 incus config device remove "${CONTAINER_NAME}" seed-lower >/dev/null 2>&1 || true
 add_disk upgrade-lower   "${UPGRADE_MNT}"      /run/mounts/upgrade-3tched true
 for d in user memory skills; do
