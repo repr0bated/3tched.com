@@ -73,3 +73,19 @@ kernel rootflags=subvol=@rootfs
 9. **Seed carries desktop services.** The seed is a full Ubuntu desktop
    (snaps, cups, bluetooth, avahi, cloud-init); several fail every boot. The
    seed cannot change; masking them would live in the sprout.
+
+## Storage roles (owner, 2026-11-12)
+
+- **Btrfs: OS persistence.** Shared sda4 seed plus this container's sprout
+  (`cozo_delta.img`, copied from `/var/lib/incus/disks/`).
+- **RocksDB: user persistence.** Incus volume `3tchedChatbot-rocksdb` at
+  `/var/lib/rocksdb`, holding only the private memory Cozo
+  (`COGNITIVE_COZO_DB_PATH`).
+- **Sled: session ledger.** `/agent/user` Btrfs subvolume with `sealed_id`.
+  Vectorized and cleared; the host has read-write access to the whole sled.
+  It needs no RocksDB store.
+
+**Code drift.** `odbus-verified` still has two stores for the sled: a
+RocksDB-engine Cozo identity store (`IDENTITY_SLED_COZO_DB_PATH`, op-grpc-bridge)
+and the snowball chain (`OPDBUS_SNOWBALL_PATH`, op-snowball/op-cognitive). The
+profile points both at `/agent/user` until the code is merged into one sled.

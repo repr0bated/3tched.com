@@ -36,9 +36,13 @@ config:
   environment.OP_IDENTITY_NEXTDNS_BINDINGS: '[{"wireguard_pubkey":"wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=","profile_id":"689ec7","device_name":"Ghostbridge-Incus"}]'
   environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
+  # Btrfs is OS persistence (seed + sprout). RocksDB is user persistence only:
+  # the private memory Cozo. The sled is the session ledger on /agent/user:
+  # vectorized and cleared, written by the host, holding sealed_id. The code's
+  # identity-cozo and snowball stores are one sled; both point at it.
   environment.COGNITIVE_COZO_DB_PATH: "/var/lib/rocksdb/cozo"
-  environment.IDENTITY_SLED_COZO_DB_PATH: "/var/lib/rocksdb/sled"
-  environment.OPDBUS_CHAT_HISTORY_PATH: "/var/lib/rocksdb/chat-history"
+  environment.IDENTITY_SLED_COZO_DB_PATH: "/agent/user/identity-cozo"
+  environment.OPDBUS_SNOWBALL_PATH: "/agent/user"
   environment.http_proxy: "http://127.0.0.1:3128"
   environment.https_proxy: "http://127.0.0.1:3128"
   environment.HTTP_PROXY: "http://127.0.0.1:3128"
