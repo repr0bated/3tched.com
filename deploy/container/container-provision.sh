@@ -21,8 +21,13 @@
 #     once at provisioning with the RocksDB-tuned mkfs flags. Incus bind-mounts
 #     regular files for containers, so the host loop-mounts the image (fstab)
 #     and the disk device passes the mounted directory to /var/lib/rocksdb.
-#   - The snowball ledger is the one host-written mount:
-#     <container dir>/snowball -> /var/lib/opdbus/snowball (rw).
+#   - RocksDB ext4 holds one directory per store: cozo (COGNITIVE_COZO_DB_PATH),
+#     sled (IDENTITY_SLED_COZO_DB_PATH), chat-history (reserved: chat-route
+#     keeps sessions in memory today), snowball (OPDBUS_SNOWBALL_PATH). The
+#     host writes snowball through its loop mount of the same filesystem.
+#   - /agent/user is the identity sled (Btrfs subvolume, rw); sealed_id in it
+#     is bound read-only. Cozo in the guest uses COGNITIVE_COZO_DB_PATH on the
+#     RocksDB ext4 mount (/var/lib/rocksdb/cozo).
 #   - The WireGuard key is the same as the wg-opdbus server on 10.0.0.1.
 #
 # One-time steps (image creation, fstab line, incus init) are skipped when
@@ -51,7 +56,10 @@ readonly UPGRADE_MNT="/run/mounts/upgrade-3tched"
 readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_NAME}"
 readonly ROCKSDB_IMG="${DATA_DIR}/cozo_rocksdb.img"
 readonly ROCKSDB_MNT="${DATA_DIR}/mnt/rocksdb"
-readonly SNOWBALL_DIR="${DATA_DIR}/snowball"
+# Stores on the RocksDB ext4 (one directory each). The host writes the snowball
+# ledger through its own loop mount of the same filesystem.
+readonly SNOWBALL_DIR="${ROCKSDB_MNT}/snowball"
+readonly ROCKSDB_STORES="cozo sled chat-history snowball"
 readonly SUBVOL_DIR="${DATA_DIR}/subvolumes"
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
 
@@ -126,8 +134,20 @@ mountpoint -q "${ROCKSDB_MNT}" || mount "${ROCKSDB_MNT}"
 
 # --- 6. Snowball ledger and /agent directories --------------------------------
 step 6/8 "Snowball ledger ${SNOWBALL_DIR} and /agent directories"
-mkdir -p "${SNOWBALL_DIR}" \
-  "${SUBVOL_DIR}"/{user,memory,skills,soul,rules,shared}
+for d in ${ROCKSDB_STORES}; do mkdir -p "${ROCKSDB_MNT}/$d"; chmod 0700 "${ROCKSDB_MNT}/$d"; done
+mkdir -p "${SUBVOL_DIR}"/{memory,skills,soul,rules,shared}
+# /agent/user is the identity sled: a real Btrfs subvolume (rw). A plain
+# directory left by an earlier run is converted once, contents kept.
+if ! btrfs subvolume show "${SUBVOL_DIR}/user" >/dev/null 2>&1; then
+  if [ -d "${SUBVOL_DIR}/user" ]; then
+    mv "${SUBVOL_DIR}/user" "${SUBVOL_DIR}/user.pre-subvol"
+    btrfs subvolume create "${SUBVOL_DIR}/user"
+    cp -a "${SUBVOL_DIR}/user.pre-subvol/." "${SUBVOL_DIR}/user/"
+    rm -rf "${SUBVOL_DIR}/user.pre-subvol"
+  else
+    btrfs subvolume create "${SUBVOL_DIR}/user"
+  fi
+fi
 if [ ! -e "${SUBVOL_DIR}/user/session.json" ]; then
   cat > "${SUBVOL_DIR}/user/session.json" <<EOF
 {
@@ -137,7 +157,7 @@ if [ ! -e "${SUBVOL_DIR}/user/session.json" ]; then
   "wireguard_pubkey": "${WG_PUBKEY}",
   "lungs_socket": "/opt/run-mounts/ghostbridge/lungs.sock",
   "cozo_rocksdb_mount": "/var/lib/rocksdb",
-  "snowball_ledger": "/var/lib/opdbus/snowball",
+  "sealed_id": "/agent/user/sealed_id",
   "egress_proxy": "http://127.0.0.1:3128"
 }
 EOF
@@ -154,7 +174,8 @@ add_disk() { # name, source, path, readonly
   fi
 }
 add_disk rocksdb-storage "${ROCKSDB_MNT}"      /var/lib/rocksdb          false
-add_disk snowball-ledger "${SNOWBALL_DIR}"     /var/lib/opdbus/snowball  false
+# The snowball ledger is a directory on the RocksDB mount, not its own device.
+incus config device remove "${CONTAINER_NAME}" snowball-ledger >/dev/null 2>&1 || true
 incus config device remove "${CONTAINER_NAME}" seed-lower >/dev/null 2>&1 || true
 add_disk upgrade-lower   "${UPGRADE_MNT}"      /run/mounts/upgrade-3tched true
 for d in user memory skills; do
@@ -163,6 +184,13 @@ done
 for d in soul rules shared; do
   add_disk "agent-$d" "${SUBVOL_DIR}/$d" "/agent/$d" true
 done
+# sealed_id (SID1 identity + NextDNS, one sealed object) lives in the sled and
+# is bound read-only over itself. required=false until it is minted.
+if ! incus config device get "${CONTAINER_NAME}" agent-sealed-id source >/dev/null 2>&1; then
+  incus config device add "${CONTAINER_NAME}" agent-sealed-id disk \
+    source="${SUBVOL_DIR}/user/sealed_id" path=/agent/user/sealed_id \
+    readonly=true shift=true required=false
+fi
 
 # --- 7b. Root from the sealed seed: sda4 + this container's writable sprout ---
 # The btrfs device add runs once, when the sprout image is created. Every later

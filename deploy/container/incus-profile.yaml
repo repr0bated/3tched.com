@@ -32,7 +32,11 @@ config:
   environment.OPDBUS_SID_VERSION: "SID1"
   environment.OPDBUS_LUNGS_SOCK: "/opt/run-mounts/ghostbridge/lungs.sock"
   environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
-  environment.COZO_ROCKSDB_PATH: "/var/lib/rocksdb"
+  # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
+  environment.COGNITIVE_COZO_DB_PATH: "/var/lib/rocksdb/cozo"
+  environment.IDENTITY_SLED_COZO_DB_PATH: "/var/lib/rocksdb/sled"
+  environment.OPDBUS_SNOWBALL_PATH: "/var/lib/rocksdb/snowball"
+  environment.OPDBUS_CHAT_HISTORY_PATH: "/var/lib/rocksdb/chat-history"
   environment.http_proxy: "http://127.0.0.1:3128"
   environment.https_proxy: "http://127.0.0.1:3128"
   environment.HTTP_PROXY: "http://127.0.0.1:3128"
