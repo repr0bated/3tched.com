@@ -87,7 +87,10 @@ kernel rootflags=subvol=@rootfs
   `/run/opdbus-sled` (`OPDBUS_SNOWBALL_PATH`, `IDENTITY_SLED_COZO_DB_PATH`).
   The host writes it; it is mutated at vectorization and reset, and a host
   reboot clears it. Without a Btrfs sink the chain records to RAM.
-- `/agent/user` holds `sealed_id`; the host has read-write access.
+- **`sealed_id` is the sled's persistence.** It lives in the `/agent/user`
+  Btrfs subvolume (durable, read-only in the guest, host read-write). The
+  sled resets; what must survive the reset is sealed into `sealed_id`
+  (SID1 identity and the NextDNS context, sealed at minting).
 
 **Code drift.** `odbus-verified` forked one ledger into two stores: the
 identity sled Cozo (`IDENTITY_SLED_COZO_DB_PATH`) and the snowball chain
