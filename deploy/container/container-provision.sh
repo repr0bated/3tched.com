@@ -191,9 +191,9 @@ incus config device add "${CONTAINER_NAME}" rocksdb-storage disk \
   pool="${POOL}" source="${ROCKSDB_VOL}" path=/var/lib/rocksdb
 incus config device remove "${CONTAINER_NAME}" snowball-ledger >/dev/null 2>&1 || true
 # Sled: read-write, host-writable, not durable (host /run tmpfs).
-add_disk sled "${SLED_DIR}" /run/opdbus-sled false
+add_disk sled "${SLED_DIR}" /opt/run-mounts/opdbus-sled false
 incus config device remove "${CONTAINER_NAME}" seed-lower >/dev/null 2>&1 || true
-add_disk upgrade-lower   "${UPGRADE_MNT}"      /run/mounts/upgrade-3tched true
+add_disk upgrade-lower   "${UPGRADE_MNT}"      /opt/run-mounts/upgrade-3tched true
 for d in user memory skills; do
   add_disk "agent-$d" "${SUBVOL_DIR}/$d" "/agent/$d" false
 done
@@ -224,6 +224,16 @@ echo "127.0.1.1 ${DISPLAY_NAME}" >> "${DATA_DIR}/rootfs/etc/hosts"
 install -d -m 0755 "${DATA_DIR}/rootfs/etc/opdbus"
 printf '%s\n' "${TRUST_JSON}" > "${DATA_DIR}/rootfs/etc/opdbus/decoy-trust.json"
 install -m 0755 "$(command -v op-identity-accept)" "${DATA_DIR}/rootfs/usr/local/bin/op-identity-accept"
+# Guest systemd mounts a fresh /run over pre-start mounts; host devices are
+# under /opt/run-mounts and these links restore the /run paths the seed uses.
+install -d -m 0755 "${DATA_DIR}/rootfs/etc/tmpfiles.d"
+cat > "${DATA_DIR}/rootfs/etc/tmpfiles.d/opdbus-run-mounts.conf" <<'TMPF'
+d  /run/mounts               0755 root root -
+L+ /run/opdbus               -    -    -    - /opt/run-mounts/opdbus
+L+ /run/opdbus-egress        -    -    -    - /opt/run-mounts/opdbus-egress
+L+ /run/opdbus-sled          -    -    -    - /opt/run-mounts/opdbus-sled
+L+ /run/mounts/upgrade-3tched -   -    -    - /opt/run-mounts/upgrade-3tched
+TMPF
 # Boot service name for this container's root.
 install -d -m 0755 /etc/opdbus
 echo "${CONTAINER_NAME}" > /etc/opdbus/3tched-container-name

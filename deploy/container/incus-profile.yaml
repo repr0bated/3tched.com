@@ -59,11 +59,12 @@ devices:
     size: "20GiB"
 
   # ---------------------------------------------------------------------------
-  # 4. Lungs socket directory, same path on host and guest. The socket path
-  #    /run/opdbus/lungs/lungs.sock is fixed by the sealed seed (3tchedfs-guest).
+  # 4. Lungs socket directory. The guest's systemd mounts a fresh /run, so
+  #    devices land in /opt/run-mounts and the sprout's tmpfiles.d links
+  #    /run/opdbus there; /run/opdbus/lungs/lungs.sock is fixed by the seed.
   # ---------------------------------------------------------------------------
   opdbus-lungs-socket:
-    path: /run/opdbus
+    path: /opt/run-mounts/opdbus
     source: /run/opdbus
     type: disk
     readonly: false
@@ -73,7 +74,7 @@ devices:
   # 6. Outbound Egress UNIX Domain Socket (runit socat -> host egress)
   # ---------------------------------------------------------------------------
   opdbus-egress-socket:
-    path: /run/opdbus-egress
+    path: /opt/run-mounts/opdbus-egress
     source: /run/opdbus-egress
     type: disk
     readonly: false

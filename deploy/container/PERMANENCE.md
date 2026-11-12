@@ -111,3 +111,19 @@ and installs `/agent/user/sealed_id` once.
 Open: the genesis catalog hash comes from the
 sealed blobs in `/dev/shm/opdbus/plugin-blobs` (`catalog-hash.sh`), which are
 not staged on the host yet.
+
+## Guest /run (2026-11-12)
+
+The seed's systemd mounts a fresh tmpfs on `/run` after Incus attaches start-time
+devices, hiding anything mounted under `/run`. Host devices therefore land in
+`/opt/run-mounts/{opdbus,opdbus-egress,opdbus-sled,upgrade-3tched}`, and
+provisioning writes `/etc/tmpfiles.d/opdbus-run-mounts.conf` in the sprout to
+link the `/run` paths the seed expects (`/run/opdbus/lungs/lungs.sock`).
+A raw.lxc tmpfs entry for `/run` was tried and breaks idmapped device mounts.
+
+ID-1 (2026-11-12): provisioned from the shared seed with a fresh sprout,
+decoy-issued identity accepted (`54291774-4b0a-68b0-b55c-dc544900a8de`),
+catalog hash `dfe09265…` from the SHM blobs sealed by the new release build.
+Open: guest `lo` is down (the 127.0.0.1:3128 egress shim needs it); 3tchedFS
+still fails because nothing binds `lungs.sock` and the guest `/dev/shm/opdbus`
+catalog is empty; the new op-grpc-bridge is not installed in the sprout.
