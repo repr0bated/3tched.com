@@ -9,7 +9,10 @@ for i in $(seq 1 120); do
   sleep 2
 done
 mountpoint -q "$POOL_MNT" || { echo "pool $POOL_MNT not mounted"; exit 1; }
-mount /run/mounts/upgrade-3tched 2>/dev/null || true
+mountpoint -q /run/mounts/upgrade-3tched || mount /run/mounts/upgrade-3tched 2>/dev/null || true
+# Lungs socket directory (host tmpfs, same path in the guest). The socket path
+# /run/opdbus/lungs/lungs.sock is fixed by the sealed seed's 3tchedfs-guest.
+install -d -m 0755 /run/opdbus/lungs /run/opdbus-egress
 mountpoint -q "$POOL_MNT/containers/3tchedChatbot/mnt/rocksdb" || \
   mount "$POOL_MNT/containers/3tchedChatbot/mnt/rocksdb" || exit 1
 CONTAINER_NAME=3tchedChatbot "$BUNDLE/container-root.sh" mount || exit 1
