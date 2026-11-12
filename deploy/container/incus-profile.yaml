@@ -5,7 +5,7 @@
 # Principle: "The container is the identity; 3tchedFS is its lungs."
 # =============================================================================
 name: opdbus-3tched-3tchedchatbot
-description: "SID1 Identity Container Profile for 3tchedChatbot on Devuan GNU/Linux (runit, D-Bus Control) (b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201). No network interface; lungs at /run/opdbus, egress at /run/opdbus-egress."
+description: "SID1 Identity Container Profile for 3tchedChatbot on Devuan GNU/Linux (runit, D-Bus Control). No network interface; lungs at /run/opdbus, egress at /run/opdbus-egress."
 config:
   limits.cpu: "4"
   limits.memory: "8GiB"
@@ -25,15 +25,9 @@ config:
   raw.lxc: |
     lxc.cap.drop = net_admin net_raw sys_module sys_rawio sys_time
     lxc.mount.auto = proc:mixed sys:ro cgroup:mixed
-  environment.CONTAINER_IDENTITY: "3tchedChatbot"
   environment.OPDBUS_HOST_OS: "Devuan GNU/Linux (runit, D-Bus Control)"
-  environment.OPDBUS_SESSION_UUID: "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
-  environment.OPDBUS_PRINCIPAL_ID: "princ_blake3_7f9a2c41e80b3d19a65e0c21"
   environment.OPDBUS_SID_VERSION: "SID1"
   environment.OPDBUS_LUNGS_SOCK: "/run/opdbus/lungs/lungs.sock"
-  # NextDNS assignment sealed into sealed_id at minting (shared profile).
-  # Read once by the container's op-grpc-bridge before it mints SID1.
-  environment.OP_IDENTITY_NEXTDNS_BINDINGS: '[{"wireguard_pubkey":"wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=","profile_id":"689ec7","device_name":"Ghostbridge-Incus"}]'
   environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
   # op-cozo-store from_env(): unset means in-memory. Store lives on the ext4 mount.
   # Btrfs is OS persistence (seed + sprout). /var/lib/rocksdb is the durable

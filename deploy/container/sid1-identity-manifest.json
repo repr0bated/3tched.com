@@ -4,14 +4,13 @@
   "host_os": "Debian GNU/Linux (systemd, D-Bus Control)",
   "container_identity": {
     "name": "3tchedChatbot",
-    "session_id": "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201",
-    "principal_id": "princ_blake3_7f9a2c41e80b3d19a65e0c21",
     "wireguard_pubkey": "wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=",
     "kdf": {
       "algorithm": "BLAKE3-KDF",
       "domain_context": "opdbus.3tched.v1.session_kdf",
       "deterministic": true
-    }
+    },
+    "ids": "derived from wireguard_pubkey: instance name = derive_session_id, grants use derive_principal_id; the decoy issues the SID1 (IID1)"
   },
   "storage_attestation": {
     "outer_lv": {

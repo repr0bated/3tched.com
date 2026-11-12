@@ -35,12 +35,23 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-readonly CONTAINER_NAME="3tchedChatbot"
-readonly SESSION_UUID="b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
-readonly PRINCIPAL_ID="princ_blake3_7f9a2c41e80b3d19a65e0c21"
-# Owner: the chatbot uses the same key as the WireGuard server on 10.0.0.1
-# (decoy wg-opdbus interface public key).
-readonly WG_PUBKEY="wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE="
+# The one identity input. Owner: the chatbot uses the same key as the
+# WireGuard server on 10.0.0.1 (decoy wg-opdbus interface public key).
+readonly WG_PUBKEY="${WG_PUBKEY:-wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=}"
+# The container is the identity: its instance name is the session id derived
+# from the key. DISPLAY_NAME is only the hostname and a label.
+readonly DISPLAY_NAME="3tchedChatbot"
+command -v op-identity-accept >/dev/null || { echo "FATAL: op-identity-accept missing" >&2; exit 1; }
+CONTAINER_NAME="$(op-identity-accept derive --pubkey "${WG_PUBKEY}" | cut -d' ' -f1)"
+readonly CONTAINER_NAME
+# The decoy terminates WireGuard and issues the identity (IID1).
+readonly DECOY="${DECOY:-ubuntu@129.80.64.127}"
+readonly DECOY_SSH_KEY="${DECOY_SSH_KEY:-/home/jeremy/.ssh/decoy_key}"
+readonly DECOY_ISSUER="/usr/local/bin/op-decoy-issuer-iid1"
+# Sealed-catalog hash anchored into the genesis (64 hex). Required.
+readonly CATALOG_HASH="${CATALOG_HASH:-}"
+readonly NEXTDNS_PROFILE="689ec7"            # shared profile
+readonly NEXTDNS_DEVICE="Ghostbridge-Incus"
 
 readonly POOL="3tched-pool"
 readonly POOL_SIZE="150GiB"
@@ -103,8 +114,7 @@ if ! incus info "${CONTAINER_NAME}" >/dev/null 2>&1; then
   incus init --empty "${CONTAINER_NAME}" --profile "${PROFILE}" --storage "${POOL}"
 fi
 incus config set "${CONTAINER_NAME}" \
-  user.opdbus.session_uuid="${SESSION_UUID}" \
-  user.opdbus.principal_id="${PRINCIPAL_ID}" \
+  user.opdbus.display_name="${DISPLAY_NAME}" \
   user.opdbus.wireguard_pubkey="${WG_PUBKEY}" \
   user.opdbus.cozo_root="${DATA_DIR}" \
   boot.autostart=false
@@ -137,20 +147,20 @@ if ! btrfs subvolume show "${SUBVOL_DIR}/user" >/dev/null 2>&1; then
     btrfs subvolume create "${SUBVOL_DIR}/user"
   fi
 fi
-if [ ! -e "${SUBVOL_DIR}/user/session.json" ]; then
-  cat > "${SUBVOL_DIR}/user/session.json" <<EOF
-{
-  "container_name": "${CONTAINER_NAME}",
-  "session_id": "${SESSION_UUID}",
-  "principal_id": "${PRINCIPAL_ID}",
-  "wireguard_pubkey": "${WG_PUBKEY}",
-  "lungs_socket": "/run/opdbus/lungs/lungs.sock",
-  "cozo_rocksdb_mount": "/var/lib/rocksdb",
-  "sealed_id": "/agent/user/sealed_id",
-  "egress_proxy": "http://127.0.0.1:3128"
-}
-EOF
+# Identity: the decoy mints and signs it (IID1); the host only carries it.
+# Issued once per container. The container verifies it on first start.
+readonly ISSUED="${SUBVOL_DIR}/user/issued_identity.iid1"
+if [ ! -e "${SUBVOL_DIR}/user/sealed_id" ] && [ ! -s "${ISSUED}" ]; then
+  [[ "${CATALOG_HASH}" =~ ^[0-9a-f]{64}$ ]] || die "CATALOG_HASH (64 hex) is required to issue the identity"
+  ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" \
+    "sudo -n ${DECOY_ISSUER} issue-identity --pubkey '${WG_PUBKEY}' --catalog-hash '${CATALOG_HASH}' \
+     --nextdns-profile '${NEXTDNS_PROFILE}' --nextdns-device '${NEXTDNS_DEVICE}'" > "${ISSUED}.tmp"
+  mv "${ISSUED}.tmp" "${ISSUED}"
 fi
+# Public decoy key for the container's trust store (shared with the bridge).
+key_id="$(ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" 'sudo -n cat /etc/opdbus/decoy-key-id')"
+verifying="$(ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" "sudo -n ${DECOY_ISSUER} verifying-key")"
+TRUST_JSON="$(printf '{"decoy_keys":{"%s":"%s"}}' "${key_id}" "${verifying}")"
 
 # --- 7. Per-instance host-path devices (paths are under DATA_DIR) ------------
 step 7/8 "Instance devices"
@@ -192,10 +202,17 @@ step 7b/8 "Root ${DATA_DIR}/rootfs from seed ${SEED_DEV_UUID} + sprout ${DELTA_I
 ./container-root.sh mount
 ./container-root.sh verify
 
-# The seed carries hostname "seed". Name this root after its container.
-echo "${CONTAINER_NAME}" > "${DATA_DIR}/rootfs/etc/hostname"
+# The seed carries hostname "seed". Name this root by its display name.
+echo "${DISPLAY_NAME}" > "${DATA_DIR}/rootfs/etc/hostname"
 sed -i '/^127\.0\.1\.1[[:space:]]/d' "${DATA_DIR}/rootfs/etc/hosts"
-echo "127.0.1.1 ${CONTAINER_NAME}" >> "${DATA_DIR}/rootfs/etc/hosts"
+echo "127.0.1.1 ${DISPLAY_NAME}" >> "${DATA_DIR}/rootfs/etc/hosts"
+# Trust store and acceptor live in the sprout (the seed is never changed).
+install -d -m 0755 "${DATA_DIR}/rootfs/etc/opdbus"
+printf '%s\n' "${TRUST_JSON}" > "${DATA_DIR}/rootfs/etc/opdbus/decoy-trust.json"
+install -m 0755 "$(command -v op-identity-accept)" "${DATA_DIR}/rootfs/usr/local/bin/op-identity-accept"
+# Boot service name for this container's root.
+install -d -m 0755 /etc/opdbus
+echo "${CONTAINER_NAME}" > /etc/opdbus/3tched-container-name
 
 # --- 8. Start -------------------------------------------------------------------
 step 8/8 "Start ${CONTAINER_NAME}"
@@ -212,4 +229,12 @@ if incus exec "${CONTAINER_NAME}" -- test -x /usr/bin/runsvdir; then
     "${CONTAINER_NAME}/etc/sv/opdbus-egress-proxyd/run"
   incus exec "${CONTAINER_NAME}" -- ln -sfn /etc/sv/opdbus-egress-proxyd /etc/runit/runsvdir/default/opdbus-egress-proxyd
 fi
-echo "Container ${CONTAINER_NAME} (${SESSION_UUID}) started on ${POOL}; Cozo root ${DATA_DIR}."
+# First start: the container verifies the decoy-issued identity and installs
+# it as its sealed_id. It owns the identity from here on.
+if incus exec "${CONTAINER_NAME}" -- test -s /agent/user/issued_identity.iid1; then
+  accepted="$(incus exec "${CONTAINER_NAME}" -- op-identity-accept \
+    --issued /agent/user/issued_identity.iid1 --pubkey "${WG_PUBKEY}" \
+    --trust-store /etc/opdbus/decoy-trust.json --out /agent/user/sealed_id)"
+  [ "${accepted}" = "${CONTAINER_NAME}" ] || die "accepted identity ${accepted} is not ${CONTAINER_NAME}"
+fi
+echo "Container ${CONTAINER_NAME} (${DISPLAY_NAME}) started on ${POOL}; Cozo root ${DATA_DIR}."

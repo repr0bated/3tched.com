@@ -1,3 +1,4 @@
+> **Superseded identity values (2026-11-12).** The session UUID and principal id below were hand-written in the imported bundle and do not match the code. The instance name is `derive_session_id(wireguard_pubkey)` and the decoy issues the SID1; see `container-provision.sh`.
 > **Superseded 2026-11-12.** `container-provision.sh` and `incus-profile.yaml`
 > carry the owner's 2026-11-11 decisions: seed `/dev/sda4` (ro), upgrade
 > `/dev/sda5` `@` (ro), pool `3tched-pool` (150G sparse), Cozo root

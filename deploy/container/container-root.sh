@@ -13,7 +13,7 @@
 # =============================================================================
 set -euo pipefail
 
-readonly CONTAINER_NAME="${CONTAINER_NAME:-3tchedChatbot}"
+readonly CONTAINER_NAME="${CONTAINER_NAME:?CONTAINER_NAME (the derived session id) is required}"
 readonly POOL="${POOL:-3tched-pool}"
 readonly SEED_DEV="/dev/disk/by-uuid/dcfbc0a6-442d-474f-b636-fe17d25eaaf1"   # /dev/sda4
 readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_NAME}"

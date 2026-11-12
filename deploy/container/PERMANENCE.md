@@ -96,3 +96,17 @@ kernel rootflags=subvol=@rootfs
 identity sled Cozo (`IDENTITY_SLED_COZO_DB_PATH`) and the snowball chain
 (`OPDBUS_SNOWBALL_PATH`). The deploy config keeps them apart until the code is
 merged.
+
+## Identity (2026-11-12)
+
+The instance name is `derive_session_id(wireguard_pubkey)`; `3tchedChatbot` is
+only the display name and hostname. The boot service reads the name from
+`/etc/opdbus/3tched-container-name`, written by provisioning. Provisioning has
+the decoy issue the identity (`op-decoy-issuer-iid1 issue-identity`, IID1) into
+`/agent/user/issued_identity.iid1`; on first start the container runs
+`op-identity-accept`, which verifies it against `/etc/opdbus/decoy-trust.json`
+and installs `/agent/user/sealed_id` once.
+
+Open: the container's `op-grpc-bridge` does not yet commit that `sealed_id`
+into its identity sled at startup; provisioning needs `CATALOG_HASH`, and no
+sealed catalog is staged on the host yet.

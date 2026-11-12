@@ -1,3 +1,6 @@
+# Superseded (2026-11-12): the session UUID and principal id in this file were
+# hand-written and do not match the code. The instance name is
+# derive_session_id(wireguard_pubkey); the decoy issues the SID1.
 # =============================================================================
 # Incus Instance Launch & Deterministic Identity Descriptor
 # Instance: 3tchedChatbot

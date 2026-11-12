@@ -2,6 +2,8 @@
 # Host boot: mount each 3tched container root (sealed seed + its sprout) after
 # Incus has mounted 3tched-pool, then start the container. No member changes.
 exec 2>&1
+# Instance name = session id derived from the WireGuard key (provisioning).
+CT=$(cat /etc/opdbus/3tched-container-name) || { echo "no /etc/opdbus/3tched-container-name"; exit 1; }
 BUNDLE=/srv/git/3tched.com/deploy/container
 POOL_MNT=/var/lib/incus/storage-pools/3tched-pool
 for i in $(seq 1 120); do
@@ -14,9 +16,9 @@ mountpoint -q /run/mounts/upgrade-3tched || mount /run/mounts/upgrade-3tched 2>/
 # /run/opdbus/lungs/lungs.sock is fixed by the sealed seed's 3tchedfs-guest.
 install -d -m 0755 /run/opdbus/lungs /run/opdbus-egress
 # Sled: host tmpfs, rw in the guest at /run/opdbus-sled; reset with the host.
-install -d -m 0700 /run/opdbus-sled/3tchedChatbot
-CONTAINER_NAME=3tchedChatbot "$BUNDLE/container-root.sh" mount || exit 1
-CONTAINER_NAME=3tchedChatbot "$BUNDLE/container-root.sh" verify || exit 1
-[ "$(incus list 3tchedChatbot -c s -f csv)" = RUNNING ] || incus start 3tchedChatbot || exit 1
-echo "3tchedChatbot root mounted and started"
+install -d -m 0700 /run/opdbus-sled/$CT
+CONTAINER_NAME=$CT "$BUNDLE/container-root.sh" mount || exit 1
+CONTAINER_NAME=$CT "$BUNDLE/container-root.sh" verify || exit 1
+[ "$(incus list "$CT" -c s -f csv)" = RUNNING ] || incus start "$CT" || exit 1
+echo "$CT root mounted and started"
 exec sleep infinity
