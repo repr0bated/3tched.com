@@ -19,7 +19,9 @@ readonly SEED_DEV="/dev/disk/by-uuid/dcfbc0a6-442d-474f-b636-fe17d25eaaf1"   # /
 readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_NAME}"
 readonly ROOTFS="${DATA_DIR}/rootfs"
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
-readonly DELTA_SIZE="20G"
+# Sprout member template, copied once into the container directory. Override
+# with DELTA_TEMPLATE=<path>. The copy is the device added to the seed.
+readonly DELTA_TEMPLATE="${DELTA_TEMPLATE:-/var/lib/incus/disks/ext4.img}"
 readonly STAGE="/run/3tched-sprout/${CONTAINER_NAME}"
 # Persistence is the sprout itself: btrfs device add of cozo_delta.img to the
 # seed sends every write to the delta device. The root is the seed's own @,
@@ -46,9 +48,10 @@ create_once() {
     || die "seed has no SEEDING flag"
   findmnt -rn -S "$(readlink -f "${SEED_DEV}")" >/dev/null \
     && die "seed is mounted standalone; unmount it first (holds the device)"
+  [ -f "${DELTA_TEMPLATE}" ] || die "sprout template ${DELTA_TEMPLATE} missing"
   ( set -o noclobber; : > "${DELTA_IMG}" )
   chattr +C "${DELTA_IMG}"
-  truncate -s "${DELTA_SIZE}" "${DELTA_IMG}"
+  cp --sparse=always "${DELTA_TEMPLATE}" "${DELTA_IMG}"
   local loop; loop="$(delta_loop)"
   mkdir -p "${STAGE}"
   mount -t btrfs -o ro "${SEED_DEV}" "${STAGE}"

@@ -17,17 +17,14 @@
 #   - The per-container directory, the same for Incus and Cozo, is
 #     /var/lib/incus/storage-pools/3tched-pool/containers/<container>/.
 #     It is the identity Cozo store root.
-#   - RocksDB gets its own sparse raw ext4 image in that directory, created
-#     once at provisioning with the RocksDB-tuned mkfs flags. Incus bind-mounts
-#     regular files for containers, so the host loop-mounts the image (fstab)
-#     and the disk device passes the mounted directory to /var/lib/rocksdb.
-#   - RocksDB ext4 holds one directory per store: cozo (COGNITIVE_COZO_DB_PATH),
-#     sled (IDENTITY_SLED_COZO_DB_PATH), chat-history (reserved: chat-route
-#     keeps sessions in memory today), snowball (OPDBUS_SNOWBALL_PATH). The
-#     host writes snowball through its loop mount of the same filesystem.
-#   - /agent/user is the identity sled (Btrfs subvolume, rw); sealed_id in it
-#     is bound read-only. Cozo in the guest uses COGNITIVE_COZO_DB_PATH on the
-#     RocksDB ext4 mount (/var/lib/rocksdb/cozo).
+#   - Persistence of the root is the sprout: a copy of the template in
+#     /var/lib/incus/disks/ (DELTA_TEMPLATE) is added with btrfs device add to
+#     the shared seed. No snapshot of the seed is taken.
+#   - RocksDB is an Incus custom volume in 3tched-pool, copied from the
+#     template volume rocksdb-template and attached as a filesystem at
+#     /var/lib/rocksdb (a container cannot take custom block volumes).
+#   - /agent/user is the identity sled (Btrfs subvolume) holding sealed_id.
+#     The host writes the whole sled; there is no separate snowball store.
 #   - The WireGuard key is the same as the wg-opdbus server on 10.0.0.1.
 #
 # One-time steps (image creation, fstab line, incus init) are skipped when
@@ -53,12 +50,9 @@ readonly SEED_MNT="/run/mounts/seed-3tched"
 readonly UPGRADE_MNT="/run/mounts/upgrade-3tched"
 
 readonly DATA_DIR="/var/lib/incus/storage-pools/${POOL}/containers/${CONTAINER_NAME}"
-readonly ROCKSDB_IMG="${DATA_DIR}/cozo_rocksdb.img"
-readonly ROCKSDB_MNT="${DATA_DIR}/mnt/rocksdb"
-# Stores on the RocksDB ext4 (one directory each). The host writes the snowball
-# ledger through its own loop mount of the same filesystem.
-readonly SNOWBALL_DIR="${ROCKSDB_MNT}/snowball"
-readonly ROCKSDB_STORES="cozo sled chat-history snowball"
+readonly ROCKSDB_TEMPLATE_VOL="rocksdb-template"
+readonly ROCKSDB_VOL="${CONTAINER_NAME}-rocksdb"
+readonly ROCKSDB_STORES="cozo sled chat-history"
 readonly SUBVOL_DIR="${DATA_DIR}/subvolumes"
 readonly DELTA_IMG="${DATA_DIR}/cozo_delta.img"
 
@@ -114,27 +108,21 @@ incus config set "${CONTAINER_NAME}" \
   boot.autostart=false
 [ -d "${DATA_DIR}" ] || die "${DATA_DIR} missing after incus init"
 
-# --- 5. RocksDB ext4 image (one time), loop-mounted by host fstab -------------
-step 5/8 "RocksDB ext4 ${ROCKSDB_IMG} -> ${ROCKSDB_MNT}"
-mkdir -p "${ROCKSDB_MNT}"
-if [ ! -e "${ROCKSDB_IMG}" ]; then
-  # Exclusive create; No-CoW must be set while the file is empty.
-  ( set -o noclobber; : > "${ROCKSDB_IMG}" )
-  chattr +C "${ROCKSDB_IMG}"
-  lsattr "${ROCKSDB_IMG}" | cut -d' ' -f1 | grep -q C || die "chattr +C failed on ${ROCKSDB_IMG}"
-  truncate -s 50G "${ROCKSDB_IMG}"
-  mkfs.ext4 -F -b 4096 -m 0 -T largefile \
-    -O ^has_journal,extent,dir_index,64bit,flex_bg \
-    -E lazy_itable_init=0,lazy_journal_init=0,discard \
-    -L cozo-rocksdb "${ROCKSDB_IMG}"
+# --- 5. RocksDB: custom volume copied from the pool template (one time) -------
+step 5/8 "RocksDB volume ${POOL}/${ROCKSDB_VOL} from ${ROCKSDB_TEMPLATE_VOL}"
+if ! incus storage volume show "${POOL}" "${ROCKSDB_TEMPLATE_VOL}" >/dev/null 2>&1; then
+  incus storage volume create "${POOL}" "${ROCKSDB_TEMPLATE_VOL}"
+  tpl="/var/lib/incus/storage-pools/${POOL}/custom/default_${ROCKSDB_TEMPLATE_VOL}"
+  chattr +C "${tpl}"   # No-CoW for RocksDB; inherited by new files and copies
+  for d in ${ROCKSDB_STORES}; do install -d -m 0700 "${tpl}/$d"; done
 fi
-ensure_fstab "${ROCKSDB_MNT}" \
-  "${ROCKSDB_IMG} ${ROCKSDB_MNT} ext4 loop,rw,noatime,nodiratime,discard,nofail 0 0"
-mountpoint -q "${ROCKSDB_MNT}" || mount "${ROCKSDB_MNT}"
+incus storage volume show "${POOL}" "${ROCKSDB_VOL}" >/dev/null 2>&1 || \
+  incus storage volume copy "${POOL}/${ROCKSDB_TEMPLATE_VOL}" "${POOL}/${ROCKSDB_VOL}"
+# The old loop-mounted ext4 image is retired; drop its fstab line.
+sed -i "\#[[:space:]]${DATA_DIR}/mnt/rocksdb[[:space:]]#d" /etc/fstab
 
-# --- 6. Snowball ledger and /agent directories --------------------------------
-step 6/8 "Snowball ledger ${SNOWBALL_DIR} and /agent directories"
-for d in ${ROCKSDB_STORES}; do mkdir -p "${ROCKSDB_MNT}/$d"; chmod 0700 "${ROCKSDB_MNT}/$d"; done
+# --- 6. /agent directories and identity sled -----------------------------------
+step 6/8 "/agent directories and identity sled"
 mkdir -p "${SUBVOL_DIR}"/{memory,skills,soul,rules,shared}
 # /agent/user is the identity sled: a real Btrfs subvolume (rw). A plain
 # directory left by an earlier run is converted once, contents kept.
@@ -173,8 +161,9 @@ add_disk() { # name, source, path, readonly
     incus config device add "${CONTAINER_NAME}" "$1" disk source="$2" path="$3" readonly="$4" shift=true
   fi
 }
-add_disk rocksdb-storage "${ROCKSDB_MNT}"      /var/lib/rocksdb          false
-# The snowball ledger is a directory on the RocksDB mount, not its own device.
+incus config device remove "${CONTAINER_NAME}" rocksdb-storage >/dev/null 2>&1 || true
+incus config device add "${CONTAINER_NAME}" rocksdb-storage disk \
+  pool="${POOL}" source="${ROCKSDB_VOL}" path=/var/lib/rocksdb
 incus config device remove "${CONTAINER_NAME}" snowball-ledger >/dev/null 2>&1 || true
 incus config device remove "${CONTAINER_NAME}" seed-lower >/dev/null 2>&1 || true
 add_disk upgrade-lower   "${UPGRADE_MNT}"      /run/mounts/upgrade-3tched true
