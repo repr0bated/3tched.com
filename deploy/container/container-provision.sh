@@ -58,6 +58,7 @@ readonly DISPLAY_NAME="${CONTAINER_NAME}"
 readonly DECOY="${DECOY:-ubuntu@129.80.64.127}"
 readonly DECOY_SSH_KEY="${DECOY_SSH_KEY:-/home/jeremy/.ssh/decoy_key}"
 readonly DECOY_ISSUER="/usr/local/bin/op-decoy-issuer-iid1"
+readonly DECOY_KNOWN_HOSTS="${DECOY_KNOWN_HOSTS:-/home/jeremy/.ssh/known_hosts}"
 # Sealed-catalog hash anchored into the genesis: the hash of the sealed
 # plugin blobs in SHM, checked against their manifest.
 readonly CATALOG_DIR="${CATALOG_DIR:-/dev/shm/opdbus/plugin-blobs}"
@@ -165,14 +166,14 @@ fi
 readonly ISSUED="${SUBVOL_DIR}/user/issued_identity.iid1"
 if [ ! -e "${SUBVOL_DIR}/user/sealed_id" ] && [ ! -s "${ISSUED}" ]; then
   [[ "${CATALOG_HASH}" =~ ^[0-9a-f]{64}$ ]] || die "no sealed catalog in ${CATALOG_DIR}; stage it (opblob stage-shm) or set CATALOG_HASH"
-  ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" \
+  ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" \
     "sudo -n ${DECOY_ISSUER} issue-identity --pubkey '${WG_PUBKEY}' --catalog-hash '${CATALOG_HASH}' \
      --nextdns-profile '${NEXTDNS_PROFILE}' --nextdns-device '${NEXTDNS_DEVICE}'" > "${ISSUED}.tmp"
   mv "${ISSUED}.tmp" "${ISSUED}"
 fi
 # Public decoy key for the container's trust store (shared with the bridge).
-key_id="$(ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" 'sudo -n cat /etc/opdbus/decoy-key-id')"
-verifying="$(ssh -o BatchMode=yes -i "${DECOY_SSH_KEY}" "${DECOY}" "sudo -n ${DECOY_ISSUER} verifying-key")"
+key_id="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" 'sudo -n cat /etc/opdbus/decoy-key-id')"
+verifying="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" "sudo -n ${DECOY_ISSUER} verifying-key")"
 TRUST_JSON="$(printf '{"decoy_keys":{"%s":"%s"}}' "${key_id}" "${verifying}")"
 
 # --- 7. Per-instance host-path devices (paths are under DATA_DIR) ------------
