@@ -40,13 +40,17 @@ cd "$(dirname "$0")"
 readonly WG_PUBKEY="${WG_PUBKEY:-wNhmhGDpdkScmSdcHnzhr/1vmTIL5wxLXcve/jwk9xE=}"
 # The identity is the session id derived from the key; the bridge binds the
 # container by user.opdbus.session_id + user.opdbus.wireguard_public_key, so
-# the instance name is only a label. Chatbots are named ID-1, ID-2, ...: an
-# existing container for this key keeps its name, otherwise the next free N.
+# the instance name is only a label. The control-plane chatbot is
+# 3tchedChatbot; the containers after it are ID-1, ID-2, ... An existing
+# container for this key keeps its name, otherwise the first free name.
 command -v op-identity-accept >/dev/null || { echo "FATAL: op-identity-accept missing" >&2; exit 1; }
 SESSION_ID="$(op-identity-accept derive --pubkey "${WG_PUBKEY}" | cut -d' ' -f1)"
 readonly SESSION_ID
 CONTAINER_NAME="${CONTAINER_NAME:-$(incus list --format json | jq -r --arg sid "${SESSION_ID}" \
   '[.[] | select(.config["user.opdbus.session_id"] == $sid) | .name] | first // empty')}"
+if [ -z "${CONTAINER_NAME}" ] && ! incus info 3tchedChatbot >/dev/null 2>&1; then
+  CONTAINER_NAME=3tchedChatbot
+fi
 if [ -z "${CONTAINER_NAME}" ]; then
   n=1
   while incus info "ID-${n}" >/dev/null 2>&1; do n=$((n + 1)); done
@@ -173,13 +177,14 @@ if [ ! -e "${SUBVOL_DIR}/user/sealed_id" ] && [ ! -s "${ISSUED}" ]; then
 fi
 # Public decoy key for the container's trust store (shared with the bridge).
 # Fetched once; an existing trust store in the sprout is kept.
-TRUST_FILE="${DATA_DIR}/rootfs/etc/opdbus/decoy-trust.json"
+TRUST_FILE="${DATA_DIR}/decoy-trust.json"   # cache beside the container; removed with it
 if [ -s "${TRUST_FILE}" ]; then
   TRUST_JSON="$(cat "${TRUST_FILE}")"
 else
   key_id="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" 'sudo -n cat /etc/opdbus/decoy-key-id')"
   verifying="$(ssh -o BatchMode=yes -o UserKnownHostsFile="${DECOY_KNOWN_HOSTS}" -o StrictHostKeyChecking=yes -i "${DECOY_SSH_KEY}" "${DECOY}" "sudo -n ${DECOY_ISSUER} verifying-key")"
   TRUST_JSON="$(printf '{"decoy_keys":{"%s":"%s"}}' "${key_id}" "${verifying}")"
+  printf '%s\n' "${TRUST_JSON}" > "${TRUST_FILE}"
 fi
 
 # --- 7. Per-instance host-path devices (paths are under DATA_DIR) ------------

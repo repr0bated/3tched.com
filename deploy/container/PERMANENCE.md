@@ -99,7 +99,8 @@ merged.
 
 ## Identity (2026-11-12)
 
-Chatbot instances are named `ID-1`, `ID-2`, ... (a label). The identity is
+The control-plane chatbot instance is `3tchedChatbot`; containers after it are
+`ID-1`, `ID-2`, ... (labels). The identity is
 `derive_session_id(wireguard_pubkey)`, bound by `user.opdbus.session_id` and
 `user.opdbus.wireguard_public_key` on the instance. The boot service reads the name from
 `/etc/opdbus/3tched-container-name`, written by provisioning. Provisioning has
@@ -121,7 +122,7 @@ provisioning writes `/etc/tmpfiles.d/opdbus-run-mounts.conf` in the sprout to
 link the `/run` paths the seed expects (`/run/opdbus/lungs/lungs.sock`).
 A raw.lxc tmpfs entry for `/run` was tried and breaks idmapped device mounts.
 
-ID-1 (2026-11-12): provisioned from the shared seed with a fresh sprout,
+3tchedChatbot (2026-11-12, first provisioned as ID-1 and renamed): provisioned from the shared seed with a fresh sprout,
 decoy-issued identity accepted (`54291774-4b0a-68b0-b55c-dc544900a8de`),
 catalog hash `dfe09265…` from the SHM blobs sealed by the new release build.
 Open: guest `lo` is down (the 127.0.0.1:3128 egress shim needs it); 3tchedFS
