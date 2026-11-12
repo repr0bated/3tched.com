@@ -213,8 +213,8 @@ fi
 # boot only attaches the loop, scans, and mounts the existing sprout (no member
 # changes). The sprout's @ is mounted over the Incus rootfs directory.
 step 7b/8 "Root ${DATA_DIR}/rootfs from seed ${SEED_DEV_UUID} + sprout ${DELTA_IMG}"
-CONTAINER_NAME="${CONTAINER_NAME}" ./container-root.sh mount
-CONTAINER_NAME="${CONTAINER_NAME}" ./container-root.sh verify
+env CONTAINER_NAME="${CONTAINER_NAME}" ./container-root.sh mount
+env CONTAINER_NAME="${CONTAINER_NAME}" ./container-root.sh verify
 
 # The seed carries hostname "seed". Name this root by its display name.
 echo "${DISPLAY_NAME}" > "${DATA_DIR}/rootfs/etc/hostname"
