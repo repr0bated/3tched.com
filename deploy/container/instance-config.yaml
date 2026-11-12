@@ -1,0 +1,70 @@
+# =============================================================================
+# Incus Instance Launch & Deterministic Identity Descriptor
+# Instance: 3tchedChatbot
+# Host OS: Devuan GNU/Linux (runit, D-Bus Control)
+# Session UUID: b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201
+# =============================================================================
+name: 3tchedChatbot
+architecture: x86_64
+profiles:
+  - opdbus-3tched-3tchedchatbot
+ephemeral: false
+stateful: false
+config:
+  user.opdbus.host_os: "Devuan GNU/Linux (runit, D-Bus Control)"
+  user.opdbus.envelope_version: "SID1"
+  user.opdbus.session_uuid: "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
+  user.opdbus.principal_id: "princ_blake3_7f9a2c41e80b3d19a65e0c21"
+  user.opdbus.wireguard_pubkey: "wg1_K9xV3mP8qR2tL5nW7jY4hF6dS0aG1cB9vZ8uE3rT2wI="
+  user.opdbus.kdf_domain: "opdbus.3tched.v1.session_kdf"
+  user.opdbus.host_bridge: "ovsbr0"
+  user.opdbus.dbus_authority: "org.opdbus.v1.Rovs"
+  user.opdbus.tonic_endpoint: "10.0.0.2:8090"
+  user.opdbus.nic_mode: "none"
+  user.opdbus.storage.outer_lv_gib: "40"
+  user.opdbus.storage.seed_gib: "16"
+  user.opdbus.storage.delta_sprout_gib: "20"
+  user.opdbus.storage.rocksdb_ext4_gib: "50"
+  user.opdbus.storage.rocksdb_mount_opts: "rw,noatime,nodiratime,barrier=0"
+  user.opdbus.storage.upgrade_base_gib: "20"
+  volatile.uuid: "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
+  volatile.idmap.base: "1000000"
+
+# Lifecycle Hooks Registered on Host Control Plane
+user.opdbus.hooks: |
+  - name: ovsbr0-network-dbus-init
+    phase: host-boot
+    trigger: runit /etc/sv/ovsbr0-network/run
+    target: org.opdbus.v1.Rovs (System D-Bus)
+    fail_policy: abort
+    timeout_sec: 15
+    command: 'gdbus call --system --dest org.opdbus.v1.Rovs --object-path /org/opdbus/v1/Rovs --method org.opdbus.v1.Rovs.EnsureFabric "ovsbr0" "eth0" "pub0" "svc0:10.0.0.2/24" "tun5"'
+  - name: op-grpc-bridge-start
+    phase: host-boot
+    trigger: runit /etc/sv/op-grpc-bridge/run
+    target: 10.0.0.2:8090 + /run/opdbus/lungs.sock
+    fail_policy: retry
+    timeout_sec: 10
+    command: 'op-grpc-bridge --bind-tonic 10.0.0.2:8090 --lungs-sock /run/opdbus/lungs.sock --mutation-engine-dbus org.opdbus.v1.MutationEngine'
+  - name: hybrid-btrfs-ext4-mount
+    phase: storage-mount
+    trigger: incus.hook.pre-start
+    target: /dev/dm-3 -> /var/lib/opdbus/containers/3tchedChatbot
+    fail_policy: abort
+    timeout_sec: 30
+    command: 'losetup -fP /run/mounts/seed-3tched/seed.img && btrfs device add -f /dev/loop_delta /var/lib/incus/storage-pools/default/containers/3tchedChatbot/rootfs && mount -o rw,noatime,nodiratime,barrier=0 /dev/loop_rocksdb /var/lib/rocksdb'
+  - name: mint-sid1-sealed-identity
+    phase: identity-mint
+    trigger: MutationEngine.MintIdentity
+    target: /agent/user/identity.json + /agent/user/session.json
+    fail_policy: abort
+    timeout_sec: 5
+    command: 'opdbus-identity-mint --wg-pubkey "$WG_PUBKEY" --kdf blake3 --out-session /agent/user/session.json --out-sid1 /agent/user/identity.json'
+  - name: 3tchedfs-lungs-breath-dispatch
+    phase: runtime-ipc
+    trigger: write(/opt/run-mounts/3tched/<op>/call)
+    target: /run/opdbus/lungs.sock -> op-grpc-bridge
+    fail_policy: quarantine
+    timeout_sec: 12
+    command: '3tchedfs-daemon --mount /opt/run-mounts/3tched --schemas /agent/shared/3tched_types.schema.json --socket /opt/run-mounts/ghostbridge/lungs.sock'
+

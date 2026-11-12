@@ -1,0 +1,142 @@
+# =============================================================================
+# OP-DBUS / 3tched Hardened Incus Profile
+# Profile Name: opdbus-3tched-3tchedchatbot
+# Host Control Plane: Devuan GNU/Linux (runit, D-Bus Control)
+# Principle: "The container is the identity; 3tchedFS is its lungs."
+# =============================================================================
+name: opdbus-3tched-3tchedchatbot
+description: "SID1 Identity Container Profile for 3tchedChatbot on Devuan GNU/Linux (runit, D-Bus Control) (b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201). eth0 is an OVS port on ovsbr0."
+config:
+  limits.cpu: "4"
+  limits.memory: "8GiB"
+  limits.memory.enforce: "hard"
+  security.privileged: "false"
+  security.nesting: "false"
+  security.idmap.isolated: "true"
+  security.idmap.base: "1000000"
+  security.idmap.size: "65536"
+  security.syscalls.deny_default: "true"
+  security.syscalls.deny: |
+    socket(AF_PACKET)
+    bpf
+    perf_event_open
+    kexec_load
+    init_module
+    finit_module
+  raw.lxc: |
+    lxc.cap.drop = net_admin net_raw sys_module sys_rawio sys_time
+    lxc.mount.auto = proc:mixed sys:ro cgroup:mixed
+  environment.CONTAINER_IDENTITY: "3tchedChatbot"
+  environment.OPDBUS_HOST_OS: "Devuan GNU/Linux (runit, D-Bus Control)"
+  environment.OPDBUS_SESSION_UUID: "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201"
+  environment.OPDBUS_PRINCIPAL_ID: "princ_blake3_7f9a2c41e80b3d19a65e0c21"
+  environment.OPDBUS_SID_VERSION: "SID1"
+  environment.OPDBUS_LUNGS_SOCK: "/opt/run-mounts/ghostbridge/lungs.sock"
+  environment.ETCHEDFS_MOUNT: "/opt/run-mounts/3tched"
+  environment.COZO_ROCKSDB_PATH: "/var/lib/rocksdb"
+  environment.http_proxy: "http://127.0.0.1:3128"
+  environment.https_proxy: "http://127.0.0.1:3128"
+  environment.HTTP_PROXY: "http://127.0.0.1:3128"
+  environment.HTTPS_PROXY: "http://127.0.0.1:3128"
+  environment.no_proxy: "localhost,127.0.0.1,/opt/run-mounts/ghostbridge/lungs.sock"
+  user.opdbus.refinement.1: "the os is debian based no longer artix"
+
+devices:
+  eth0:
+    name: eth0
+    network: ovsbr0
+    type: nic
+
+  # ---------------------------------------------------------------------------
+  # 1. Rootfs: Immutable Btrfs Seed (seed.img) + Writable Sprout (cozo_delta.img)
+  # ---------------------------------------------------------------------------
+  root:
+    path: /
+    pool: opdbus-btrfs-sprout
+    type: disk
+    size: "20GiB"
+    raw.mount.options: "rw,noatime,compress=zstd:3,space_cache=v2"
+
+  # ---------------------------------------------------------------------------
+  # 2. Database Performance Layer: Zero-CoW Flat ext4 for CozoDB / RocksDB
+  #    Pre-initialized on host with 'chattr +C' (50 GiB)
+  # ---------------------------------------------------------------------------
+  cozo-rocksdb:
+    path: /var/lib/rocksdb
+    source: /var/lib/opdbus/containers/3tchedChatbot/mnt/rocksdb
+    type: disk
+    readonly: false
+    raw.mount.options: "rw,noatime,nodiratime,barrier=0"
+
+  # ---------------------------------------------------------------------------
+  # 3. Staged A/B OS Upgrade Receiver (20 GiB Read-Only Loopback)
+  # ---------------------------------------------------------------------------
+  ab-upgrade-stage:
+    path: /mnt/upgrade
+    source: /var/lib/opdbus/containers/3tchedChatbot/mnt/upgrade
+    type: disk
+    readonly: true
+    raw.mount.options: "ro,noatime"
+
+  # ---------------------------------------------------------------------------
+  # 4. 3tchedFS Lungs Control Socket (Host op-grpc-bridge -> Container)
+  # ---------------------------------------------------------------------------
+  opdbus-lungs-socket:
+    path: /opt/run-mounts/ghostbridge
+    source: /run/opdbus
+    type: disk
+    readonly: false
+    recursive: false
+
+  # ---------------------------------------------------------------------------
+  # 5. 3tchedFS Typed Operation Hierarchy
+  # ---------------------------------------------------------------------------
+  etched-fs-tree:
+    path: /opt/run-mounts/3tched
+    source: /run/mounts/3tched/3tchedChatbot
+    type: disk
+    readonly: false
+
+  # ---------------------------------------------------------------------------
+  # 6. Outbound Egress UNIX Domain Socket (runit socat -> Xray/WARP)
+  # ---------------------------------------------------------------------------
+  opdbus-egress-socket:
+    path: /run/opdbus-egress
+    source: /run/opdbus-egress
+    type: disk
+    readonly: false
+
+  # ---------------------------------------------------------------------------
+  # 7. In-Container /agent Identity & Memory Subvolumes
+  # ---------------------------------------------------------------------------
+  agent-user:
+    path: /agent/user
+    source: /var/lib/opdbus/containers/3tchedChatbot/subvolumes/user
+    type: disk
+    readonly: false
+  agent-memory:
+    path: /agent/memory
+    source: /var/lib/opdbus/containers/3tchedChatbot/subvolumes/memory
+    type: disk
+    readonly: false
+  agent-skills:
+    path: /agent/skills
+    source: /var/lib/opdbus/containers/3tchedChatbot/subvolumes/skills
+    type: disk
+    readonly: false
+  agent-soul:
+    path: /agent/soul
+    source: /var/lib/opdbus/containers/3tchedChatbot/subvolumes/soul
+    type: disk
+    readonly: true
+  agent-rules:
+    path: /agent/rules
+    source: /var/lib/opdbus/containers/3tchedChatbot/subvolumes/rules
+    type: disk
+    readonly: true
+  agent-shared:
+    path: /agent/shared
+    source: /var/lib/opdbus/containers/3tchedChatbot/subvolumes/shared
+    type: disk
+    readonly: true
+

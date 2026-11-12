@@ -1,0 +1,17 @@
+#!/bin/sh
+# Guest runit service. Listens on the container loopback and connects to the
+# host egress socket mounted at /run/opdbus-egress/http.sock.
+# Requires socat. Exits non-zero until the socket exists so runsv retries.
+exec 2>&1
+
+if ! command -v socat >/dev/null 2>&1; then
+  echo "opdbus-egress-proxyd: socat is not installed"
+  exit 1
+fi
+
+if [ ! -S /run/opdbus-egress/http.sock ]; then
+  echo "opdbus-egress-proxyd: /run/opdbus-egress/http.sock is not ready"
+  exit 1
+fi
+
+exec socat TCP-LISTEN:3128,bind=127.0.0.1,fork,reuseaddr UNIX-CONNECT:/run/opdbus-egress/http.sock

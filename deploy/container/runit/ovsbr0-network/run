@@ -1,0 +1,20 @@
+#!/usr/bin/env /lib/runit/invoke-run
+# runit service: ovsbr0-network
+# dbus and openvswitch-switch are sysv init scripts on this Devuan host.
+# Exit non-zero until they are up; runsv retries. Do not call systemctl.
+set -e
+
+exec 2>&1
+
+if [ ! -S /run/dbus/system_bus_socket ]; then
+  echo "ovsbr0-network: system D-Bus socket is not ready"
+  exit 1
+fi
+
+if [ ! -S /run/openvswitch/db.sock ]; then
+  echo "ovsbr0-network: Open vSwitch database socket is not ready"
+  exit 1
+fi
+
+# Bridge attach runs only after the Rovs authority is deployed.
+exec /usr/local/sbin/host-bridge-after-deploy.sh

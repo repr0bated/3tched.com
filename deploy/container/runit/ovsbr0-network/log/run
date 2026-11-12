@@ -1,0 +1,5 @@
+#!/bin/sh
+mkdir -p /var/log/runit/ovsbr0-network
+chown _runit-log:adm /var/log/runit/ovsbr0-network
+chmod 750 /var/log/runit/ovsbr0-network
+exec chpst -u _runit-log svlogd -tt /var/log/runit/ovsbr0-network

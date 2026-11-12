@@ -1,0 +1,70 @@
+# =============================================================================
+# 3tchedFS Lungs & OP-DBUS Protocol Specification
+# Container: 3tchedChatbot (b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201)
+# Host OS: Debian GNU/Linux (systemd, D-Bus Control)
+# =============================================================================
+version: "opdbus.3tched.v1"
+lungs_virtual_fs:
+  mountpoint: "/opt/run-mounts/3tched"
+  transport_socket_host: "/run/opdbus/lungs.sock"
+  transport_socket_guest: "/opt/run-mounts/ghostbridge/lungs.sock"
+  bridge_listener: "10.0.0.2:8090"
+  authority_dbus: "org.opdbus.v1.MutationEngine"
+
+protocols:
+  - id: proto-rovs-dbus
+    name: "org.opdbus.v1.Rovs (Host OVS D-Bus Control)"
+    layer: "Host OVS D-Bus"
+    direction: "Host Internal"
+    transport: "System D-Bus UNIX Socket (/run/dbus/system_bus_socket)"
+    endpoint: "org.opdbus.v1.Rovs @ /org/opdbus/v1/Rovs"
+    auth: "SO_PEERCRED UID=0 + Polkit runit service verification"
+  - id: proto-tonic-grpc
+    name: "Tonic gRPC Service Door (:8090)"
+    layer: "Control Plane gRPC"
+    direction: "Inbound Control"
+    transport: "HTTP/2 over TCP on OVS Internal Port svc0"
+    endpoint: "10.0.0.2:8090 (opdbus.v1.ControlPlane)"
+    auth: "WireGuard Noise_IK + SID1 BLAKE3-HMAC Envelope"
+  - id: proto-3tched-lungs
+    name: "3tchedFS Lungs UDS Framing Protocol"
+    layer: "3tchedFS Lungs UDS"
+    direction: "Container -> Host"
+    transport: "AF_UNIX SEQPACKET / STREAM (/run/opdbus/lungs.sock)"
+    endpoint: "/opt/run-mounts/ghostbridge/lungs.sock"
+    auth: "Kernel SCM_CREDENTIALS + Container Session UUID Lookup"
+  - id: proto-egress-proxy
+    name: "Loopback-to-UDS Egress Tunnel"
+    layer: "Egress Socket Proxy"
+    direction: "Container -> WAN"
+    transport: "TCP 127.0.0.1:3128 -> AF_UNIX /run/opdbus-egress/http.sock"
+    endpoint: "http://127.0.0.1:3128 -> /run/opdbus-egress/http.sock"
+    auth: "Per-Container Socket Bind + Host Xray/WARP Policy Routing"
+  - id: proto-sid1-kdf
+    name: "SID1 Cryptographic Identity Derivation"
+    layer: "SID1 Identity KDF"
+    direction: "Host Internal"
+    transport: "In-Memory MutationEngine KDF + CozoDB Local Anchor"
+    endpoint: "/agent/user/identity.json & /agent/user/session.json"
+    auth: "Ed25519 / Curve25519 WireGuard Root Keypair + BLAKE3 KDF"
+
+typed_operations:
+  - namespace: "host.network.rovs"
+    operation: "inspect_fabric"
+    call_path: "/opt/run-mounts/3tched/host.network.rovs/inspect_fabric/call"
+    schema_path: "/opt/run-mounts/3tched/host.network.rovs/inspect_fabric/schema.json"
+    dbus_target: "org.opdbus.v1.Rovs"
+    required_capability: "cap.opdbus.rovs.read"
+  - namespace: "agent.cozo.memory"
+    operation: "commit_relation_snapshot"
+    call_path: "/opt/run-mounts/3tched/agent.cozo.memory/commit_relation_snapshot/call"
+    schema_path: "/opt/run-mounts/3tched/agent.cozo.memory/commit_relation_snapshot/schema.json"
+    storage_target: "/var/lib/rocksdb"
+    required_capability: "cap.3tched.cozo.write"
+  - namespace: "system.upgrade.btrfs"
+    operation: "apply_staged_stream"
+    call_path: "/opt/run-mounts/3tched/system.upgrade.btrfs/apply_staged_stream/call"
+    schema_path: "/opt/run-mounts/3tched/system.upgrade.btrfs/apply_staged_stream/schema.json"
+    staging_mount: "/mnt/upgrade"
+    required_capability: "cap.3tched.upgrade.receive"
+

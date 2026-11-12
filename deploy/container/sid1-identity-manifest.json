@@ -1,0 +1,109 @@
+{
+  "envelope_version": "SID1",
+  "control_plane": "OP-DBUS / 3tched",
+  "host_os": "Debian GNU/Linux (systemd, D-Bus Control)",
+  "container_identity": {
+    "name": "3tchedChatbot",
+    "session_id": "b0c777e3-8f42-4d91-9e1a-7c3b5a9e1201",
+    "principal_id": "princ_blake3_7f9a2c41e80b3d19a65e0c21",
+    "wireguard_pubkey": "wg1_K9xV3mP8qR2tL5nW7jY4hF6dS0aG1cB9vZ8uE3rT2wI=",
+    "kdf": {
+      "algorithm": "BLAKE3-KDF",
+      "domain_context": "opdbus.3tched.v1.session_kdf",
+      "deterministic": true
+    }
+  },
+  "storage_attestation": {
+    "outer_lv": {
+      "device": "/dev/dm-3",
+      "mount": "/run/mounts/seed-3tched",
+      "size_gib": 40,
+      "fs": "ext4"
+    },
+    "base_seed": {
+      "image": "seed.img",
+      "size_gib": 16,
+      "btrfstune_seed": true
+    },
+    "delta_sprout": {
+      "image": "cozo_delta.img",
+      "size_gib": 20,
+      "mount_options": "rw,noatime,compress=zstd:3,space_cache=v2"
+    },
+    "cozo_rocksdb": {
+      "image": "cozo_rocksdb.img",
+      "mount": "/var/lib/rocksdb",
+      "size_gib": 50,
+      "fs": "ext4",
+      "chattr_nocow": true,
+      "mount_options": "rw,noatime,nodiratime,barrier=0"
+    },
+    "upgrade_staging": {
+      "image": "cozo_upgrade_base.img",
+      "mount": "/mnt/upgrade",
+      "size_gib": 20,
+      "read_only": true
+    }
+  },
+  "agent_subvolumes": [
+    {
+      "path": "/agent/user",
+      "mode": "rw",
+      "files": [
+        "session.json",
+        "identity.json"
+      ],
+      "purpose": "Local anchored session state and cryptographic identity records"
+    },
+    {
+      "path": "/agent/memory",
+      "mode": "rw",
+      "files": [
+        "graph_manifest.cozo",
+        "working_relations.db"
+      ],
+      "purpose": "Active episodic memory graphs and Datalog relation snapshots"
+    },
+    {
+      "path": "/agent/skills",
+      "mode": "rw",
+      "files": [
+        "registry.json",
+        "sandbox_runner.wasm"
+      ],
+      "purpose": "Container-bound tool descriptors and execution models"
+    },
+    {
+      "path": "/agent/soul",
+      "mode": "ro",
+      "files": [
+        "persona.sealed.json",
+        "axioms.datalog"
+      ],
+      "purpose": "Immutable agent persona, core axioms, and behavioral constitution"
+    },
+    {
+      "path": "/agent/rules",
+      "mode": "ro",
+      "files": [
+        "capabilities.sid1.json",
+        "egress_allowlist.txt"
+      ],
+      "purpose": "Protocol policies, capability boundaries, and egress guards"
+    },
+    {
+      "path": "/agent/shared",
+      "mode": "ro",
+      "files": [
+        "3tched_types.schema.json",
+        "opdbus_v1.proto"
+      ],
+      "purpose": "Read-only shared schema definitions and 3tchedFS type contracts"
+    }
+  ],
+  "cozodb_bootstrap_relations": [
+    ":create agent_identity { session_id: Uuid => principal_id: String, wg_pubkey: String, sid_version: String }",
+    ":create agent_memory_node { node_id: Uuid, session_id: Uuid => kind: String, payload_json: String, ts: Float }",
+    ":create lungs_audit_trail { seq: Int => op_path: String, arg_blake3: String, status: String, ts: Float }"
+  ]
+}
