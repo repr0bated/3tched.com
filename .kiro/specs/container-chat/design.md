@@ -103,6 +103,27 @@ mounted namespace. The mount is a runtime mirror of SHM. The sealed catalog
 may name `threetched` as the binary surface. That name is the binary, not
 a second copy of our code.
 
+### Identity issuance
+
+The container is the identity. One key, the WireGuard public key K, names
+both: `session_id = derive_session_id(K)` is the Incus instance name, and
+grants use `principal_id = derive_principal_id(K)`. No session or principal
+id is written by hand.
+
+The decoy issues identity. WireGuard terminates there, so it is the one
+place that observes K. It mints the genesis and SID1 for K, with the NextDNS
+context sealed in, and delivers the blob signed with its trusted signing key.
+Provisioning writes that blob to `/agent/user/sealed_id` before first boot.
+On first start the container's door verifies the decoy signature, that the
+key is K, and that `session_id` is its own instance name, then commits the
+SID1 as its sled's `sealed_id`. From then on the container is the identity
+owner. The host carries the blob and never mints, signs or edits it.
+
+The genesis inputs are K, a chain head and its timestamp, a sealed-catalog
+hash and the arrival timestamp. No hardware value is an input. The sled is
+not durable; `sealed_id` is the sled's persistence. The Control Plane
+chatbot's sled is a `service` principal and never resolves implicitly.
+
 ### Lungs_Socket
 
 One socket, `/run/opdbus/lungs/lungs.sock`. The Chat_Route connects to it
