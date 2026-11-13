@@ -128,3 +128,12 @@ catalog hash `dfe09265…` from the SHM blobs sealed by the new release build.
 Open: guest `lo` is down (the 127.0.0.1:3128 egress shim needs it); 3tchedFS
 still fails because nothing binds `lungs.sock` and the guest `/dev/shm/opdbus`
 catalog is empty; the new op-grpc-bridge is not installed in the sprout.
+
+## Door identity (2026-11-13)
+
+The door (op-grpc-bridge `5807e30e`) adopts the container's decoy-issued
+identity at startup: it verified `/agent/user/issued_identity.iid1` and
+`sealed_id` against `/etc/opdbus/decoy-trust.json` and committed session
+`54291774-4b0a-68b0-b55c-dc544900a8de` as a `service` record. A restart reuses
+the record. After a host reboot clears the sled, the next start commits it again
+from `sealed_id`.
