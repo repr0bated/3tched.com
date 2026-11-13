@@ -124,6 +124,46 @@ hash and the arrival timestamp. No hardware value is an input. The sled is
 not durable; `sealed_id` is the sled's persistence. The Control Plane
 chatbot's sled is a `service` principal and never resolves implicitly.
 
+### Container connectivity (no NIC)
+
+Owner decision, 2026-11-13. A container has no network interface except
+`lo`. It has no veth, no Incus NIC device and no per-container OVS port. All
+connectivity runs over Unix sockets in the host-shared directory
+`/run/opdbus/lungs/`, which the kernel identifies by peer credentials.
+
+Two sockets, two owners:
+
+| Socket | Server | Carries |
+|---|---|---|
+| `lungs/<container>/lungs.sock` | the container's door (`op-grpc-bridge`) | 3tchedFS plugin calls (D-Bus `PluginV1`) |
+| `lungs/tunnel.sock` | the host mux (tonic) | all container network streams, both directions |
+
+Lungs carries plugin calls only. Each container gets its own path so doors do
+not collide in the shared directory.
+
+The tunnel socket replaces the container egress proxy (host Xray
+`http.sock`, the guest socat on `127.0.0.1:3128`). It is a tonic gRPC service
+over the Unix socket: one bidirectional stream per connection, the first
+message names the target, then bytes in both directions. HTTP/2 multiplexes
+streams over one socket connection; deadlines and cancellation tear down the
+connection. The mux identifies the calling container from the Unix peer
+credentials (`UdsConnectInfo`), never from request data, and publishes its
+service through gRPC reflection.
+
+The mux runs in a relay network namespace that owns one OVS internal port on
+`ovsbr0` (`ovsbr0-sock`, the openflow plugin's `SharedIngress` socket port).
+Outbound streams leave through that port and the bridge's `eth0` uplink, using
+a source address or port per container so OpenFlow attributes each flow to its
+container. OpenFlow decides what is forwarded, and admission stays with the
+container's door and the mux. Inbound connections for a container's door (the
+decoy's proof forward to `10.0.0.2:8090`) arrive at the mux on the bridge side
+and are spliced to that container's door over the tunnel socket; TLS still ends
+inside the container.
+
+Open: whether outbound streams leave directly through the uplink or through
+the decoy (REALITY/WARP); the mux and the relay namespace are not built; the
+earlier `op-ghostbridge-mux` code is not in any repository.
+
 ### Lungs_Socket
 
 One socket, `/run/opdbus/lungs/lungs.sock`. The Chat_Route connects to it
