@@ -19,14 +19,30 @@ pub enum ErrorKind {
 impl ErrorKind {
     pub fn next_step(self) -> &'static str {
         match self {
-            Self::MissingMount => "The identity's 3tchedFS mount is missing or unreadable. Ask the owner to check the mount; the chat will not use another mount.",
-            Self::Transport => "A recorded path did not answer within 10 s. Check the named path; the chat will not try another path.",
-            Self::Provider => "The model provider failed or did not answer within 60 s. Pending actions are unchanged; resend the message later.",
-            Self::Schema => "This operation's sealed schema could not be read. The tool is unavailable; report the plugin and method to the owner.",
-            Self::Configuration => "The Identity_Profile or provider configuration was rejected. Fix the named field; no session was started.",
-            Self::UnknownOutcome => "The operation may or may not have run. Check the authoritative state before asking again.",
-            Self::Denial => "This identity is not allowed to run this operation. The denial is recorded; ask the owner if access is expected.",
-            Self::Validation => "The arguments did not match the sealed schema. The model was told which fields failed.",
+            Self::MissingMount => {
+                "The identity's 3tchedFS mount is missing or unreadable. Ask the owner to check the mount; the chat will not use another mount."
+            }
+            Self::Transport => {
+                "A recorded path did not answer within 10 s. Check the named path; the chat will not try another path."
+            }
+            Self::Provider => {
+                "The model provider failed or did not answer within 60 s. Pending actions are unchanged; resend the message later."
+            }
+            Self::Schema => {
+                "This operation's sealed schema could not be read. The tool is unavailable; report the plugin and method to the owner."
+            }
+            Self::Configuration => {
+                "The Identity_Profile or provider configuration was rejected. Fix the named field; no session was started."
+            }
+            Self::UnknownOutcome => {
+                "The operation may or may not have run. Check the authoritative state before asking again."
+            }
+            Self::Denial => {
+                "This identity is not allowed to run this operation. The denial is recorded; ask the owner if access is expected."
+            }
+            Self::Validation => {
+                "The arguments did not match the sealed schema. The model was told which fields failed."
+            }
         }
     }
 }

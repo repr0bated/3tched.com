@@ -150,9 +150,7 @@ fn declared_secret_hit(item: &[u8]) -> bool {
                     if key == "sealed_id" {
                         return true;
                     }
-                    if key == "x-oscal-subid"
-                        && member.as_str() == Some(SEALED_ID_SUBID)
-                    {
+                    if key == "x-oscal-subid" && member.as_str() == Some(SEALED_ID_SUBID) {
                         return true;
                     }
                     if walk(member) {

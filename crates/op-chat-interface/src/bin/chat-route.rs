@@ -39,13 +39,16 @@
 //!   server logs that it is synthetic. In production with a mount, the
 //!   identity comes from `identity_sled.get_own_identity` through the
 //!   mounted views; the profile path is then only a fallback.
-//! - Model_Provider: there is no confirmed egress path to a
-//!   Model_Provider (B-06/B-07). The provider is a pluggable trait.
-//!   The default `synthetic` provider emits well-formed AI SDK UI
-//!   message stream parts deterministically, so the full Chat_Link,
-//!   Secret_Guard, session and confirmation-gate path can be exercised
-//!   end to end. A real provider is wired here once egress is resolved;
-//!   `--provider http` is rejected at startup until then.
+//! - Model_Provider: pluggable trait at the Chat_Route boundary.
+//!   `--provider threetched` (default when `THREETCHED_ENDPOINT` is set,
+//!   or via `CHAT_ROUTE_PROVIDER=auto`) hands the turn to the local
+//!   threetched (ZeroClaw) binary over its native `zeroclaw.v1`
+//!   WebSocket (`/ws/chat?stateless_generation=1`), matching the
+//!   odbus-verified `chat_router_generation` protocol on container
+//!   loopback. Provider catalogs, Salad/OpenAI-compat credentials, and
+//!   model selection stay inside threetched. `--provider synthetic`
+//!   keeps the offline harness for tests. Missing endpoint → clear
+//!   startup error, no panic.
 //! - Tool execution: every tool call runs as exactly one Operation_File
 //!   call by direct local file I/O on the Bound_Identity's mounted
 //!   views. With no mount (B-01/B-02) there is no view to call, so tool
@@ -68,12 +71,14 @@ use op_chat_interface::chat_link::{
 };
 use op_chat_interface::errors::{ErrorKind, TypedError};
 use op_chat_interface::gate::ConfirmationGate;
-use op_chat_interface::guard::{OutputChannel, SecretGuard};
 use op_chat_interface::guard::intake::check_request;
+use op_chat_interface::guard::{OutputChannel, SecretGuard};
 use op_chat_interface::state::{PartitionHandle, PartitionedStore};
-use op_chat_interface::types::{
-    ChatSessionId, PendingToolCall, PrincipalId, ToolCallStatus,
+use op_chat_interface::threetched_generation::{
+    ThreetchedEndpoint, generate as threetched_generate, missing_endpoint_message,
+    prompt_from_ui_messages,
 };
+use op_chat_interface::types::{ChatSessionId, PendingToolCall, PrincipalId, ToolCallStatus};
 use tokio::sync::{Mutex, mpsc, oneshot, watch};
 use tokio_stream::Stream;
 use tokio_stream::wrappers::ReceiverStream;
@@ -87,8 +92,14 @@ use tracing::{info, warn};
 /// Chat_Link `UIMessagePart` frame (Req 32.5).
 #[derive(Debug, Clone)]
 enum AiPart {
-    Text { message_id: String, text: String },
-    Reasoning { message_id: String, text: String },
+    Text {
+        message_id: String,
+        text: String,
+    },
+    Reasoning {
+        message_id: String,
+        text: String,
+    },
     ToolCall {
         message_id: String,
         tool_call_id: String,
@@ -165,8 +176,8 @@ impl AiPart {
 /// A model provider yields AI SDK UI message stream parts for one turn.
 /// The provider is a boundary: the Chat_Route owns the stream framing,
 /// Secret_Guard, session and confirmation gate; the provider only
-/// produces parts. A real provider is wired here once an egress path
-/// to a Model_Provider is resolved (B-06/B-07).
+/// produces parts. Real inference is handed to threetched (ZeroClaw);
+/// `SyntheticProvider` remains for offline tests.
 /// Extract the display text of one AI SDK UIMessage.
 ///
 /// UIMessage shape: `{id, role, parts: [{type: "text", text}, ...]}`.
@@ -177,17 +188,17 @@ fn ui_message_text(msg: &serde_json::Value) -> String {
     let mut out = String::new();
     if let Some(parts) = msg.get("parts").and_then(|p| p.as_array()) {
         for part in parts {
-            if part.get("type").and_then(|t| t.as_str()) == Some("text") {
-                if let Some(t) = part.get("text").and_then(|t| t.as_str()) {
-                    out.push_str(t);
-                }
+            if part.get("type").and_then(|t| t.as_str()) == Some("text")
+                && let Some(t) = part.get("text").and_then(|t| t.as_str())
+            {
+                out.push_str(t);
             }
         }
     }
-    if out.is_empty() {
-        if let Some(c) = msg.get("content").and_then(|c| c.as_str()) {
-            out.push_str(c);
-        }
+    if out.is_empty()
+        && let Some(c) = msg.get("content").and_then(|c| c.as_str())
+    {
+        out.push_str(c);
     }
     out
 }
@@ -237,8 +248,7 @@ impl ModelProvider for SyntheticProvider {
                 message_id: message_id.clone(),
                 text: format!(
                     "[chat-route/synthetic] Received your message via {provider}/{model}. \
-                     The model provider path is not yet wired (B-06/B-07: no egress); \
-                     this is the synthetic harness response. Your message: {content}"
+                     Offline harness (no threetched call). Your message: {content}"
                 ),
             },
         ];
@@ -275,6 +285,45 @@ fn synthetic_tool_call(content: &str) -> Option<(String, String)> {
     Some((plugin.to_string(), method.to_string()))
 }
 
+/// Hands each turn to the local threetched (ZeroClaw) binary over
+/// `zeroclaw.v1`. Model/provider selection and credentials live in
+/// threetched config (e.g. Salad as `providers.models.custom.salad`).
+struct ThreetchedProvider {
+    endpoint: ThreetchedEndpoint,
+}
+
+#[async_trait::async_trait]
+impl ModelProvider for ThreetchedProvider {
+    async fn complete(
+        &self,
+        messages: &[serde_json::Value],
+        _provider: &str,
+        model: &str,
+    ) -> Result<Vec<AiPart>, TypedError> {
+        let prompt = prompt_from_ui_messages(messages);
+        if prompt.trim().is_empty() {
+            return Err(TypedError::new(ErrorKind::Validation, "ui_messages")
+                .with_detail("no text content to send to threetched"));
+        }
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let expected_model = {
+            let trimmed = model.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        };
+        let done =
+            threetched_generate(&self.endpoint, &prompt, &session_id, expected_model).await?;
+        let message_id = uuid::Uuid::new_v4().to_string();
+        Ok(vec![AiPart::Text {
+            message_id,
+            text: done.full_response,
+        }])
+    }
+}
+
 // ── Shared route state ─────────────────────────────────────────────────────
 
 struct RouteState {
@@ -304,8 +353,7 @@ fn now_ms() -> u64 {
 fn now_iso() -> String {
     // UTC ISO 8601, second precision (matches the store's `at` fields).
     let secs = now_unix();
-    let dt = chrono::DateTime::from_timestamp(secs as i64, 0)
-        .unwrap_or_else(chrono::Utc::now);
+    let dt = chrono::DateTime::from_timestamp(secs as i64, 0).unwrap_or_else(chrono::Utc::now);
     dt.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
@@ -321,24 +369,22 @@ fn now_iso() -> String {
 fn resolve_principal(profile_path: Option<&str>) -> PrincipalId {
     if let Some(path) = profile_path {
         match std::fs::read(path) {
-            Ok(bytes) => {
-                match serde_json::from_slice::<serde_json::Value>(&bytes) {
-                    Ok(v) => {
-                        if let Some(id) = v
-                            .get("principal_id")
-                            .or_else(|| v.get("principalId"))
-                            .and_then(|x| x.as_str())
-                        {
-                            info!(profile = %path, principal = %id, "Bound_Identity resolved from Identity_Profile");
-                            return PrincipalId::new(id);
-                        }
-                        warn!(profile = %path, "Identity_Profile has no principal_id; using synthetic principal");
+            Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(v) => {
+                    if let Some(id) = v
+                        .get("principal_id")
+                        .or_else(|| v.get("principalId"))
+                        .and_then(|x| x.as_str())
+                    {
+                        info!(profile = %path, principal = %id, "Bound_Identity resolved from Identity_Profile");
+                        return PrincipalId::new(id);
                     }
-                    Err(e) => {
-                        warn!(profile = %path, error = %e, "Identity_Profile is not valid JSON; using synthetic principal");
-                    }
+                    warn!(profile = %path, "Identity_Profile has no principal_id; using synthetic principal");
                 }
-            }
+                Err(e) => {
+                    warn!(profile = %path, error = %e, "Identity_Profile is not valid JSON; using synthetic principal");
+                }
+            },
             Err(e) => {
                 warn!(profile = %path, error = %e, "Cannot read Identity_Profile; using synthetic principal");
             }
@@ -439,12 +485,9 @@ impl ChatService for ChatRoute {
                 req.model.as_str(),
                 ui_messages_text.as_str(),
             ];
-            if let Err((refusal, _event)) = check_request(
-                &state.guard,
-                "ChatService.Send",
-                &fields,
-                &at,
-            ) {
+            if let Err((refusal, _event)) =
+                check_request(&state.guard, "ChatService.Send", &fields, &at)
+            {
                 let _ = tx
                     .send(Ok(Self::error_frame(&mut cursor, &refusal.error)))
                     .await;
@@ -459,23 +502,23 @@ impl ChatService for ChatRoute {
             }
 
             // ── Parse ui_messages (AI SDK UIMessage[] JSON).
-            let ui_messages: Vec<serde_json::Value> =
-                match serde_json::from_slice(&req.ui_messages) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let err = TypedError::new(ErrorKind::Validation, "ui_messages")
-                            .with_detail(format!("Invalid ui_messages JSON: {e}"));
-                        let _ = tx.send(Ok(Self::error_frame(&mut cursor, &err))).await;
-                        let _ = tx
-                            .send(Ok(Self::done_frame(
-                                &mut cursor,
-                                &conversation_id,
-                                total_parts,
-                            )))
-                            .await;
-                        return;
-                    }
-                };
+            let ui_messages: Vec<serde_json::Value> = match serde_json::from_slice(&req.ui_messages)
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    let err = TypedError::new(ErrorKind::Validation, "ui_messages")
+                        .with_detail(format!("Invalid ui_messages JSON: {e}"));
+                    let _ = tx.send(Ok(Self::error_frame(&mut cursor, &err))).await;
+                    let _ = tx
+                        .send(Ok(Self::done_frame(
+                            &mut cursor,
+                            &conversation_id,
+                            total_parts,
+                        )))
+                        .await;
+                    return;
+                }
+            };
 
             // ── Session (Req 32.11): the session and the Bound_Identity
             // come only from the server-side session table. The
@@ -506,7 +549,10 @@ impl ChatService for ChatRoute {
             }
 
             // ── Model turn.
-            let parts = match provider.complete(&ui_messages, &provider_name, &model_name).await {
+            let parts = match provider
+                .complete(&ui_messages, &provider_name, &model_name)
+                .await
+            {
                 Ok(p) => p,
                 Err(err) => {
                     let _ = tx.send(Ok(Self::error_frame(&mut cursor, &err))).await;
@@ -531,6 +577,7 @@ impl ChatService for ChatRoute {
                     break;
                 }
 
+                #[allow(clippy::single_match)] // more AiPart arms will land here
                 match &part {
                     AiPart::ToolCall {
                         tool_call_id,
@@ -560,8 +607,7 @@ impl ChatService for ChatRoute {
                                 digest: None,
                                 held_at_unix: now_unix(),
                             };
-                            let input_bytes =
-                                serde_json::to_vec(args).unwrap_or_default();
+                            let input_bytes = serde_json::to_vec(args).unwrap_or_default();
                             let digest = {
                                 let mut gate = state.gate.lock().await;
                                 gate.hold(
@@ -575,8 +621,7 @@ impl ChatService for ChatRoute {
                             // Register the approval oneshot BEFORE
                             // emitting the ApprovalRequired frame, so a
                             // fast Approve RPC cannot be lost.
-                            let (approve_tx, approve_rx) =
-                                oneshot::channel::<bool>();
+                            let (approve_tx, approve_rx) = oneshot::channel::<bool>();
                             {
                                 let mut approvals = state.approvals.lock().await;
                                 approvals.insert(tool_call_id.clone(), approve_tx);
@@ -601,11 +646,8 @@ impl ChatService for ChatRoute {
 
                             // Wait for the Approve RPC (or rejection /
                             // timeout).
-                            let approved = tokio::time::timeout(
-                                Duration::from_secs(300),
-                                approve_rx,
-                            )
-                            .await;
+                            let approved =
+                                tokio::time::timeout(Duration::from_secs(300), approve_rx).await;
                             let approved = match approved {
                                 Ok(Ok(v)) => v,
                                 _ => false,
@@ -651,21 +693,15 @@ impl ChatService for ChatRoute {
                                 result,
                             };
                             let payload =
-                                serde_json::to_vec(&result_part.payload_json())
-                                    .unwrap_or_default();
-                            let guarded = state.guard.gate(
-                                OutputChannel::UiStream,
-                                &payload,
-                            );
+                                serde_json::to_vec(&result_part.payload_json()).unwrap_or_default();
+                            let guarded = state.guard.gate(OutputChannel::UiStream, &payload);
                             match guarded {
                                 Ok(bytes) => {
                                     let _ = tx
                                         .send(Ok(Self::frame(
                                             &mut cursor,
                                             chat_frame::Body::Part(UiMessagePart {
-                                                message_id: result_part
-                                                    .message_id()
-                                                    .to_string(),
+                                                message_id: result_part.message_id().to_string(),
                                                 role: "tool".to_string(),
                                                 kind: result_part.kind().to_string(),
                                                 payload: bytes,
@@ -675,16 +711,11 @@ impl ChatService for ChatRoute {
                                     total_parts += 1;
                                 }
                                 Err(verdict) => {
-                                    let err = TypedError::new(
-                                        ErrorKind::Denial,
-                                        "tool-result",
-                                    )
-                                    .with_detail(format!(
-                                        "Secret_Guard blocked a tool result: {verdict:?}"
-                                    ));
-                                    let _ = tx
-                                        .send(Ok(Self::error_frame(&mut cursor, &err)))
-                                        .await;
+                                    let err = TypedError::new(ErrorKind::Denial, "tool-result")
+                                        .with_detail(format!(
+                                            "Secret_Guard blocked a tool result: {verdict:?}"
+                                        ));
+                                    let _ = tx.send(Ok(Self::error_frame(&mut cursor, &err))).await;
                                 }
                             }
                             continue;
@@ -694,11 +725,8 @@ impl ChatService for ChatRoute {
                 }
 
                 // Ordinary part: guard, then emit unchanged (Req 32.5).
-                let payload =
-                    serde_json::to_vec(&part.payload_json()).unwrap_or_default();
-                let whole = state
-                    .guard
-                    .gate(OutputChannel::UiStream, &payload);
+                let payload = serde_json::to_vec(&part.payload_json()).unwrap_or_default();
+                let whole = state.guard.gate(OutputChannel::UiStream, &payload);
                 match whole {
                     Ok(bytes) => {
                         let _ = tx
@@ -715,10 +743,9 @@ impl ChatService for ChatRoute {
                         total_parts += 1;
                     }
                     Err(verdict) => {
-                        let err = TypedError::new(ErrorKind::Denial, "stream-part")
-                            .with_detail(format!(
-                                "Secret_Guard blocked a stream part: {verdict:?}"
-                            ));
+                        let err = TypedError::new(ErrorKind::Denial, "stream-part").with_detail(
+                            format!("Secret_Guard blocked a stream part: {verdict:?}"),
+                        );
                         let _ = tx.send(Ok(Self::error_frame(&mut cursor, &err))).await;
                         break;
                     }
@@ -835,7 +862,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut host = "10.0.0.2".to_string();
     let mut port: u16 = 50051;
     let mut profile: Option<String> = None;
-    let mut provider_name = "synthetic".to_string();
+    // Default `auto`: threetched when THREETCHED_ENDPOINT is set, else synthetic.
+    let mut provider_name = "auto".to_string();
 
     let args: Vec<String> = std::env::args().collect();
     let mut i = 1;
@@ -870,8 +898,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  --host <addr>    bind host (default 10.0.0.2)");
                 println!("  --port <port>    bind port (default 50051; B-30)");
                 println!("  --profile <path> Identity_Profile JSON (Bound_Identity)");
-                println!("  --provider <name> model provider (only 'synthetic' for now)");
-                println!("Env: CHAT_ROUTE_HOST, CHAT_ROUTE_PORT, CHAT_ROUTE_PROFILE, CHAT_ROUTE_PROVIDER");
+                println!(
+                    "  --provider <name>  auto | threetched | synthetic \
+                     (auto uses threetched when THREETCHED_ENDPOINT is set)"
+                );
+                println!(
+                    "Env: CHAT_ROUTE_HOST, CHAT_ROUTE_PORT, CHAT_ROUTE_PROFILE, \
+                     CHAT_ROUTE_PROVIDER, THREETCHED_ENDPOINT, THREETCHED_AGENT_ALIAS, \
+                     THREETCHED_BEARER_TOKEN"
+                );
                 return Ok(());
             }
             _ => {}
@@ -894,24 +929,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The Chat_Endpoint binds only to 10.0.0.2 (Req 32.8). Refuse
     // loopback, 0.0.0.0 and the Cloudflare mesh address.
     if host == "127.0.0.1" || host == "localhost" || host == "0.0.0.0" || host == "100.96.0.3" {
-        eprintln!(
-            "chat-route: refusing to bind {host} (Req 32.8: bind 10.0.0.2 only)"
-        );
+        eprintln!("chat-route: refusing to bind {host} (Req 32.8: bind 10.0.0.2 only)");
         std::process::exit(2);
     }
     if port == 8090 {
-        eprintln!("chat-route: refusing port 8090 (B-30: the Chat_Endpoint port differs from 8090)");
+        eprintln!(
+            "chat-route: refusing port 8090 (B-30: the Chat_Endpoint port differs from 8090)"
+        );
         std::process::exit(2);
     }
 
-    // Model provider: only 'synthetic' is implemented. A real provider
-    // needs an egress path (B-06/B-07) which is not resolved.
-    let provider: Arc<dyn ModelProvider> = match provider_name.as_str() {
-        "synthetic" => Arc::new(SyntheticProvider),
-        other => {
-            eprintln!(
-                "chat-route: provider '{other}' is not implemented (B-06/B-07: no Model_Provider egress); use --provider synthetic"
+    // Model provider: threetched (ZeroClaw binary on loopback) or synthetic.
+    let threetched_endpoint = ThreetchedEndpoint::from_env();
+    let resolved = match provider_name.as_str() {
+        "auto" => {
+            if threetched_endpoint.is_some() {
+                "threetched"
+            } else {
+                "synthetic"
+            }
+        }
+        other => other,
+    };
+    let provider: Arc<dyn ModelProvider> = match resolved {
+        "synthetic" => {
+            info!("Chat_Route Model_Provider = synthetic (offline harness)");
+            Arc::new(SyntheticProvider)
+        }
+        "threetched" => {
+            let Some(endpoint) = threetched_endpoint else {
+                eprintln!("{}", missing_endpoint_message());
+                std::process::exit(2);
+            };
+            info!(
+                origin = %endpoint.origin,
+                agent_alias = %endpoint.agent_alias,
+                "Chat_Route Model_Provider = threetched (zeroclaw.v1)"
             );
+            Arc::new(ThreetchedProvider { endpoint })
+        }
+        other => {
+            eprintln!("chat-route: unknown provider '{other}'; use auto, threetched, or synthetic");
             std::process::exit(2);
         }
     };
@@ -931,10 +989,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         approvals: Mutex::new(HashMap::new()),
     });
 
-    let route = ChatRoute {
-        state,
-        provider,
-    };
+    let route = ChatRoute { state, provider };
 
     let addr = format!("{host}:{port}").parse()?;
     info!(%addr, "chat-route listening (Chat_Endpoint, Chat_Link only)");
@@ -1031,7 +1086,10 @@ mod tests {
         assert!(matches!(parts[0], AiPart::Reasoning { .. }));
         match &parts[1] {
             AiPart::Text { text, .. } => {
-                assert!(text.contains("hi there"), "text part should echo the user message: {text}");
+                assert!(
+                    text.contains("hi there"),
+                    "text part should echo the user message: {text}"
+                );
             }
             other => panic!("expected text part, got {other:?}"),
         }

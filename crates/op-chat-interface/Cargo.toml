@@ -25,6 +25,9 @@ tracing = "=0.1.44"
 async-trait = "=0.1.91"
 prost = "=0.13.5"
 prost-types = "=0.13.5"
+futures = "=0.3.31"
+tokio-tungstenite = { version = "=0.26.2", default-features = false, features = ["connect", "handshake"] }
+url = "=2.5.4"
 
 [build-dependencies]
 tonic-build = "=0.12.3"

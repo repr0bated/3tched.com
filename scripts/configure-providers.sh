@@ -27,6 +27,16 @@ set_config "providers.models.openrouter.go_control_plane.model" "openai/gpt-4-tu
 set_config "providers.models.openrouter.openrouter_api_key" "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is unset}"
 set_config "providers.models.custom.cheaper_inference.model" "claude"
 set_config "providers.models.custom.cheaper_inference_api_key" "${CHEAPERINFERENE_API_KEY:?CHEAPERINFERENE_API_KEY is unset}"
+# Salad AI Gateway as a custom OpenAI-compatible slot (see deploy/container/threetched.providers.example.toml).
+# Prefer SALAD_AI_GATEWAY_API_KEY; fall back to SALAD_API_KEY. Never pass a literal key into git.
+SALAD_KEY="${SALAD_AI_GATEWAY_API_KEY:-${SALAD_API_KEY:-}}"
+if [ -n "$SALAD_KEY" ]; then
+  set_config "providers.models.custom.salad.uri" "https://ai.salad.cloud/v1"
+  set_config "providers.models.custom.salad.model" "${SALAD_MODEL:-qwen3.6-35b-a3b}"
+  set_config "providers.models.custom.salad_api_key" "$SALAD_KEY"
+else
+  echo "Skipping Salad custom slot (SALAD_AI_GATEWAY_API_KEY / SALAD_API_KEY unset)" >&2
+fi
 set_config "messaging.claude_code_messaging_token" "${CLAUDE_CODE_MESSAGING_TOKEN:?CLAUDE_CODE_MESSAGING_TOKEN is unset}"
 set_config "agents.control_plane.model_provider" "openai.go_control_plane"
 echo "Provider configuration submitted. Read it back with threetched config.get; do not use tched_router."

@@ -14,6 +14,7 @@ pub struct IntakeRefusal {
     pub credential_class: Option<CredentialClass>,
 }
 
+#[allow(clippy::result_large_err)] // IntakeRefusal + SecurityEvent is the public refusal shape.
 pub fn check_request(
     guard: &SecretGuard,
     request_name: &str,

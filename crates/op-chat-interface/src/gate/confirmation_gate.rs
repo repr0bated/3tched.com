@@ -165,11 +165,11 @@ impl ConfirmationGate {
     }
 
     pub fn reject(&mut self, tool_call_id: &str) {
-        if let Some(held) = self.held.get_mut(tool_call_id) {
-            if held.state == HoldState::Pending {
-                held.state = HoldState::Rejected;
-                held.call.status = ToolCallStatus::Rejected;
-            }
+        if let Some(held) = self.held.get_mut(tool_call_id)
+            && held.state == HoldState::Pending
+        {
+            held.state = HoldState::Rejected;
+            held.call.status = ToolCallStatus::Rejected;
         }
     }
 

@@ -114,7 +114,10 @@ impl ChainVerifier {
                 continuity: "intact".to_string(),
                 first_broken_index: None,
                 links: Vec::new(),
-                reasons: vec![format!("source: expected operation-file, got {:?}", segment.source)],
+                reasons: vec![format!(
+                    "source: expected operation-file, got {:?}",
+                    segment.source
+                )],
             };
         }
 
@@ -136,10 +139,10 @@ impl ChainVerifier {
             };
 
             // Track integrity flag exposure
-            if let Some(integrity) = record.integrity {
-                if !integrity {
-                    any_integrity_false = true;
-                }
+            if let Some(integrity) = record.integrity
+                && !integrity
+            {
+                any_integrity_false = true;
             }
 
             links.push(ChainLinkReport {
@@ -185,7 +188,11 @@ impl ChainVerifier {
 mod tests {
     use super::*;
 
-    fn make_record(prev_hash: &str, exec_hash: &str, integrity: Option<bool>) -> ExecutionRecordView {
+    fn make_record(
+        prev_hash: &str,
+        exec_hash: &str,
+        integrity: Option<bool>,
+    ) -> ExecutionRecordView {
         ExecutionRecordView {
             id: format!("rec-{}", exec_hash.chars().take(8).collect::<String>()),
             prev_hash: prev_hash.to_string(),
@@ -269,7 +276,8 @@ mod tests {
     fn test_unverified_with_reasons() {
         let r1 = make_record("genesis", "hash-a", Some(true));
         let seg = make_segment(vec![r1]);
-        let report = ChainVerifier::new().verify(&seg, &["no execution record read granted".to_string()]);
+        let report =
+            ChainVerifier::new().verify(&seg, &["no execution record read granted".to_string()]);
         assert_eq!(report.result, "unverified");
         assert_eq!(report.continuity, "intact");
         assert_eq!(report.reasons, vec!["no execution record read granted"]);

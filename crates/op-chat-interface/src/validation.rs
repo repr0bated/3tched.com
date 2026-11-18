@@ -20,7 +20,10 @@ pub enum ValidationOutcome {
     Rejected { failures: Vec<ValidationFailure> },
 }
 
-pub fn validate_arguments(schema: &serde_json::Value, arguments: &serde_json::Value) -> ValidationOutcome {
+pub fn validate_arguments(
+    schema: &serde_json::Value,
+    arguments: &serde_json::Value,
+) -> ValidationOutcome {
     let validator = match jsonschema::validator_for(schema) {
         Ok(v) => v,
         Err(_) => {
