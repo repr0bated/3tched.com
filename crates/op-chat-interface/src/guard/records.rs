@@ -96,8 +96,7 @@ impl RedactingLogger {
                 .append("log.jsonl", &String::from_utf8_lossy(&bytes)),
             Err(GuardVerdict::Blocked { cls }) => self.writer.append(
                 "log.jsonl",
-                &serde_json::json!({ "redacted": SecretGuard::redaction_marker(cls) })
-                    .to_string(),
+                &serde_json::json!({ "redacted": SecretGuard::redaction_marker(cls) }).to_string(),
             ),
             Err(_) => self
                 .writer

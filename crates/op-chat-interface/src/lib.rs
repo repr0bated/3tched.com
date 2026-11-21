@@ -28,6 +28,7 @@
 //! retirement; the credential registry in `guard` (Secret_Guard needles)
 //! is a different component and stays.
 
+pub mod chain;
 pub mod errors;
 pub mod gate;
 pub mod guard;
@@ -35,7 +36,6 @@ pub mod profile;
 pub mod state;
 pub mod status;
 pub mod types;
-pub mod chain;
 pub mod validation;
 pub mod mounted;
 pub mod responder;

@@ -1,0 +1,33 @@
+# Example provider config fragment for the admitted threetched native route.
+#
+# There is no live threetched config checked into this repo; the binary's
+# real config lives with the threetched/ZeroClaw install on the host (or is
+# written at deploy time via `threetched config.set` / scripts/configure-providers.sh).
+# Merge this fragment into that config, or apply the same keys with config.set.
+#
+# Salad is not a first-class ZeroClaw slot — use the `custom` OpenAI-compatible
+# family. Container Chat_Route invokes the sealed generate_pending_turn FUSE
+# operation, not a provider HTTP or environment-selected WebSocket endpoint.
+# The tracked backend adapter speaks the native threetched protocol and pins
+# the human's UI-selected provider/model and mode/project before generation.
+
+[providers.models.custom.salad]
+# OpenAI-compatible Salad AI Gateway base URL (must include /v1).
+uri = "https://ai.salad.cloud/v1"
+# Native model id for this alias; select the corresponding model in the UI.
+model = "qwen3.6-35b-a3b"
+
+# api_key: NEVER put a literal key in this file or in git.
+# Prefer SALAD_AI_GATEWAY_API_KEY; fall back to SALAD_API_KEY.
+#
+# Inject either:
+#   1) ZeroClaw schema-mirror env at process start:
+#        export ZEROCLAW_providers__models__custom__salad__api_key="${SALAD_AI_GATEWAY_API_KEY:-$SALAD_API_KEY}"
+#   2) Or via threetched config.set (see scripts/configure-providers.sh):
+#        providers.models.custom.salad_api_key = <from env, never committed>
+
+
+# Agent routing is selected from the human's committed UI mode: dashboard,
+# control_plane or accountability. Do not override it with a chat-route alias.
+# Add this provider to the existing admitted native catalog, then select it
+# through the UI; this fragment does not grant access or change live selection.

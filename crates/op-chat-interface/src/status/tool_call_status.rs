@@ -75,12 +75,15 @@ impl StatusTracker {
         } else {
             ToolCallStatus::Pending
         };
-        self.calls
-            .insert(tool_call_id.to_string(), (status, 1));
+        self.calls.insert(tool_call_id.to_string(), (status, 1));
         (status, 1)
     }
 
-    pub fn apply(&mut self, tool_call_id: &str, event: StatusEvent) -> Option<(ToolCallStatus, u64)> {
+    pub fn apply(
+        &mut self,
+        tool_call_id: &str,
+        event: StatusEvent,
+    ) -> Option<(ToolCallStatus, u64)> {
         let (status, seq) = self.calls.get_mut(tool_call_id)?;
         *status = next(*status, event);
         *seq += 1;

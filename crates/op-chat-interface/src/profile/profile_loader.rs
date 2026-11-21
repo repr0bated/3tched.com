@@ -3,10 +3,7 @@
 //! Secret_Guard pass on every string, immutable result. Errors name the
 //! field path and rule, never the value.
 
-use crate::{
-    guard::SecretGuard,
-    types::IdentityProfile,
-};
+use crate::{guard::SecretGuard, types::IdentityProfile};
 use std::fmt;
 
 pub const MAX_PROFILE_BYTES: usize = 65_536;
@@ -37,8 +34,7 @@ pub fn parse(bytes: &[u8], guard: &SecretGuard) -> Result<IdentityProfile, Profi
     if bytes.len() > MAX_PROFILE_BYTES {
         return Err(ProfileError::new("", "maxBytes 65536"));
     }
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| ProfileError::new("", "strict UTF-8"))?;
+    let text = std::str::from_utf8(bytes).map_err(|_| ProfileError::new("", "strict UTF-8"))?;
     reject_duplicate_keys(text)?;
     let value: serde_json::Value =
         serde_json::from_str(text).map_err(|_| ProfileError::new("", "valid JSON"))?;
@@ -119,10 +115,10 @@ fn scan_duplicates(text: &str) -> Result<(), ProfileError> {
             }
             b'[' => stack.push((Ctx::Array, Default::default())),
             b',' => {
-                if let Some(frame) = stack.last_mut() {
-                    if frame.0 == Ctx::ObjectExpectValue {
-                        frame.0 = Ctx::ObjectExpectKey;
-                    }
+                if let Some(frame) = stack.last_mut()
+                    && frame.0 == Ctx::ObjectExpectValue
+                {
+                    frame.0 = Ctx::ObjectExpectKey;
                 }
             }
             _ => {}
@@ -135,8 +131,8 @@ fn scan_duplicates(text: &str) -> Result<(), ProfileError> {
 fn validate_schema(value: &serde_json::Value) -> Result<(), ProfileError> {
     let schema: serde_json::Value = serde_json::from_str(PROFILE_SCHEMA)
         .map_err(|_| ProfileError::new("", "embedded schema"))?;
-    let validator = jsonschema::validator_for(&schema)
-        .map_err(|_| ProfileError::new("", "embedded schema"))?;
+    let validator =
+        jsonschema::validator_for(&schema).map_err(|_| ProfileError::new("", "embedded schema"))?;
     if let Some(error) = validator.iter_errors(value).next() {
         return Err(ProfileError::new(
             error.instance_path.to_string(),
@@ -150,10 +146,10 @@ fn validate_fields(value: &serde_json::Value) -> Result<(), ProfileError> {
     let obj = value
         .as_object()
         .ok_or_else(|| ProfileError::new("", "type object"))?;
-    if let Some(name) = obj.get("display_name").and_then(|v| v.as_str()) {
-        if name.chars().any(|c| c.is_control()) {
-            return Err(ProfileError::new("/display_name", "no control characters"));
-        }
+    if let Some(name) = obj.get("display_name").and_then(|v| v.as_str())
+        && name.chars().any(|c| c.is_control())
+    {
+        return Err(ProfileError::new("/display_name", "no control characters"));
     }
     if obj.get("session_mode").is_some_and(|v| !v.is_string()) {
         return Err(ProfileError::new("/session_mode", "type string"));
@@ -164,7 +160,10 @@ fn validate_fields(value: &serde_json::Value) -> Result<(), ProfileError> {
                 .get("mount_paths")
                 .and_then(|v| v.as_object())
                 .ok_or_else(|| {
-                    ProfileError::new(format!("/deployment_targets/{index}/mount_paths"), "type object")
+                    ProfileError::new(
+                        format!("/deployment_targets/{index}/mount_paths"),
+                        "type object",
+                    )
                 })?;
             if paths.len() != 2 {
                 return Err(ProfileError::new(
@@ -218,8 +217,18 @@ pub fn format(profile: &IdentityProfile) -> String {
         out.push_str(&value.to_string());
     };
     push(&mut out, "format", serde_json::json!(profile.format), true);
-    push(&mut out, "principal_id", serde_json::json!(profile.principal_id), false);
-    push(&mut out, "display_name", serde_json::json!(profile.display_name), false);
+    push(
+        &mut out,
+        "principal_id",
+        serde_json::json!(profile.principal_id),
+        false,
+    );
+    push(
+        &mut out,
+        "display_name",
+        serde_json::json!(profile.display_name),
+        false,
+    );
     if let Some(v) = &profile.expected_session_id {
         push(&mut out, "expected_session_id", serde_json::json!(v), false);
     }
@@ -236,7 +245,12 @@ pub fn format(profile: &IdentityProfile) -> String {
             })
         })
         .collect();
-    push(&mut out, "deployment_targets", serde_json::Value::Array(targets), false);
+    push(
+        &mut out,
+        "deployment_targets",
+        serde_json::Value::Array(targets),
+        false,
+    );
     out.push('}');
     out
 }
