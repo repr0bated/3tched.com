@@ -180,7 +180,7 @@ it("discovers and calls dotted threetched methods through the caller's mounted c
   let invokeCount = 0;
   const calls = mockDoor({
     ...catalog([{ provider_id: "catalog", configured: true, enabled: true, status: "ok", control_plane_profiles: [] }]),
-    get_catalog: () => envelope("get_catalog", mounted, "tched_fs"),
+    get_catalog: () => envelope("get_catalog", mounted, "fuse"),
     "models.list": () => {
       invokeCount += 1;
       if (invokeCount === 2) {
@@ -298,6 +298,21 @@ describe("ordinary catalog/native routing", () => {
       expect(calls.slice(before).every(call => call.meta[OIA1_HEADER] === config.identity.assertion)).toBe(true);
     },
   );
+
+  it("reuses the committed conversation until the selected context changes", async () => {
+    const calls = mockDoor({ ...catalog([provider], [record]), ...chatResponseHandlers("answer") });
+    const adapter = await connectDoorChatAdapter(config);
+    const request = { message: "continue", history: [], route: selection, mode: "personal" as const };
+    await expectCommittedResponse(() => adapter.submit(request), calls);
+    await expectCommittedResponse(() => adapter.submit(request), calls);
+    expect(calls.filter(call => call.request.methodName === "start_conversation")).toHaveLength(1);
+    const turns = calls.filter(call => call.request.methodName === "submit_turn");
+    expect(turns).toHaveLength(2);
+    expect(turns.map(call => Value.toJson(call.request.arguments[0]))).toEqual([
+      { conversation_id: "11111111-1111-7111-8111-111111111111", message: "continue", response_mode: "text" },
+      { conversation_id: "11111111-1111-7111-8111-111111111111", message: "continue", response_mode: "text" },
+    ]);
+  });
 
   it("preserves Notebook admission failures from chat_response without changing routes or retrying", async () => {
     const calls = mockDoor({

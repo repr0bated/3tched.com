@@ -43,6 +43,7 @@ import stat from "../../svelte/catalog/stat.svelte";
 import tchedRouterPicker from "../../svelte/catalog/tchedRouterPicker.svelte";
 import text from "../../svelte/catalog/text.svelte";
 import workbenchNavigation from "../../svelte/catalog/workbenchNavigation.svelte";
+import toolApproval from "../../svelte/catalog/toolApproval.svelte";
 
 const components = {
   antigravityChatContainer,
@@ -67,6 +68,7 @@ const components = {
   stat,
   tchedRouterPicker,
   text,
+  toolApproval,
   workbenchNavigation,
 } satisfies Omit<Components<typeof chatCatalog>, "autoTile">;
 

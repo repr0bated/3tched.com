@@ -11,6 +11,7 @@ import { admitMountedApplication } from "./mounted-catalog";
 import { validateCanvasSpec } from "../json-render/references/canvas-contract";
 import type { ChatResponse } from "./chat-adapter";
 import { subscribeDoorbell, type Doorbell } from "./doorbell";
+import { requestToolApproval, type PendingToolApproval } from "./pending-tool-approval";
 
 export const CHAT_RESPONSE = "chat_response";
 
@@ -153,10 +154,12 @@ export async function waitForCommittedTurn(
     let dirty = false;
     let reading = false;
     let doorbell: Doorbell | null = null;
+    const approvalController = new AbortController();
     const finish = (error?: unknown, turn?: CommittedTurn) => {
       if (settled) return;
       settled = true;
       clearTimeout(deadline);
+      approvalController.abort();
       signal?.removeEventListener("abort", abort);
       doorbell?.stop();
       if (error !== undefined) reject(error);
@@ -193,6 +196,32 @@ export async function waitForCommittedTurn(
           ) {
             finish(new Error("Committed response does not match the submitted human turn; outcome is unknown."));
           } else finish(undefined, turn);
+          break;
+        }
+        try {
+          const { result } = await client.call<{ proposal: PendingToolApproval | null }>(
+            CHAT_RESPONSE, "get_pending_tool", { turn_id: submitted.turn_id }, CHAT_RESPONSE_CAPS.Read,
+          );
+          const proposal = result.proposal;
+          if (proposal?.decision === "pending") {
+            if (proposal.turn_id !== submitted.turn_id ||
+                !/^[0-9a-f]{64}$/.test(proposal.digest) ||
+                typeof proposal.tool_call_id !== "string" ||
+                !proposal.plugin_id || !proposal.method || !proposal.required_capability ||
+                !Number.isFinite(Date.parse(proposal.expires_at))) {
+              throw new Error("Pending tool approval did not match this turn.");
+            }
+            const approved = await requestToolApproval(proposal, approvalController.signal);
+            if (settled) break;
+            await client.call(CHAT_RESPONSE, "approve_pending_tool", {
+              turn_id: submitted.turn_id,
+              tool_call_id: proposal.tool_call_id,
+              digest: proposal.digest,
+              approved,
+            }, CHAT_RESPONSE_CAPS.Submit);
+          }
+        } catch (error) {
+          if (!settled) finish(error);
           break;
         }
       } while (dirty && !settled);

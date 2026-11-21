@@ -14,6 +14,24 @@ no tool registry.
 Tests, fmt, and Clippy run only after deployment and only when the owner
 asks. A task is not blocked on a property test.
 
+### Source handoff implemented 2026-11-21 (not built or deployed)
+
+The owner's active implementation request supersedes the draft-only edit hold.
+Rust now processes exact assigned turns inside the existing identity container;
+the base records input and wakes the responder instead of running the chat loop.
+Pending-turn schema methods capture the verified human's UI mode/project/native
+model snapshot, enforce a single worker claim, gate exact mutation approvals,
+verify generation/tool receipts, and commit the final response. Browser approval
+is a native Svelte active-catalog control. Browser assets are staged with the
+actual Rust ELF and served on the existing container TLS door only with a verified
+guest-kernel mount. No desktop or additional listener is introduced.
+
+Deployment checkboxes below remain unchecked: no build, seal, install, container
+start, grant/identity change or manual end-to-end exercise was performed.
+Optional required Jev review uses only the existing native judgment role;
+unavailable/uncertain review withholds output. Without it, receipt provenance and
+structural/guard checks do not establish factual certainty of model prose.
+
 ## Tasks
 
 - [ ] 1. Keep the spec instance-agnostic

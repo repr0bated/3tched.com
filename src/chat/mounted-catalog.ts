@@ -22,8 +22,8 @@ export function applicationRendererPin(spec: object): string | undefined {
 }
 
 export async function readMountedCatalog(client: DoorClient, pluginId?: string): Promise<MountedCatalog> {
-  const { result } = await client.call<unknown>("tched_fs", "get_catalog", { plugin: pluginId ?? null },
-    "cap.storage.3tchedfs.contract.read@v1");
+  const { result } = await client.call<unknown>("fuse", "get_catalog", { plugin: pluginId ?? null },
+    "cap.storage.fuse.contract.read@v1");
   const parsed = catalog.parse(result);
   const seen = new Set<string>();
   for (const view of parsed.views) for (const entry of view.plugins) {

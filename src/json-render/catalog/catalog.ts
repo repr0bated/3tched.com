@@ -55,6 +55,7 @@ export const appCatalog = defineCatalog(schema, {
     ...dashboardElementSchemas,
     ...uiElementSchemas,
     chatThread: chatCatalog.data.components.chatThread,
+    toolApproval: chatCatalog.data.components.toolApproval,
     interfaceGeneration: chatCatalog.data.components.interfaceGeneration,
     // ───────────────────────────── shell ─────────────────────────────
     appShell: {

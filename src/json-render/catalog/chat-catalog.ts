@@ -17,6 +17,11 @@ export const chatCatalog = defineCatalog(schema, {
     catalogComponent: dashboardElementSchemas.catalogComponent,
     notebookHeader: dashboardElementSchemas.notebookHeader,
     notebookSourceList: dashboardElementSchemas.notebookSourceList,
+    toolApproval: {
+      props: z.object({}),
+      slots: [],
+      description: "Trusted human-only confirmation for an exact pending chat mutation; arguments and digest come from the admitted backend, never model props.",
+    },
     container: {
       props: z.object({ className: z.string().nullable() }),
       slots: ["default"],

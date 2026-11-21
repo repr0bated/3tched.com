@@ -17,6 +17,10 @@
       "model-picker": { type: "tchedRouterPicker", props: { className: null } },
     },
   } as Spec;
+  const toolApprovalSpec = {
+    root: "tool-approval",
+    elements: { "tool-approval": { type: "toolApproval", props: {} } },
+  } as Spec;
 
   const CHAT_PURPOSES = ["vite, svelte-kit, json-render, ai-sdk, chat-sdk", "chat-takeover"];
   const chatSurfaceSpec = {
@@ -73,6 +77,7 @@
     {#key gate.adapter}
       <RuntimeHost adapter={gate.adapter}>
         {#snippet children(runtime)}
+          <SpecRenderer spec={toolApprovalSpec} />
           <main
             class="sc-canvas"
             class:sc-takeover={CHAT_PURPOSES.includes(runtime.surfacePurposes["/chat"]) && Boolean(runtime.canvasSpec)}

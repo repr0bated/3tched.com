@@ -358,3 +358,58 @@ fragments only; downloads contain supplied plain text; avatars use initials.
   }
 }
 ```
+
+## Container responder handoff (source implementation)
+
+`crates/op-chat-interface` now runs `chat-route --process-pending-turn UUID
+--mount /run/mounts/3tchedFS` inside the designated identity container. It binds
+no listener and has no synthetic provider, profile identity fallback, or
+standalone ChatService. The browser retains the generic authenticated door and
+committed `chat_response` conversation contract; it never receives FUSE access.
+
+The base captures the asking session's selected mode/project/namespace and
+native model route at submit, commits the human turn, then publishes a
+content-free wake. The authenticated relay resolves the existing container's
+session/key/native UUID and launches the Rust responder. Generation is a
+sealed tracked operation; every actual tool invocation is one same-descriptor
+FUSE call. A changed identity, context, or native configuration refuses the
+continuation without replay. Duplicate wakes cannot claim the same turn twice.
+
+Mutation arguments are held under a single-use digest. The catalog's
+`toolApproval` control asks the original human session to approve or reject the
+exact operation; neither text nor model output can approve it. Tool receipts
+are bound to this turn's generated call and authoritative read-back. Final
+answers must match a completed generation and commit through `respond_to_user`;
+the responder exits successfully only after reading back that committed turn.
+Model prose is not an authoritative tool status or a guarantee of factual truth.
+
+Optional semantic review is the base policy `CHAT_RESPONSE_JEV_REVIEW=required`,
+stored through the owner's `/etc/op-dbus/env/` convention. It uses the existing
+native `judgment` role, approved TypeSafe endpoint/model/key configuration and
+typed Jev questions. Missing configuration, rejection or uncertainty withholds
+the response; disabled/unset policy does not claim semantic verification.
+No reviewer credential is sent to the container or browser.
+
+Prepare already-built artifacts into an **offline** container snapshot with
+`sh deploy/container/stage-chat-payload.sh SNAPSHOT_ROOT CHAT_ROUTE_BINARY DIST`.
+This stages the real ELF executable, browser assets, and per-setting container
+door UI paths; it does not build, deploy, change network topology, start a container
+or change grants. The base must be
+built/sealed with the new pending-turn methods and the canonical FUSE client
+revision pinned by this crate before the matching container payload is released.
+The canonical client source is pinned to backend commit
+`a3f590d99614c05a9f0dbbfb8f7497cd2e1646ae` (published on `dev`;
+includes the chat implementation and deprecated gitlink cleanup).
+The existing TLS door serves `/`, `/chat` and `/assets` only when this payload
+is configured and its mount verifies as `guest_kernel`; the normal host door
+has no chat UI setting and does not substitute a host 8080 page. Browser identity
+still comes from the existing configured issuer/injecting connection, not from
+the static asset handler.
+
+Manual operator checks, not run for this change: use an existing authorized
+human/container pair; submit each selected mode and model; inspect generation,
+tool and response receipts; approve/reject one exact mutation; change a queued
+selection and confirm refusal; deliver a duplicate wake and confirm no replay;
+remove/deny the mount and confirm no host fallback. Check browser rendering
+through the configured container ingress without a desktop. Builds, tests,
+reseal and deployment have not been performed by this source change.

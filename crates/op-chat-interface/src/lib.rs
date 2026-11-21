@@ -13,9 +13,8 @@
 //!   and never another identity's mount.
 //! - Credentials are obtained and used behind the FUSE operation surface.
 //!   Raw credential material never enters this crate (Secret_Guard, task 3).
-//! - The deployment container is still in development; live integration
-//!   is the blocked task-19 group. Development uses synthetic fixtures
-//!   and an in-process harness (tasks 10.3, 14.6).
+//! - The headless `chat-route --process-pending-turn` entrypoint binds no
+//!   listener and accepts only backend-issued responder assignments.
 //!
 //! Tool_Registry is RETIRED (owner, 2026-11-09): there is no tool
 //! registry and no registry pattern in this crate. A tool IS a plug-in —
@@ -38,11 +37,8 @@ pub mod status;
 pub mod types;
 pub mod chain;
 pub mod validation;
+pub mod mounted;
+pub mod responder;
 
 pub use errors::{ErrorKind, TypedError};
 
-/// Chat_Link wire types and the generated `ChatService` (proto/chat.proto).
-#[allow(clippy::all)]
-pub mod chat_link {
-    tonic::include_proto!("op_chat.chat");
-}

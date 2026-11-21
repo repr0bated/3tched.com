@@ -1,7 +1,7 @@
 import { readPluginGuide, readUiAuthoringGuide, SelectionGuide } from "./plugin-guide";
 import { readMountedCatalog } from "./mounted-catalog";
 import { readCanvasResponse, validateCanvasSpec } from "../json-render/references/canvas-contract";
-import { catalogPresentationMessage, referenceChatResponse } from "../json-render/references/reference-chat";
+import { catalogPresentationMessage } from "../json-render/references/reference-chat";
 /**
  * ChatAdapter backed by the :8090 door.
  *
@@ -439,8 +439,6 @@ export async function connectDoorChatAdapter(
     },
 
     async submit(request: ChatRequest): Promise<ChatResponse> {
-      const reference = referenceChatResponse(request.message);
-      if (reference) return reference;
 
       const generation = selectionGeneration;
       const context = contextGeneration;
@@ -467,7 +465,6 @@ export async function connectDoorChatAdapter(
         }
         if (newConvId) {
           conversationId = newConvId;
-          invalidateConversation();
         }
 
         if (chatResp.canvasSpec) return chatResp;
